@@ -145,6 +145,40 @@
   <symbol id="ic-plus" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-plus" fill="none" stroke="#F5E69C" stroke-width="9.5" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-plus" fill="none" stroke="#15151A" stroke-width="5.4" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
   <symbol id="ic-mais" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-mais" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-mais" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
   <symbol id="ic-ball" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-ball" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-ball" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+
+  <!-- ===== badges de raridade (Rarity Engine) — brasão tingido + glifo gema/coroa ===== -->
+  <g id="g-tier-common"><path d="M32 23 L41 33 L32 43 L23 33 Z"/></g>
+  <symbol id="ic-tier-common" viewBox="0 0 64 64">
+    <use href="#frame"/>
+    <g clip-path="url(#shieldClip)"><use href="#shield" fill="#5c6b62" opacity=".62"/><use href="#shield" fill="url(#gloss)"/></g>
+    <g filter="url(#emboss)"><use href="#g-tier-common" fill="none" stroke="#F5E69C" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-tier-common" fill="none" stroke="#15151A" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></g>
+  </symbol>
+  <g id="g-tier-rare"><path d="M32 22 L42 33 L32 44 L22 33 Z M27 33 H37"/></g>
+  <symbol id="ic-tier-rare" viewBox="0 0 64 64">
+    <use href="#frame"/>
+    <g clip-path="url(#shieldClip)"><use href="#shield" fill="#3b82f6" opacity=".62"/><use href="#shield" fill="url(#gloss)"/></g>
+    <g filter="url(#emboss)"><use href="#g-tier-rare" fill="none" stroke="#F5E69C" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-tier-rare" fill="none" stroke="#15151A" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></g>
+  </symbol>
+  <g id="g-tier-epic"><path d="M32 21 L43 33 L32 45 L21 33 Z M32 21 V45 M21 33 H43"/><path d="M46 17 L47 20 L50 21 L47 22 L46 25 L45 22 L42 21 L45 20 Z"/></g>
+  <symbol id="ic-tier-epic" viewBox="0 0 64 64">
+    <use href="#frame"/>
+    <g clip-path="url(#shieldClip)"><use href="#shield" fill="#a06bff" opacity=".62"/><use href="#shield" fill="url(#gloss)"/></g>
+    <g filter="url(#emboss)"><use href="#g-tier-epic" fill="none" stroke="#F5E69C" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-tier-epic" fill="none" stroke="#15151A" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></g>
+  </symbol>
+  <g id="g-tier-legendary"><path d="M20 42 H44 M20 38 L18 25 L26 31 L32 21 L38 31 L46 25 L44 38 Z"/></g>
+  <symbol id="ic-tier-legendary" viewBox="0 0 64 64">
+    <use href="#frame"/>
+    <g clip-path="url(#shieldClip)"><use href="#shield" fill="#f5c542" opacity=".62"/><use href="#shield" fill="url(#gloss)"/></g>
+    <use href="#shield" fill="none" stroke="#F5E69C" stroke-opacity=".9" stroke-width="2.2" stroke-linejoin="round" transform="translate(32 32) scale(.9) translate(-32 -32)"/>
+    <g filter="url(#emboss)"><use href="#g-tier-legendary" fill="none" stroke="#F5E69C" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-tier-legendary" fill="none" stroke="#15151A" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></g>
+  </symbol>
+  <g id="g-tier-mythic"><path d="M20 44 H44 M20 40 L18 27 L26 33 L32 23 L38 33 L46 27 L44 40 Z M32 29 L34.5 33.5 L29.5 33.5 Z"/><path d="M32 14 V18 M18 17 L20.5 20 M46 17 L43.5 20 M12 30 H15 M49 30 H52"/></g>
+  <symbol id="ic-tier-mythic" viewBox="0 0 64 64">
+    <use href="#frame"/>
+    <g clip-path="url(#shieldClip)"><use href="#shield" fill="#f5c542" opacity=".62"/><use href="#shield" fill="url(#gloss)"/></g>
+    <use href="#shield" fill="none" stroke="#FFFFFF" stroke-opacity=".9" stroke-width="2.2" stroke-linejoin="round" transform="translate(32 32) scale(.9) translate(-32 -32)"/>
+    <g filter="url(#emboss)"><use href="#g-tier-mythic" fill="none" stroke="#F5E69C" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-tier-mythic" fill="none" stroke="#15151A" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></g>
+  </symbol>
 </svg>
 
 <!-- ===================== TOPBAR · logo oficial + brandmark + segmented switcher ===================== -->
@@ -165,7 +199,7 @@
     <button class="icon-btn" id="btnLgpd" aria-label="Privacidade LGPD"><svg class="ic"><use href="#ic-privacidade"/></svg></button>
     <button class="me" id="meBtn" aria-label="Meu perfil">
       <span class="avatar" data-initials="MA"><i class="dot dc-atleta"></i></span>
-      <span class="me-meta"><b>&lt;PREENCHER_NOME&gt;</b><small>@&lt;preencher_user&gt; · atleta · <span class="rarity-chip rc-legendary">LEGENDARY</span></small></span>
+      <span class="me-meta"><b>&lt;PREENCHER_NOME&gt;</b><small>@&lt;preencher_user&gt; · atleta · <svg class="ic tier t-legendary" role="img" aria-label="Tier Legendary"><title>Tier Legendary</title><use href="#ic-tier-legendary"/></svg></small></span>
     </button>
   </div>
 </header>
@@ -249,11 +283,11 @@
         <h3>Filtros · Perfil</h3>
         <form id="form-perfil" class="filter-form">
           <fieldset><legend>Tier do Gêmeo</legend>
-            <label class="chip tier-common"><input type="checkbox" name="tier" value="COMMON"> Common</label>
-            <label class="chip tier-rare"><input type="checkbox" name="tier" value="RARE"> Rare</label>
-            <label class="chip tier-epic"><input type="checkbox" name="tier" value="EPIC"> Epic</label>
-            <label class="chip tier-legendary"><input type="checkbox" name="tier" value="LEGENDARY"> Legendary</label>
-            <label class="chip tier-mythic"><input type="checkbox" name="tier" value="MYTHIC"> Mythic</label>
+            <label class="chip tier-common"><input type="checkbox" name="tier" value="COMMON"><svg class="ic tier t-common" aria-hidden="true"><use href="#ic-tier-common"/></svg> Common</label>
+            <label class="chip tier-rare"><input type="checkbox" name="tier" value="RARE"><svg class="ic tier t-rare" aria-hidden="true"><use href="#ic-tier-rare"/></svg> Rare</label>
+            <label class="chip tier-epic"><input type="checkbox" name="tier" value="EPIC"><svg class="ic tier t-epic" aria-hidden="true"><use href="#ic-tier-epic"/></svg> Epic</label>
+            <label class="chip tier-legendary"><input type="checkbox" name="tier" value="LEGENDARY"><svg class="ic tier t-legendary" aria-hidden="true"><use href="#ic-tier-legendary"/></svg> Legendary</label>
+            <label class="chip tier-mythic"><input type="checkbox" name="tier" value="MYTHIC"><svg class="ic tier t-mythic" aria-hidden="true"><use href="#ic-tier-mythic"/></svg> Mythic</label>
           </fieldset>
           <fieldset><legend>Papel</legend>
             <label class="chip"><input type="checkbox" name="role" value="ATLETA"> <i class="dot xs dc-atleta"></i>Atleta</label>
@@ -361,7 +395,7 @@
       <div class="content">
         <div class="subview" data-sub="telemetria">
           <div class="kpis">
-            <div class="kpi"><small>Score_Total · semana</small><b>1.650</b><span class="rarity-chip rc-legendary">LEGENDARY</span></div>
+            <div class="kpi"><small>Score_Total · semana</small><b>1.650</b><span class="kpi-tier"><svg class="ic tier t-legendary" role="img" aria-label="Tier Legendary"><title>Tier Legendary</title><use href="#ic-tier-legendary"/></svg> tier da semana</span></div>
             <div class="kpi"><small>PP · físico 30%</small><b>82</b><i style="--w:82%"></i></div>
             <div class="kpi"><small>RP · técnico 40%</small><b>88</b><i style="--w:88%"></i></div>
             <div class="kpi"><small>MP · partidas 30%</small><b>76</b><i style="--w:76%"></i></div>

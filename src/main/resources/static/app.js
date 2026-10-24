@@ -99,7 +99,9 @@
 
   /* ---------- templates ---------- */
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
-  const chip = t => `<span class="rarity-chip rc-${t.toLowerCase()}">${t}</span>`;
+  /* Badge de raridade — brasão único do Football Social por tier (sem texto; nome no tooltip/aria) */
+  const TIER_LABEL = { COMMON:'Common', RARE:'Rare', EPIC:'Epic', LEGENDARY:'Legendary', MYTHIC:'Mythic' };
+  const chip = t => { const k = String(t || 'COMMON').toUpperCase(); return `<svg class="ic tier t-${k.toLowerCase()}" role="img" aria-label="Tier ${TIER_LABEL[k] || k}" data-tier="${k}"><title>Tier ${TIER_LABEL[k] || k}</title><use href="#ic-tier-${k.toLowerCase()}"/></svg>`; };
   const roleOf = r => ROLES[r] || ROLES.ATLETA;
 
   /* PostCard — borda esquerda = tipo · bolinha = papel · trend por views */
@@ -133,7 +135,8 @@
   const vcard = (a, opts = {}) => {
     const r = roleOf(a.role), t = (a.tier || 'COMMON').toLowerCase();
     const cc = a.tier === 'COMMON' || !a.tier ? '#5c6b62' : TIER_COLOR[a.tier];
-    const micro = a.badges ? `<div class="micro">${a.badges.slice(0, 3).map(b => `<b class="${b[1]}" data-badge="${esc(b[0])}">${esc(b[0])}</b>`).join('')}</div>` : '';
+    // badges Athletic Persona ficam na área inferior de dados (hero limpo, sem stats repetidas)
+    const bdg = a.badges ? `<div class="bdgrow"><small>BADGES</small>${a.badges.slice(0, 3).map(b => `<b class="${b[1]}" data-badge="${esc(b[0])}">${esc(b[0])}</b>`).join('')}</div>` : '';
     const title = a.pos ? `${esc(a.name)} — ${a.pos}` : esc(a.name);
     const sub = a.pos ? `${a.age} anos · ${a.club} · ${a.status === 'AGENTE_LIVRE' ? 'Agente livre' : 'Contratado'} · ${a.sub}` : a.sub;
     let data = '';
@@ -165,11 +168,12 @@
     return `<article class="vcard rarity-${t}${opts.wide ? ' wide' : ''}" style="--cc:${cc}" data-id="${a.id}">
       <div class="outer"><div class="inner">
         <div class="ctop"><span class="l"><span class="vsl">${a.pos ? '◇' : '⬢'}</span>${a.pos ? 'GÊMEO DIGITAL' : (a.meta || 'PERFIL')}</span>${a.phys && a.phys.status === 'INJURED' ? '<span class="age-chip age-sens">SENSÍVEL</span>' : '<span class="age-chip age-safe">SAFE</span>'}${chip(a.tier || 'COMMON')}</div>
-        <div class="imgblock"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>${micro}</div>
+        <div class="imgblock"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></div>
         <div class="author"><span class="dot dc-${r.dc}"></span><span class="handle"><b>${esc(a.handle)}</b> <span>· ${r.label}</span>${a.verified ? '<span class="verified">✦</span>' : ''}</span></div>
         <div class="vtitle">${title}</div>
         <div class="vsub">${esc(sub)}</div>
         ${data}
+        ${bdg}
         <div class="statrow">${stats}</div>
         ${actions}
       </div></div></article>`;
@@ -315,7 +319,7 @@
   function drawEvolution() {
     const scores = [820, 900, 980, 1040, 1180, 1210, 1300, 1420, 1500, 1580, 1610, 1650]; const W = 640, H = 220, pad = 30;
     const x = i => pad + i * (W - 2 * pad) / 11, y = v => H - pad - (v / 3000) * (H - 2 * pad); let s = '';
-    [[0,400,'#5c6b62','COMMON'],[401,900,'#3b82f6','RARE'],[901,1600,'#a06bff','EPIC'],[1601,2400,'#f5c542','LEGEND.'],[2401,3000,'#ffe08a','MYTHIC']].forEach(([a, b, c, l]) => { s += `<rect x="${pad}" y="${y(b)}" width="${W - 2 * pad}" height="${y(a) - y(b)}" fill="${c}" opacity=".08"/><text x="${W - pad + 2}" y="${y(a) - 2}" font-size="8" font-family="JetBrains Mono,monospace" fill="${c}">${l}</text>`; });
+    [[0,400,'#5c6b62','common'],[401,900,'#3b82f6','rare'],[901,1600,'#a06bff','epic'],[1601,2400,'#f5c542','legendary'],[2401,3000,'#ffe08a','mythic']].forEach(([a, b, c, l]) => { const ih = Math.min(22, y(a) - y(b) - 2); s += `<rect x="${pad}" y="${y(b)}" width="${W - 2 * pad}" height="${y(a) - y(b)}" fill="${c}" opacity=".08"/><use href="#ic-tier-${l}" x="${W - pad + 3}" y="${(y(a) + y(b)) / 2 - ih / 2}" width="${ih}" height="${ih}"><title>Tier ${l}</title></use>`; });
     s += line(scores.map((v, i) => [x(i), y(v)]), '#f5c542') + scores.map((v, i) => `<circle cx="${x(i)}" cy="${y(v)}" r="3.5" fill="#f5c542"/><text x="${x(i)}" y="${H - 10}" font-size="8" font-family="JetBrains Mono,monospace" text-anchor="middle" fill="#63756a">W${32 + i}</text>`).join('');
     s += `<circle cx="${x(7)}" cy="${y(1420)}" r="8" fill="none" stroke="#a06bff"/><text x="${x(7)}" y="${y(1420) - 12}" font-size="8" font-family="JetBrains Mono,monospace" text-anchor="middle" fill="#e2d3ff">EPIC → LEGENDARY (W39)</text>`;
     $('#evoChart').innerHTML = s;
@@ -405,7 +409,7 @@
       else if (kind === 'save') { act.classList.toggle('on'); toast(act.classList.contains('on') ? 'SALVO' : 'REMOVIDO DOS SALVOS'); }
       return;
     }
-    const b = e.target.closest('.micro b[data-badge]'); if (b) toast(`TAP TO EXPAND · ${b.dataset.badge} · GET /v1/athletes/{id}/badges/{type}/history`); });
+    const b = e.target.closest('.bdgrow b[data-badge]'); if (b) toast(`TAP TO EXPAND · ${b.dataset.badge} · GET /v1/athletes/{id}/badges/{type}/history`); });
 
   $$('.sorttabs').forEach(st => st.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; $$('button', st).forEach(x => x.classList.toggle('on', x === b)); toast(`ORDENAR · ${b.textContent.toUpperCase()}`); }));
 

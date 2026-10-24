@@ -103,6 +103,18 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green);b
 .rc-epic{--rr-fg:#e2d3ff;--rr-bd:var(--c-purple);--rr-bg:rgba(160,107,255,.14)}
 .rc-legendary{--rr-fg:#fff;--rr-bd:var(--gold);--rr-bg:rgba(245,197,66,.16)}
 .rc-mythic{--rr-fg:#fff;--rr-bd:var(--gold);--rr-bg:rgba(245,197,66,.22)}
+/* badge de raridade (brasão por tier) — substitui o chip textual */
+svg.ic.tier{width:24px;height:24px;flex:none;vertical-align:middle;filter:drop-shadow(0 1px 1px rgba(0,0,0,.55))}
+svg.ic.tier.t-legendary{filter:drop-shadow(0 0 4px rgba(245,197,66,.6))}
+svg.ic.tier.t-mythic{filter:drop-shadow(0 0 6px rgba(245,197,66,.85));animation:tierGlow 2.6s ease-in-out infinite}
+@keyframes tierGlow{0%,100%{filter:drop-shadow(0 0 4px rgba(245,197,66,.6))}50%{filter:drop-shadow(0 0 9px rgba(255,255,255,.9))}}
+.vcard .ctop svg.ic.tier{width:30px;height:30px;margin:-4px 0}
+.me-meta small svg.ic.tier{width:16px;height:16px}
+.chip svg.ic.tier{width:18px;height:18px;margin-right:2px}
+.kpi .kpi-tier{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3)} .kpi .kpi-tier svg.ic.tier{width:30px;height:30px}
+.ranking td svg.ic.tier{width:28px;height:28px}
+.fcard svg.ic.tier{width:18px;height:18px}
+.explore li svg.ic.tier{width:20px;height:20px}
 
 /* ---------- Shell / Sidebar ---------- */
 .shell{display:grid;grid-template-columns:var(--sidebar-w) 1fr;min-height:calc(100vh - var(--topbar-h))}
@@ -223,9 +235,10 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green);b
 .vcard .ctop .l{margin-right:auto}
 .vcard .imgblock{margin:12px 0;height:108px;border-radius:10px;background:linear-gradient(135deg,color-mix(in srgb,var(--cc,#5c6b62) 26%,#0c110d),#0c110d);display:flex;align-items:center;justify-content:center;border:1px solid var(--line-soft);position:relative}
 .vcard .imgblock svg{opacity:.55;width:46px;height:46px;stroke:var(--cc,#5c6b62);fill:none;stroke-width:1.4}
-.vcard .imgblock .micro{position:absolute;left:8px;right:8px;bottom:8px;display:flex;gap:5px}
-.vcard .micro b{flex:1;font-family:var(--font-mono);font-size:.56rem;font-weight:600;color:var(--text);background:color-mix(in srgb,var(--ink) 72%,transparent);border:1px solid var(--line);border-radius:6px;padding:4px 5px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;backdrop-filter:blur(4px)}
-.vcard .micro b.green{border-color:var(--c-green);color:var(--green-hi)} .vcard .micro b.red{border-color:var(--c-red);color:#ffb3b3} .vcard .micro b.yellow{border-color:var(--c-yellow);color:var(--c-yellow)}
+.vcard .bdgrow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px}
+.vcard .bdgrow small{font-family:var(--font-mono);font-size:.56rem;letter-spacing:.12em;color:var(--text-3);margin-right:2px}
+.vcard .bdgrow b{font-family:var(--font-mono);font-size:.58rem;font-weight:600;color:var(--text);background:var(--panel-2);border:1px solid var(--line);border-radius:999px;padding:4px 9px;white-space:nowrap;cursor:pointer}
+.vcard .bdgrow b.green{border-color:var(--c-green);color:var(--green-hi)} .vcard .bdgrow b.red{border-color:var(--c-red);color:#ffb3b3} .vcard .bdgrow b.yellow{border-color:var(--c-yellow);color:var(--c-yellow)}
 .vcard .author{display:flex;align-items:center;gap:9px;margin-top:8px}
 .vcard .vtitle{font-family:var(--font-display);font-weight:600;font-size:1.02rem;margin-top:11px;line-height:1.22;color:var(--text)}
 .vcard .vsub{font-size:.83rem;color:var(--text-2);margin-top:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}

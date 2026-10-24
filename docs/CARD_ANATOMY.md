@@ -83,16 +83,17 @@
 ```
 ┌ outer: gradiente da cor de contexto (raridade) 2 px ───────────────────┐
 │┌ inner ─────────────────────────────────────────────────────────────┐ │
-││ ◇ GÊMEO DIGITAL                               [SAFE] [LEGENDARY]   │ │ ← ctop
+││ ◇ GÊMEO DIGITAL                            [SAFE] (brasão tier)   │ │ ← ctop
 ││ ┌ imgblock 108 px ─────────────────────────────────────────────┐   │ │
 ││ │                        (foto / avatar)                       │   │ │
-││ │  [⚡ PRONTO] [⚽ 14] [🏆 3]        ← micro-badges ≤ 3          │   │ │
+││ │              hero limpo — sem stats nem badges sobrepostos    │   │ │
 ││ └──────────────────────────────────────────────────────────────┘   │ │
 ││ ● @handle · atleta ✦                                               │ │ ← author
 ││ Nome — Posição                                                     │ │ ← vtitle
 ││ 22 anos · Clube · Contratado · Referência estadual…  (≤ 2 linhas)  │ │ ← vsub
 ││ ┌JOGOS 22┐┌GOLS 14┐┌ASSIST. 7┐┌MINUTOS 1.980┐┌CARTÕES 3 0┐┌NOTA 8.4┐│ │ ← sgrid (temporada)
 ││ ┌ CONDICIONAMENTO ▬▬▬▬▬▬▬▬▬░░ prontidão 78% · ACWR 1,21  ⚡ PRONTO ┐│ │ ← phys
+││ BADGES (⚡ PRONTO) (⚽ 14) (🏆 3)                 ← Athletic Persona ≤ 3  │ │ ← bdgrow
 ││ ─ ─ PP 1.240 · RP 780 · MP 76 · SCORE 1.650 ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│ │ ← statrow
 ││ (♡ Curtir 241) (💬 Comentar 18) (↗ Compartilhar 9)     (Gêmeo →)   │ │ ← actbar
 │└────────────────────────────────────────────────────────────────────┘ │
@@ -101,8 +102,9 @@
 
 | Zona | Conteúdo | Regras |
 |---|---|---|
-| `ctop` | VSL + contexto (`GÊMEO DIGITAL`, `CLUBE FORMADOR`, `SCOUT`) · `age-chip` · `rarity-chip` | `age-chip` vira `SENSÍVEL` quando o card expõe dado médico. |
-| `imgblock` | 108 px, gradiente da cor de contexto; **micro-badges** (≤ 3) sobrepostos na base | prioridade: status físico → `priority` → contador; toque abre o histórico (*tap to expand*). |
+| `ctop` | VSL + contexto (`GÊMEO DIGITAL`, `CLUBE FORMADOR`, `SCOUT`) · `age-chip` · **brasão de raridade** (`ic-tier-*`) | `age-chip` vira `SENSÍVEL` quando o card expõe dado médico. O tier **nunca é escrito** (sem “LEGENDARY/MYTHIC” em texto): é um ícone único do Football Social — brasão do logo tingido na cor do tier com gema (Common ◇, Rare, Epic ✦) ou coroa (Legendary, Mythic com raios e aro branco). O nome do tier fica só em `aria-label`/tooltip. |
+| `imgblock` | 108 px, gradiente da cor de contexto; **hero limpo** (foto/avatar apenas) | nada sobreposto à imagem: nem stats, nem títulos, nem badges — evita repetir gols/títulos que já estão no `sgrid`. |
+| **`bdgrow` (badges)** | rótulo `BADGES` + até 3 pills *Athletic Persona* (status físico → `priority` → contador), na área inferior de dados, logo abaixo de `phys` | toque abre o histórico (*tap to expand*); nunca sobre a imagem. |
 | `author` | bolinha 13 px + `@handle · papel`; ✦ dourado = verificado | |
 | `vtitle` / `vsub` | Nome — Posição · metadados + leitura do tier (≤ 2 linhas) | |
 | **`sgrid` (temporada)** | Jogos · Gols (goleiro: Clean sheets) · Assistências (defensor: Desarmes) · Minutos · Cartões (🟨 🟥) · Nota média | tiles mono .5 rem + Space Grotesk 1.05 rem. |
