@@ -55,6 +55,9 @@ Convenções: tabelas `snake_case` plural; PK `id BINARY(16)`; timestamps `TIMES
 | `locale` | String(5) | `pt-BR` \| `en-US` \| `es` (preferência de UI) | N |
 | `darkMode` | boolean | default `true` — interface dark-first (preferência de UI) | N |
 | `fontScale` | Decimal(2,1) | 0.8–1.4 | N |
+| `uiAccent` | `UiAccent` | cor de destaque da UI (`GREEN` default) — não altera cores de identidade | N |
+| `uiSurface` | `UiSurface` | tom das barras laterais e painéis (`GRAPHITE` default; `SAND` é claro) | N |
+| `wallpaper` / `wallpaperKey` | `Wallpaper` / String(255) | tela de fundo (paletas `VERDE`…`VERDE_VIVO` em `/brand/wallpapers`, ou `CUSTOM` com chave em `fas-media`) | N |
 | `countryCode` | String(2) | ISO-3166 | P |
 | `city` | String(80) | opcional | P |
 | `createdAt` / `updatedAt` | Instant | auditoria | — |
@@ -346,6 +349,9 @@ Métricas derivadas (não persistidas): `acuteLoad7d`, `chronicLoad28d`, `acwr =
 | `TrendDirection` | `HOT` · `UP` · `FLAT` · `DOWN` | `emoji` (🔥 · 📈 · ➖ · 📉), `fromDelta()` |
 | `FeedSort` | `FOR_YOU` · `TRENDING` · `RECENT` · `FOLLOWING` | abas de relevância (Para você · Trending · Recentes · Seguindo) |
 | `GenerationMode` | `MANUAL` · `AI` | modo de criação do card |
+| `UiAccent` | `GREEN` · `BLUE` · `GOLD` · `PURPLE` · `ORANGE` | `label`, `hex` — destaque da interface |
+| `UiSurface` | `GRAPHITE` · `FOREST` · `NAVY` · `PLUM` · `SAND` | `label`, `hex`, `light` — tom das barras/painéis |
+| `Wallpaper` | `NONE` · `VERDE` · `CIANO` · `OURO` · `VERDE_CLARO` · `VERDE_VIVO` · `CUSTOM` | `label`, `url()` — tela de fundo |
 | `CardMaterial` | `FOSCO` · `METALICO` · `VIDRO` · `CARBONO` · `HOLOGRAFICO` | `label`; material da arte de fundo |
 | `CardLayout` | `CLASSICO` · `HERO` · `SPLIT` · `MINIMAL` | `label`; posição do bloco de arte no card |
 | `CardStyle` | `NEON` · `VITRAL` · `GRAFITE` · `OURO` · `RETRO` | `label`; tratamento gráfico coerente com o sistema visual |

@@ -38,13 +38,20 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(12); }
 
+    /** CSP: fotografias e vídeos dos cards vêm de URLs pré-assinadas do storage, por isso a origem pública do S3/MinIO entra em img-src e media-src. */
+    String contentSecurityPolicy() {
+        String media = props.storage().browserOrigin();
+        String origin = media.isBlank() ? "" : " " + media;
+        return "default-src 'self'; img-src 'self' data: blob:" + origin + "; media-src 'self' blob:" + origin
+                + "; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'";
+    }
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationFilter jwtFilter, RateLimitFilter rateLimitFilter) throws Exception {
         http.csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .headers(h -> h.frameOptions(f -> f.deny()).contentSecurityPolicy(c -> c.policyDirectives(
-                    "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'")))
+            .headers(h -> h.frameOptions(f -> f.deny()).contentSecurityPolicy(c -> c.policyDirectives(contentSecurityPolicy())))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/", "/index.html", "/styles.css", "/app.js", "/icons.svg", "/favicon.png", "/brand/**", "/error").permitAll()
                 .requestMatchers(HttpMethod.POST, "/v1/auth/register", "/v1/auth/login", "/v1/auth/refresh").permitAll()

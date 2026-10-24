@@ -593,6 +593,10 @@
       <label class="t">Título · obrigatório · 5 a 12 palavras <input type="text" id="composerTitle" maxlength="90" placeholder="A headline que cria a lacuna de curiosidade"><small class="mono" id="titleCount">0 palavras</small></label>
       <label class="t">Subtítulo · teaser opcional (só em posts de texto) <input type="text" id="composerSub" maxlength="160" placeholder="Sugere, não entrega"></label>
       <label class="t">Texto completo · aparece só ao abrir o card <textarea id="composerText" maxlength="5000" placeholder="O feed nunca exibe texto corrido."></textarea></label>
+      <label class="t">Fotografia · opcional · campo de upload do usuário (JPEG, PNG, WebP, GIF ou MP4 até 25 MB)
+        <span class="upload-row"><input type="file" id="composerPhoto" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4"><button type="button" class="btn ghost" id="photoClear" hidden>Remover</button><small class="mono" id="photoStatus">sem fotografia — o card usa só a arte de fundo</small></span>
+        <div class="photo-preview" id="photoPreview" hidden></div>
+      </label>
       <label class="t">Classificação <select id="composerAge"><option value="SAFE">SAFE</option><option value="KIDS">KIDS</option><option value="AGE_12">12+</option><option value="AGE_16">16+</option><option value="AGE_18">18+</option></select></label>
     </section>
 
@@ -600,7 +604,8 @@
     <section class="wz-pane" data-step="3" hidden>
       <div class="art-grid">
         <div>
-          <label class="t">Cor <small class="mono" id="artColorHex">#00d47a</small></label>
+          <p class="hint">A arte tinge o <b>fundo do card</b> (não a fotografia). Cor, material, layout e estilo mudam o painel atrás do título e do teaser.</p>
+          <label class="t">Cor de fundo <small class="mono" id="artColorHex">#00d47a</small></label>
           <div class="swatches" id="artColors"></div>
           <label class="t custom-color">Personalizada <input type="color" id="artCustom" value="#00d47a"></label>
           <label class="t">Material</label><div class="optchips" id="artMaterials"></div>
@@ -662,6 +667,11 @@
         <h4>Aparência <span class="art muted">preferência de interface — não é dado pessoal</span></h4>
         <label class="toggle-row"><span><b>Modo escuro</b><small>tema da interface</small></span><input type="checkbox" class="sw" id="darkToggle" checked></label>
         <label>Tamanho da fonte <input type="range" id="fontScale" min="0.8" max="1.4" step="0.1" value="1"></label>
+        <div class="ap-grid">
+          <div class="ap-row"><b>Cor de destaque</b><small class="hint">Barras ativas, botões e brilhos. As cores de identidade dos papéis e das bordas de conteúdo nunca mudam.</small><div class="ap-swatches" id="apAccents"></div></div>
+          <div class="ap-row"><b>Tom das barras laterais e painéis</b><small class="hint">Grafite (padrão), Floresta, Marinho, Ameixa ou Areia (clara).</small><div class="ap-swatches" id="apSurfaces"></div></div>
+          <div class="ap-row"><b>Tela de fundo</b><small class="hint">Grade de ícones de futebol com holofote, em cinco paletas, ou um arquivo seu. Painéis ficam translúcidos sobre o fundo.</small><div class="ap-walls" id="apWalls"></div></div>
+        </div>
       </div>
       <div class="lgpd-panel" data-lgpd="idioma" hidden>
         <h4>Idioma <span class="art">Art. 6º, IV e VI · transparência</span></h4>

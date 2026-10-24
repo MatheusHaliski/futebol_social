@@ -3,7 +3,10 @@ package com.footballai.social.model.entity;
 import com.footballai.social.config.CryptoConverter;
 import com.footballai.social.model.enums.AccountStatus;
 import com.footballai.social.model.enums.ProfileVisibility;
+import com.footballai.social.model.enums.UiAccent;
+import com.footballai.social.model.enums.UiSurface;
 import com.footballai.social.model.enums.UserRole;
+import com.footballai.social.model.enums.Wallpaper;
 import jakarta.persistence.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
@@ -79,6 +82,11 @@ public abstract class User {
 
     @Column(name = "font_scale", nullable = false, precision = 2, scale = 1)
     private BigDecimal fontScale = BigDecimal.ONE;
+
+    @Enumerated(EnumType.STRING) @Column(name = "ui_accent", nullable = false, length = 12) private UiAccent uiAccent = UiAccent.GREEN;
+    @Enumerated(EnumType.STRING) @Column(name = "ui_surface", nullable = false, length = 12) private UiSurface uiSurface = UiSurface.GRAPHITE;
+    @Enumerated(EnumType.STRING) @Column(name = "wallpaper", nullable = false, length = 16) private Wallpaper wallpaper = Wallpaper.NONE;
+    @Column(name = "wallpaper_key") private String wallpaperKey;
 
     @Column(name = "country_code", length = 2)
     private String countryCode = "BR";
@@ -198,6 +206,14 @@ public abstract class User {
     public void setDarkMode(boolean darkMode) { this.darkMode = darkMode; }
     public BigDecimal getFontScale() { return fontScale; }
     public void setFontScale(BigDecimal fontScale) { this.fontScale = fontScale; }
+    public UiAccent getUiAccent() { return uiAccent; }
+    public void setUiAccent(UiAccent uiAccent) { this.uiAccent = uiAccent; }
+    public UiSurface getUiSurface() { return uiSurface; }
+    public void setUiSurface(UiSurface uiSurface) { this.uiSurface = uiSurface; }
+    public Wallpaper getWallpaper() { return wallpaper; }
+    public void setWallpaper(Wallpaper wallpaper) { this.wallpaper = wallpaper; }
+    public String getWallpaperKey() { return wallpaperKey; }
+    public void setWallpaperKey(String wallpaperKey) { this.wallpaperKey = wallpaperKey; }
     public String getCountryCode() { return countryCode; }
     public void setCountryCode(String countryCode) { this.countryCode = countryCode; }
     public String getStateCode() { return stateCode; }

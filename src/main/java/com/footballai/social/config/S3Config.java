@@ -26,6 +26,7 @@ public class S3Config {
         return b.build();
     }
 
+    /** Pré-assinatura com o endpoint que o navegador alcança ({@code app.storage.public-endpoint}, senão {@code endpoint}). */
     @Bean
     public S3Presigner s3Presigner(AppProperties props) {
         var s = props.storage();
@@ -33,7 +34,7 @@ public class S3Config {
                 .region(Region.of(s.region()))
                 .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(s.accessKey(), s.secretKey())))
                 .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(s.pathStyle()).build());
-        if (s.endpoint() != null && !s.endpoint().isBlank()) b.endpointOverride(URI.create(s.endpoint()));
+        if (!s.browserEndpoint().isBlank()) b.endpointOverride(URI.create(s.browserEndpoint()));
         return b.build();
     }
 }

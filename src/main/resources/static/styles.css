@@ -484,25 +484,36 @@ svg.ic.tier.t-mythic{filter:drop-shadow(0 0 6px rgba(245,197,66,.85));animation:
 .wz-nav{display:flex;gap:8px;flex-wrap:wrap}
 @media (max-width:760px){.mode-opts,.art-grid,.review-grid{grid-template-columns:1fr}.art-preview-wrap{position:static}}
 
-/* ==================== arte de fundo do card (material · estilo · layout) ==================== */
-.pcard .p-art{--ac:#00d47a;position:relative;overflow:hidden;border-radius:10px;border:1px solid color-mix(in srgb,var(--ac) 45%,var(--line));height:120px;margin:8px 0;background:
-  linear-gradient(135deg,color-mix(in srgb,var(--ac) 55%,#0c110d),color-mix(in srgb,var(--ac) 18%,#0a0f0c) 70%)}
-.pcard .p-art::after{content:attr(data-label);position:absolute;left:10px;bottom:8px;font-family:var(--font-mono);font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:rgba(234,242,238,.75)}
-.pcard .p-art[data-material=METALICO]{background:linear-gradient(115deg,color-mix(in srgb,var(--ac) 70%,#fff) 0%,color-mix(in srgb,var(--ac) 45%,#000) 30%,color-mix(in srgb,var(--ac) 75%,#fff) 52%,color-mix(in srgb,var(--ac) 35%,#000) 100%)}
-.pcard .p-art[data-material=VIDRO]{background:linear-gradient(135deg,color-mix(in srgb,var(--ac) 30%,transparent),color-mix(in srgb,var(--ac) 8%,transparent));backdrop-filter:blur(6px);border-color:rgba(255,255,255,.25);box-shadow:inset 0 1px 0 rgba(255,255,255,.35)}
-.pcard .p-art[data-material=CARBONO]{background:repeating-linear-gradient(45deg,#0f1613 0 4px,#19231d 4px 8px),linear-gradient(135deg,color-mix(in srgb,var(--ac) 40%,#000),#0a0f0c);background-blend-mode:overlay}
-.pcard .p-art[data-material=HOLOGRAFICO]{background:conic-gradient(from 200deg at 60% 40%,var(--ac),#3b82f6,#a06bff,#ff9f43,var(--ac));filter:saturate(1.2);animation:holo 6s linear infinite}
-@keyframes holo{from{filter:hue-rotate(0deg) saturate(1.2)}to{filter:hue-rotate(360deg) saturate(1.2)}}
-.pcard .p-art[data-style=NEON]{box-shadow:0 0 14px color-mix(in srgb,var(--ac) 60%,transparent),inset 0 0 22px color-mix(in srgb,var(--ac) 35%,transparent)}
-.pcard .p-art[data-style=VITRAL]::before{content:"";position:absolute;inset:0;background:linear-gradient(135deg,transparent 0 30%,rgba(255,255,255,.14) 30% 31%,transparent 31% 58%,rgba(255,255,255,.14) 58% 59%,transparent 59%),linear-gradient(45deg,transparent 0 45%,rgba(0,0,0,.25) 45% 46%,transparent 46%)}
-.pcard .p-art[data-style=GRAFITE]::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(21,21,26,.25),rgba(21,21,26,.65))}
-.pcard .p-art[data-style=OURO]{border-color:var(--gold);box-shadow:inset 0 0 0 2px rgba(245,197,66,.45),0 0 16px rgba(245,197,66,.3)}
-.pcard .p-art[data-style=RETRO]::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 2px,transparent 2px 4px);mix-blend-mode:multiply;filter:sepia(.3)}
-.pcard .p-art[data-layout=HERO]{height:136px;margin-top:4px}
-.pcard .p-art[data-layout=MINIMAL]{height:8px;margin:6px 0 8px;border-radius:4px} .pcard .p-art[data-layout=MINIMAL]::after{display:none}
-.pcard.layout-split{display:grid;grid-template-columns:72px 1fr;column-gap:12px}
-.pcard.layout-split .p-art{grid-row:1/span 5;height:auto;margin:0;min-height:120px} .pcard.layout-split .p-art::after{writing-mode:vertical-rl;left:auto;right:6px;bottom:8px}
-.pcard.layout-split>:not(.p-art){grid-column:2}
+/* ==================== arte de fundo do card — tinge o FUNDO do .pcard (a fotografia é upload do usuário) ==================== */
+.pcard.has-art{--ac:#00d47a;position:relative;isolation:isolate;overflow:hidden;background:
+  linear-gradient(160deg,color-mix(in srgb,var(--ac) 28%,var(--panel)) 0%,color-mix(in srgb,var(--ac) 12%,var(--panel)) 45%,var(--panel) 100%);
+  border-color:color-mix(in srgb,var(--ac) 35%,var(--line))}
+.pcard.has-art::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none}
+.pcard.has-art::after{content:attr(data-art-label);position:absolute;right:12px;bottom:8px;font-family:var(--font-mono);font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:color-mix(in srgb,var(--ac) 70%,var(--text-3));opacity:.7;pointer-events:none}
+/* material */
+.pcard.has-art[data-material=METALICO]{background:linear-gradient(115deg,color-mix(in srgb,var(--ac) 40%,#fff2) 0%,color-mix(in srgb,var(--ac) 18%,var(--panel)) 28%,color-mix(in srgb,var(--ac) 42%,#fff1) 50%,color-mix(in srgb,var(--ac) 10%,var(--panel)) 100%)}
+.pcard.has-art[data-material=VIDRO]{background:linear-gradient(160deg,color-mix(in srgb,var(--ac) 16%,transparent),color-mix(in srgb,var(--ac) 5%,transparent)),var(--panel);backdrop-filter:blur(8px);border-color:rgba(255,255,255,.22);box-shadow:inset 0 1px 0 rgba(255,255,255,.28)}
+.pcard.has-art[data-material=CARBONO]::before{background:repeating-linear-gradient(45deg,rgba(255,255,255,.035) 0 3px,transparent 3px 6px),repeating-linear-gradient(-45deg,rgba(0,0,0,.25) 0 3px,transparent 3px 6px)}
+.pcard.has-art[data-material=HOLOGRAFICO]::before{background:conic-gradient(from 210deg at 80% 10%,color-mix(in srgb,var(--ac) 35%,transparent),rgba(59,130,246,.25),rgba(160,107,255,.25),rgba(255,159,67,.22),color-mix(in srgb,var(--ac) 35%,transparent));animation:holo 9s linear infinite;opacity:.9}
+@keyframes holo{from{filter:hue-rotate(0deg)}to{filter:hue-rotate(360deg)}}
+/* estilo */
+.pcard.has-art[data-style=NEON]{box-shadow:0 0 16px color-mix(in srgb,var(--ac) 45%,transparent),inset 0 0 28px color-mix(in srgb,var(--ac) 18%,transparent)}
+.pcard.has-art[data-style=VITRAL]::before{background:linear-gradient(135deg,transparent 0 28%,rgba(255,255,255,.07) 28% 29%,transparent 29% 56%,rgba(255,255,255,.07) 56% 57%,transparent 57%),linear-gradient(45deg,transparent 0 44%,rgba(0,0,0,.22) 44% 45%,transparent 45%),linear-gradient(120deg,color-mix(in srgb,var(--ac) 18%,transparent),transparent 60%)}
+.pcard.has-art[data-style=GRAFITE]::before{background:linear-gradient(180deg,rgba(21,21,26,.15),rgba(21,21,26,.55))}
+.pcard.has-art[data-style=OURO]{border-color:var(--gold);box-shadow:inset 0 0 0 1px rgba(245,197,66,.4),0 0 14px rgba(245,197,66,.25)}
+.pcard.has-art[data-style=RETRO]::before{background:repeating-linear-gradient(0deg,rgba(0,0,0,.14) 0 2px,transparent 2px 4px);mix-blend-mode:multiply;filter:sepia(.35)}
+/* layout — onde a tinta se concentra */
+.pcard.has-art[data-layout=HERO]{background:linear-gradient(180deg,color-mix(in srgb,var(--ac) 42%,var(--panel)) 0 34%,color-mix(in srgb,var(--ac) 10%,var(--panel)) 60%,var(--panel) 100%)}
+.pcard.has-art[data-layout=SPLIT]{background:linear-gradient(90deg,color-mix(in srgb,var(--ac) 45%,var(--panel)) 0 10px,color-mix(in srgb,var(--ac) 16%,var(--panel)) 10px 40%,var(--panel) 100%)}
+.pcard.has-art[data-layout=MINIMAL]{background:var(--panel);box-shadow:inset 0 4px 0 var(--ac)}
+.pcard.has-art[data-layout=MINIMAL][data-style=NEON]{box-shadow:inset 0 4px 0 var(--ac),0 0 14px color-mix(in srgb,var(--ac) 40%,transparent)}
+/* fotografia enviada pelo usuário */
+.pcard .p-media.photo{padding:0;height:auto;max-height:260px;overflow:hidden;background:#000;display:block}
+.pcard .p-media.photo img,.pcard .p-media.photo video{display:block;width:100%;height:100%;max-height:260px;object-fit:cover}
+.upload-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:6px}
+.upload-row input[type=file]{width:auto;flex:1;min-width:200px;font-family:var(--font-body);text-transform:none;letter-spacing:0}
+.photo-preview{margin-top:8px;border:1px solid var(--line);border-radius:10px;overflow:hidden;max-height:180px;background:#000}
+.photo-preview img,.photo-preview video{display:block;width:100%;max-height:180px;object-fit:cover}
 
 /* ==================== autenticação · post view · fonte ==================== */
 .modal-card.auth{width:min(520px,100%);display:grid;gap:12px;padding:18px}
@@ -524,3 +535,41 @@ svg.ic.tier.t-mythic{filter:drop-shadow(0 0 6px rgba(245,197,66,.85));animation:
 .flair-log{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:4px;font-family:var(--font-mono);font-size:.62rem;color:var(--text-2)}
 .flair-log li b{color:var(--green-hi)} .flair-log li.lost b{color:var(--c-red)}
 .btn.snap[aria-pressed=true]{outline:2px solid #fff}
+
+/* ==================== Aparência · cor de destaque (não altera cores de identidade dos papéis) ==================== */
+html[data-accent=BLUE]{--green:#3b82f6;--green-hi:#9cc4ff;--green-deep:#1d4ed8}
+html[data-accent=GOLD]{--green:#f5c542;--green-hi:#ffe08a;--green-deep:#b8902c}
+html[data-accent=PURPLE]{--green:#a06bff;--green-hi:#d3bcff;--green-deep:#6d3fd1}
+html[data-accent=ORANGE]{--green:#ff9f43;--green-hi:#ffc48a;--green-deep:#c96d12}
+/* ==================== Aparência · tom das barras laterais e painéis ==================== */
+html:not([data-theme=light])[data-surface=FOREST]{--ink:#07120c;--ink-2:#0b1a12;--panel:#0f241a;--panel-2:#143022;--line:#1f3d2d;--line-soft:#19311f}
+html:not([data-theme=light])[data-surface=NAVY]{--ink:#070b14;--ink-2:#0b1220;--panel:#0f192b;--panel-2:#152238;--line:#223354;--line-soft:#1a2740}
+html:not([data-theme=light])[data-surface=PLUM]{--ink:#100a14;--ink-2:#170f1f;--panel:#1f1529;--panel-2:#2a1c37;--line:#3b2a4d;--line-soft:#2f213d}
+html[data-surface=SAND]{--ink:#efe9dc;--ink-2:#e6dece;--panel:#fbf7ee;--panel-2:#f2ebdc;--line:#d6cbb5;--line-soft:#e3dac8;--text:#1b1a14;--text-2:#5c5748;--text-3:#8a8371}
+html[data-surface=SAND] body,html[data-theme=light] body{background:radial-gradient(1200px 600px at 80% -8%,color-mix(in srgb,var(--green) 10%,transparent),transparent 60%),var(--ink)}
+.sidebar{background:color-mix(in srgb,var(--panel) 70%,var(--ink))}
+/* ==================== Aparência · tela de fundo (grade de ícones com holofote) ==================== */
+/* véu sobre a tela de fundo: mantém a paleta visível e o texto legível (em Areia/claro o véu é claro porque --ink é claro) */
+html[data-wallpaper]:not([data-wallpaper=NONE]) body{background:linear-gradient(color-mix(in srgb,var(--ink) 46%,transparent),color-mix(in srgb,var(--ink) 46%,transparent)) center/cover fixed no-repeat,var(--wallpaper-img) center/cover fixed no-repeat,var(--ink)}
+html[data-wallpaper]:not([data-wallpaper=NONE]) .flair,html[data-wallpaper]:not([data-wallpaper=NONE]) .lgpd-body{background:color-mix(in srgb,var(--panel) 84%,transparent);backdrop-filter:blur(8px)}
+html[data-wallpaper]:not([data-wallpaper=NONE]) .flair{border:1px solid var(--line);border-radius:16px;padding:14px}
+html[data-wallpaper]:not([data-wallpaper=NONE]) .topbar{background:color-mix(in srgb,var(--ink) 78%,transparent);backdrop-filter:blur(10px)}
+html[data-wallpaper]:not([data-wallpaper=NONE]) .sidebar{background:color-mix(in srgb,var(--ink) 80%,transparent);backdrop-filter:blur(10px)}
+html[data-wallpaper]:not([data-wallpaper=NONE]) .feed-panel,html[data-wallpaper]:not([data-wallpaper=NONE]) .panel,html[data-wallpaper]:not([data-wallpaper=NONE]) .filters-panel,html[data-wallpaper]:not([data-wallpaper=NONE]) .kpi{background:color-mix(in srgb,var(--panel) 84%,transparent);backdrop-filter:blur(8px)}
+html[data-wallpaper]:not([data-wallpaper=NONE]) .bottom-nav{background:color-mix(in srgb,var(--ink) 86%,transparent);backdrop-filter:blur(10px)}
+/* tinta da arte mais presente: cards nunca são todos da mesma cor */
+.pcard.has-art{background:linear-gradient(160deg,color-mix(in srgb,var(--ac) 38%,var(--panel)) 0%,color-mix(in srgb,var(--ac) 16%,var(--panel)) 48%,var(--panel) 100%)}
+/* ==================== painel Aparência ==================== */
+.ap-grid{display:grid;gap:14px}
+.ap-row>b{display:block;font-size:.84rem;margin-bottom:6px} .ap-row small.hint{display:block;margin-bottom:8px}
+.ap-swatches{display:flex;gap:10px;flex-wrap:wrap}
+.ap-swatch{width:34px;height:34px;border-radius:50%;border:2px solid transparent;background:var(--sw);cursor:pointer;box-shadow:0 0 0 1px var(--line);position:relative}
+.ap-swatch.on{border-color:#fff;box-shadow:0 0 0 2px var(--sw)}
+.ap-swatch[title]::after{content:attr(title);position:absolute;top:40px;left:50%;transform:translateX(-50%);font-family:var(--font-mono);font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3);white-space:nowrap}
+.ap-row .ap-swatches{padding-bottom:16px}
+.ap-walls{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+.ap-wall{border:2px solid var(--line);border-radius:12px;overflow:hidden;background:var(--ink-2);cursor:pointer;padding:0;text-align:left;color:var(--text-2)}
+.ap-wall .thumb{height:64px;background:var(--wp) center/cover,var(--ink-2)} .ap-wall .thumb.none{display:grid;place-items:center;font-family:var(--font-mono);font-size:.6rem;letter-spacing:.14em;color:var(--text-3)}
+.ap-wall span{display:block;padding:6px 8px;font-family:var(--font-mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase}
+.ap-wall.on{border-color:var(--green);box-shadow:0 0 0 1px var(--green) inset}
+.ap-wall.custom input{display:block;width:100%;font-size:.7rem;padding:6px}

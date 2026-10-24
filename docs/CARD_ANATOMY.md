@@ -168,16 +168,24 @@
 
 ---
 
-## 9. Arte de fundo e criador de cards (4 etapas)
+## 9. Arte de fundo, fotografia e criador de cards (4 etapas)
 
-O card é criado num assistente único (FAB / “Criar card”): **1 · Modo** (Manual · Com IA/Copilot) → **2 · Conteúdo** (tipo, título 5–12 palavras, teaser, texto, classificação) → **3 · Arte** → **4 · Revisar e salvar** (rascunho ou publicar).
+O card é criado num assistente único (FAB / “Criar card”): **1 · Modo** (Manual · Com IA/Copilot) → **2 · Conteúdo** (tipo, título 5–12 palavras, teaser, texto, **fotografia** e classificação) → **3 · Arte de fundo** → **4 · Revisar e salvar** (rascunho ou publicar).
 
-| Dimensão da arte (`CardArt`) | Valores | Render no `.pcard` (`.p-art`) |
+**Dois campos distintos, nunca confundidos:**
+
+| Campo | O que é | Quem define | Onde aparece |
+|---|---|---|---|
+| **Fotografia** (`mediaKeys`) | imagem ou vídeo enviado pelo usuário (`POST /v1/media`, JPEG/PNG/WebP/GIF/MP4 ≤ 25 MB, bucket `fas-media`, URL pré-assinada 1 h) | upload do autor | bloco `p-media.photo` abaixo do título (posts com fotografia não exibem teaser) |
+| **Arte de fundo** (`CardArt`) | cor, material, layout e estilo que **tingem o fundo do próprio card** (`.pcard.has-art`) — não alteram a fotografia | etapa 3 do criador (ou sugestão do Copilot por tier) | fundo, borda e brilho do card inteiro, atrás de título, teaser e barra de ações |
+
+| Dimensão da arte | Valores | Render no fundo do `.pcard` |
 |---|---|---|
-| Cor | hex dos tokens (`--c-*`, `--gold`) ou personalizada | `--ac` do bloco; borda e brilho derivam dela |
-| Material | Fosco · Metálico · Vidro · Carbono · Holográfico | gradiente plano · faixa de brilho · translúcido com blur · trama diagonal · conic-gradient animado |
-| Layout | Clássico · Hero · Split · Minimal | bloco 120 px após o título · 136 px acima do título · coluna lateral de 72 px · fio de 8 px sob o `p-top` |
+| Cor | hex dos tokens (`--c-*`, `--gold`) ou personalizada | `--ac` misturada ao `--panel` (gradiente de 28 % → 0 %) e à borda |
+| Material | Fosco · Metálico · Vidro · Carbono · Holográfico | gradiente plano · faixas de brilho · translúcido com blur · trama diagonal · conic-gradient animado em `::before` |
+| Layout | Clássico · Hero · Split · Minimal | tinta uniforme · banda forte no terço superior · faixa lateral esquerda · só um fio de 4 px no topo |
 | Estilo | Neon · Vitral · Grafite · Ouro · Retrô | glow externo/interno · facetas do logo · véu grafite · aro Elite Gold · scanlines sépia |
 
-Regras: a arte **nunca substitui** a borda de conteúdo nem a bolinha do autor; posts com mídia mostram a mídia no lugar da arte; o Copilot sugere arte por tier (Common fosco/grafite … Mythic holográfico/ouro) e tipo (partida/especial = hero; relatório = split; institucional/lesão = minimal); cards gerados com IA exibem a pill “GERADO COM IA · REVISADO”.
+Regras: a arte **nunca substitui** a borda de conteúdo nem a bolinha do autor; o rótulo `material · layout · estilo` fica discreto no canto inferior do card; o Copilot sugere arte por tier (Common fosco/grafite … Mythic holográfico/ouro) e tipo (partida/especial = hero; relatório = split; institucional/lesão = minimal); cards gerados com IA exibem a pill “GERADO COM IA · REVISADO”.
 
+**Estúdio de edição**: o autor reabre o próprio card (`✎ Editar`) no mesmo assistente, a partir da etapa Conteúdo, com tipo/borda travados; `PATCH /v1/posts/{id}` salva título, teaser, texto, fotografia, classificação e arte. Por isso os cards de um feed nunca são todos da mesma cor: cada um traz a arte definida pelo autor.

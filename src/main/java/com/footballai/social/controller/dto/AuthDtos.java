@@ -1,7 +1,6 @@
 package com.footballai.social.controller.dto;
 
-import com.footballai.social.model.enums.ProfileVisibility;
-import com.footballai.social.model.enums.UserRole;
+import com.footballai.social.model.enums.*;
 import jakarta.validation.constraints.*;
 
 import java.math.BigDecimal;
@@ -36,12 +35,15 @@ public final class AuthDtos {
     public record AcceptTermsRequest(@NotBlank String termsVersion) { }
 
     public record UserSummaryDTO(UUID id, String username, String displayName, String role, String roleLabel, String ringColor, String dotClass,
-                                 String status, String visibility, boolean verified, String tier, String crestIcon, String locale, boolean darkMode, BigDecimal fontScale) { }
+                                 String status, String visibility, boolean verified, String tier, String crestIcon, String locale, boolean darkMode, BigDecimal fontScale,
+                                 String uiAccent, String uiSurface, String wallpaper, String wallpaperUrl) { }
 
     public record AuthResponse(String tokenType, String accessToken, long expiresIn, String refreshToken, String sessionId, UserSummaryDTO user) { }
 
     public record TermsDTO(String version, String owner, String documentUrl, String privacyPolicyUrl, Instant effectiveFrom) { }
 
+    /** Conta + Aparência (tema, fonte, cor de destaque, tom das barras/painéis, tela de fundo) + Idioma + visibilidade. */
     public record UpdateMeRequest(@Size(max = 80) String displayName, @Size(max = 280) String bio, @Size(max = 5) String locale, Boolean darkMode,
-                                  @DecimalMin("0.8") @DecimalMax("1.4") BigDecimal fontScale, ProfileVisibility visibility, @Size(max = 2) String stateCode, @Size(max = 80) String city) { }
+                                  @DecimalMin("0.8") @DecimalMax("1.4") BigDecimal fontScale, ProfileVisibility visibility, @Size(max = 2) String stateCode, @Size(max = 80) String city,
+                                  UiAccent uiAccent, UiSurface uiSurface, Wallpaper wallpaper, @Size(max = 255) String wallpaperKey) { }
 }
