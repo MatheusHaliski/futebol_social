@@ -1,0 +1,1292 @@
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Taxonomia</title><style>
+body{font-family:Inter,system-ui,sans-serif;background:#F6F4EF;color:#1A1D23;max-width:1100px;margin:0 auto;padding:32px;line-height:1.5;font-size:13px}
+h1{font-size:24px} h2{font-size:18px;margin-top:34px;border-bottom:2px solid #15805C;padding-bottom:4px} h3{font-size:14px;margin-top:22px}
+table{border-collapse:collapse;width:100%;font-size:12px;background:#fff} th{background:#1A1D23;color:#fff;text-align:left;padding:6px 8px} td{border-top:1px solid #D9D3C7;padding:5px 8px;vertical-align:top}
+code{background:#EFEBE2;padding:1px 4px;border-radius:4px;font-size:11.5px} pre{background:#1A1D23;color:#E6E8EC;padding:12px;border-radius:8px;font-size:11px;overflow:auto} pre code{background:none;color:inherit}
+blockquote{border-left:3px solid #15805C;margin:0;padding:6px 14px;background:#E2F0EA;border-radius:0 8px 8px 0}
+</style></head><body><h1>Taxonomia de Entidades e Atributos — Football AI · Social</h1>
+<blockquote>
+<p>Fonte de verdade para o modelo de dados. Cada atributo traz <strong>tipo</strong>, <strong>restrições</strong>, <strong>store</strong> (onde persiste) e <strong>classe LGPD</strong>:
+<code>P</code> = dado pessoal · <code>S</code> = dado pessoal <strong>sensível</strong> (Art. 11) · <code>N</code> = não pessoal / preferência de interface · <code>D</code> = derivado/agregado (sem PII após anonimização).
+Diagramas correspondentes em <a href="diagrams/README.md"><code>docs/diagrams/</code></a>.</p>
+</blockquote>
+<h2>0. Mapa de contextos (bounded contexts)</h2>
+<pre><code>┌─────────────┐  ┌─────────────┐  ┌──────────────┐  ┌───────────────┐  ┌───────────┐  ┌───────────┐
+│  identity   │  │    auth     │  │     twin     │  │     badge     │  │   feed    │  │   lgpd    │
+│ User + sub- │  │ Session     │  │ DigitalTwin  │  │ AthleteBadge  │  │ Post      │  │ LgpdPrefs │
+│ classes,    │─▶│ RefreshTok. │  │ WeeklyScore  │◀─│ InjuryRecord  │  │ FeedEntry │  │ Consent   │
+│ Terms       │  │ (Redis)     │  │ Evaluation   │  │ BadgeAudit    │  │ Drill     │  │ Export    │
+└─────────────┘  └─────────────┘  │ MatchPerf.   │  └───────────────┘  └───────────┘  └───────────┘
+                                  └──────────────┘        ▲                                ▲
+                                        ▲                 │                                │
+                                  ┌─────────────┐   ┌───────────┐                    ┌────────────┐
+                                  │  telemetry  │──▶│  (eventos) │                    │  storage   │
+                                  │ TelemetryData│  └───────────┘                    │ S3 objects │
+                                  └─────────────┘                                     └────────────┘
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Contexto</th>
+<th>Store principal</th>
+<th>Agregado raiz</th>
+<th>Identidade</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>identity</td>
+<td>MySQL</td>
+<td><code>User</code></td>
+<td><code>UUID v4</code></td>
+</tr>
+<tr>
+<td>auth</td>
+<td>Redis</td>
+<td><code>Session</code></td>
+<td><code>UUID</code> por sessão; <code>jti</code> por access token</td>
+</tr>
+<tr>
+<td>twin</td>
+<td>MySQL (+ leitura Cassandra)</td>
+<td><code>DigitalTwin</code></td>
+<td><code>UUID</code>, 1:1 com <code>User</code></td>
+</tr>
+<tr>
+<td>badge</td>
+<td>MySQL</td>
+<td><code>AthleteBadge</code> (por tipo+temporada)</td>
+<td><code>UUID</code></td>
+</tr>
+<tr>
+<td>feed</td>
+<td>MySQL (post) + Cassandra (fan-out)</td>
+<td><code>Post</code></td>
+<td><code>UUID</code>; <code>FeedEntry</code> por <code>(user_id, feed_window, published_at)</code></td>
+</tr>
+<tr>
+<td>telemetry</td>
+<td>Cassandra</td>
+<td><code>TelemetryData</code></td>
+<td><code>(athlete_id, year_month, recorded_at)</code></td>
+</tr>
+<tr>
+<td>lgpd</td>
+<td>MySQL + S3</td>
+<td><code>UserLgpdPreferences</code></td>
+<td><code>user_id</code></td>
+</tr>
+</tbody>
+</table>
+<p>Convenções: tabelas <code>snake_case</code> plural; PK <code>id BINARY(16)</code>; timestamps <code>TIMESTAMP(6)</code> em UTC; dinheiro/notas em <code>DECIMAL</code>; enums persistidos como <code>VARCHAR</code> (<code>@Enumerated(STRING)</code>); colunas PII com sufixo <code>_enc</code> quando cifradas (AES-256 via <code>AttributeConverter</code>).</p>
+<hr />
+<h2>1. Contexto <code>identity</code></h2>
+<h3>1.1 <code>User</code> (abstrata · <code>users</code> · herança <code>JOINED</code>)</h3>
+<table>
+<thead>
+<tr>
+<th>Atributo</th>
+<th>Tipo</th>
+<th>Restrições</th>
+<th>LGPD</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>UUID</td>
+<td>PK</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>email</code></td>
+<td>String(254)</td>
+<td>único, cifrado (<code>email_enc</code>) + hash para busca (<code>email_hash</code>)</td>
+<td>P</td>
+</tr>
+<tr>
+<td><code>passwordHash</code></td>
+<td>String(60)</td>
+<td>BCrypt(12), nunca exposto</td>
+<td>P</td>
+</tr>
+<tr>
+<td><code>username</code></td>
+<td>String(30)</td>
+<td>único, <code>^[a-z0-9_.]{3,30}$</code></td>
+<td>P</td>
+</tr>
+<tr>
+<td><code>displayName</code></td>
+<td>String(80)</td>
+<td>obrigatório</td>
+<td>P</td>
+</tr>
+<tr>
+<td><code>birthDate</code></td>
+<td>LocalDate</td>
+<td>≥ 13 anos; usada só para idade (Art. 6º, III)</td>
+<td>P</td>
+</tr>
+<tr>
+<td><code>bio</code></td>
+<td>String(280)</td>
+<td>opcional</td>
+<td>P</td>
+</tr>
+<tr>
+<td><code>avatarKey</code></td>
+<td>String(255)</td>
+<td>chave S3 em <code>fas-media</code></td>
+<td>P</td>
+</tr>
+<tr>
+<td><code>role</code></td>
+<td><code>UserRole</code></td>
+<td>imutável após criação</td>
+<td>N</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td><code>AccountStatus</code></td>
+<td>default <code>PENDING_VERIFICATION</code></td>
+<td>N</td>
+</tr>
+<tr>
+<td><code>visibility</code></td>
+<td><code>ProfileVisibility</code></td>
+<td>default <code>SOMENTE_EU</code></td>
+<td>N</td>
+</tr>
+<tr>
+<td><code>locale</code></td>
+<td>String(5)</td>
+<td><code>pt-BR</code> | <code>en-US</code> | <code>es</code> (preferência de UI)</td>
+<td>N</td>
+</tr>
+<tr>
+<td><code>darkMode</code></td>
+<td>boolean</td>
+<td>default <code>false</code> (preferência de UI)</td>
+<td>N</td>
+</tr>
+<tr>
+<td><code>fontScale</code></td>
+<td>Decimal(2,1)</td>
+<td>0.8–1.4</td>
+<td>N</td>
+</tr>
+<tr>
+<td><code>countryCode</code></td>
+<td>String(2)</td>
+<td>ISO-3166</td>
+<td>P</td>
+</tr>
+<tr>
+<td><code>city</code></td>
+<td>String(80)</td>
+<td>opcional</td>
+<td>P</td>
+</tr>
+<tr>
+<td><code>createdAt</code> / <code>updatedAt</code></td>
+<td>Instant</td>
+<td>auditoria</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>deletionRequestedAt</code></td>
+<td>Instant</td>
+<td>nulo até <code>DELETE /v1/me</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>scheduledPurgeAt</code></td>
+<td>Instant</td>
+<td><code>deletionRequestedAt + 30 d</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>anonymizedAt</code></td>
+<td>Instant</td>
+<td>preenchido pelo job de anonimização</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p>Métodos de domínio: <code>ringColor()</code>, <code>activate()</code>, <code>requestDeletion(now)</code>, <code>cancelDeletion()</code>, <code>anonymize()</code>, <code>hasAcceptedCurrentTerms(version)</code>.</p>
+<h3>1.2 Subclasses por papel (uma tabela por subclasse, FK = <code>users.id</code>)</h3>
+<table>
+<thead>
+<tr>
+<th>Entidade / tabela</th>
+<th>Atributos específicos</th>
+<th>LGPD</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Athlete</code> · <code>user_athletes</code></td>
+<td><code>position</code> (GOLEIRO, ZAGUEIRO, LATERAL, VOLANTE, MEIA, PONTA, ATACANTE) · <code>dominantFoot</code> (D/E/AMBOS) · <code>heightCm</code> · <code>weightKg</code> · <code>currentClubId</code> (FK opcional) · <code>contractStatus</code> (<code>AGENTE_LIVRE</code> | <code>CONTRATADO</code>) · <code>contractUntil</code> · <code>shirtNumber</code> · <code>isCaptain</code></td>
+<td>P (altura/peso = dado de saúde → tratar como <strong>S</strong>)</td>
+</tr>
+<tr>
+<td><code>TechnicalStaff</code> · <code>user_technical_staff</code></td>
+<td><code>specialty</code> (TREINADOR, AUXILIAR, PREP_FISICO, ANALISTA, …) · <code>licenseCode</code> · <code>licenseLevel</code> (CBF A/B/C, UEFA Pro…) · <code>currentClubId</code></td>
+<td>P</td>
+</tr>
+<tr>
+<td><code>Club</code> · <code>user_clubs</code></td>
+<td><code>legalName</code> · <code>federationCode</code> · <code>division</code> · <code>foundedYear</code> · <code>stadium</code> · <code>crestKey</code> · <code>verifiedBy</code> (FK <code>OFICIAL_LIGA</code>) · <code>lat</code>/<code>lng</code> (para o globo Explorar)</td>
+<td>N (pessoa jurídica)</td>
+</tr>
+<tr>
+<td><code>Scout</code> · <code>user_scouts</code></td>
+<td><code>agency</code> · <code>regionsOfInterest</code> (JSON) · <code>accredited</code> (homologado por clube/liga) · <code>accreditedBy</code></td>
+<td>P</td>
+</tr>
+<tr>
+<td><code>Brand</code> · <code>user_brands</code></td>
+<td><code>tradeName</code> · <code>segment</code> · <code>website</code> · <code>cnpj</code></td>
+<td>N</td>
+</tr>
+<tr>
+<td><code>Press</code> · <code>user_press</code></td>
+<td><code>outlet</code> · <code>pressCardId</code> · <code>beat</code> (clube/liga que cobre)</td>
+<td>P</td>
+</tr>
+<tr>
+<td><code>LeagueOfficial</code> · <code>user_league_officials</code></td>
+<td><code>entityName</code> (CBF, FPF, CONMEBOL…) · <code>officialRole</code> (ORGANIZADOR, ARBITRO, DELEGADO) · <code>jurisdiction</code></td>
+<td>P</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Novos papéis mapeados por agentes (ex.: <code>DIRETOR_ESPORTIVO</code>, <code>FISIOLOGISTA</code>, <code>AGENTE_FIFA</code>) entram como novas subclasses + <code>RoleCapability</code>, sem alterar <code>users</code>.</p>
+</blockquote>
+<h3>1.3 <code>TermsVersion</code> · <code>terms_versions</code></h3>
+<table>
+<thead>
+<tr>
+<th>Atributo</th>
+<th>Tipo</th>
+<th>Restrições</th>
+<th>LGPD</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>UUID</td>
+<td>PK</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>version</code></td>
+<td>String(20)</td>
+<td>único, ex. <code>2026.10</code></td>
+<td>N</td>
+</tr>
+<tr>
+<td><code>owner</code></td>
+<td>String(80)</td>
+<td><code>Velion (Orange Social)</code></td>
+<td>N</td>
+</tr>
+<tr>
+<td><code>documentUrl</code> / <code>privacyPolicyUrl</code></td>
+<td>String(255)</td>
+<td>—</td>
+<td>N</td>
+</tr>
+<tr>
+<td><code>effectiveFrom</code></td>
+<td>Instant</td>
+<td>—</td>
+<td>N</td>
+</tr>
+<tr>
+<td><code>current</code></td>
+<td>boolean</td>
+<td>só uma versão <code>true</code></td>
+<td>N</td>
+</tr>
+</tbody>
+</table>
+<h3>1.4 <code>TermsAcceptance</code> · <code>terms_acceptances</code> (imutável)</h3>
+<table>
+<thead>
+<tr>
+<th>Atributo</th>
+<th>Tipo</th>
+<th>Restrições</th>
+<th>LGPD</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>UUID</td>
+<td>PK</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>userId</code></td>
+<td>UUID</td>
+<td>FK</td>
+<td>P</td>
+</tr>
+<tr>
+<td><code>termsVersion</code></td>
+<td>String(20)</td>
+<td>FK lógico</td>
+<td>N</td>
+</tr>
+<tr>
+<td><code>acceptedAt</code></td>
+<td>Instant</td>
+<td>—</td>
+<td>P</td>
+</tr>
+<tr>
+<td><code>ipAddress</code></td>
+<td>String(45)</td>
+<td>IPv4/IPv6</td>
+<td>P</td>
+</tr>
+<tr>
+<td><code>userAgent</code></td>
+<td>String(255)</td>
+<td>—</td>
+<td>P</td>
+</tr>
+</tbody>
+</table>
+<h3>1.5 <code>EmailVerificationToken</code> · <code>email_verification_tokens</code></h3>
+<p><code>id</code>, <code>userId</code>, <code>tokenHash</code> (SHA-256), <code>expiresAt</code> (+24 h), <code>usedAt</code>.</p>
+<hr />
+<h2>2. Contexto <code>auth</code> (Redis)</h2>
+<table>
+<thead>
+<tr>
+<th>Chave / estrutura</th>
+<th>Campos</th>
+<th>TTL</th>
+<th>LGPD</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>session:{userId}:{sessionId}</code> (HASH)</td>
+<td><code>device.userAgent</code>, <code>device.platform</code>, <code>device.ip</code>, <code>createdAt</code>, <code>lastSeenAt</code>, <code>refreshTokenId</code>, <code>state</code> (<code>ACTIVE</code>)</td>
+<td>7 d (renova no refresh)</td>
+<td>P</td>
+</tr>
+<tr>
+<td><code>rt:{refreshId}</code> (HASH)</td>
+<td><code>sessionId</code>, <code>userId</code>, <code>issuedAt</code>, <code>expiresAt</code>, <code>rotatedTo</code>, <code>revoked</code></td>
+<td>7 d</td>
+<td>P</td>
+</tr>
+<tr>
+<td><code>bl:{jti}</code> (STRING)</td>
+<td><code>1</code></td>
+<td>restante do access (≤ 15 min)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>bucket:ip:{ip}</code> / <code>bucket:user:{userId}</code> (STRING contador)</td>
+<td>tokens consumidos</td>
+<td>60 s</td>
+<td>P</td>
+</tr>
+<tr>
+<td><code>stepup:{userId}</code> (STRING)</td>
+<td>token de reautenticação</td>
+<td>5 min</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>login_fail:{emailHash}</code> (STRING)</td>
+<td>contador de falhas</td>
+<td>15 min</td>
+<td>P</td>
+</tr>
+</tbody>
+</table>
+<p>Access JWT (HS512) — claims: <code>sub</code> (userId), <code>role</code>, <code>sid</code>, <code>jti</code>, <code>iat</code>, <code>exp</code> (15 min). Nunca contém e-mail ou nome.</p>
+<hr />
+<h2>3. Contexto <code>twin</code> (Rarity Engine)</h2>
+<h3>3.1 <code>DigitalTwin</code> · <code>digital_twins</code></h3>
+<table>
+<thead>
+<tr>
+<th>Atributo</th>
+<th>Tipo</th>
+<th>Restrições</th>
+<th>LGPD</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>UUID</td>
+<td>PK</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>userId</code></td>
+<td>UUID</td>
+<td>FK único (1:1)</td>
+<td>P</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td><code>TwinStatus</code></td>
+<td>default <code>DRAFT</code>; transições validadas</td>
+<td>N</td>
+</tr>
+<tr>
+<td><code>physicalStatus</code></td>
+<td><code>PhysicalStatus</code></td>
+<td>default <code>READY</code>; derivado</td>
+<td><strong>S</strong></td>
+</tr>
+<tr>
+<td><code>scoreTotal</code></td>
+<td>int</td>
+<td>0–3000+</td>
+<td>D</td>
+</tr>
+<tr>
+<td><code>rarityTier</code></td>
+<td><code>RarityTier</code></td>
+<td><code>fromScore(scoreTotal)</code></td>
+<td>D</td>
+</tr>
+<tr>
+<td><code>rewardTier</code></td>
+<td><code>RewardTier</code></td>
+<td>default <code>BRONZE</code></td>
+<td>D</td>
+</tr>
+<tr>
+<td><code>lastCalculatedWeek</code></td>
+<td>String(8)</td>
+<td>ISO week <code>2026-W43</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>activatedAt</code> / <code>suspendedAt</code></td>
+<td>Instant</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h3>3.2 <code>WeeklyScoreSnapshot</code> · <code>weekly_score_snapshots</code> · <code>UNIQUE(twin_id, iso_week)</code></h3>
+<table>
+<thead>
+<tr>
+<th>Atributo</th>
+<th>Tipo</th>
+<th>Restrições</th>
+<th>LGPD</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>UUID</td>
+<td>PK</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>twinId</code></td>
+<td>UUID</td>
+<td>FK</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>isoWeek</code></td>
+<td>String(8)</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>physicalScore</code></td>
+<td>Decimal(7,4)</td>
+<td>0–1 normalizado (peso 0.30)</td>
+<td>D</td>
+</tr>
+<tr>
+<td><code>technicalScore</code></td>
+<td>Decimal(7,4)</td>
+<td>0–1 (peso 0.40)</td>
+<td>D</td>
+</tr>
+<tr>
+<td><code>matchScore</code></td>
+<td>Decimal(7,4)</td>
+<td>0–1 (peso 0.30)</td>
+<td>D</td>
+</tr>
+<tr>
+<td><code>badgeBonus</code></td>
+<td>Decimal(7,4)</td>
+<td>≥ 0</td>
+<td>D</td>
+</tr>
+<tr>
+<td><code>scoreTotal</code></td>
+<td>int</td>
+<td><code>round((Σ pesos) × 3000 + bonus, HALF_EVEN)</code></td>
+<td>D</td>
+</tr>
+<tr>
+<td><code>rarityTier</code></td>
+<td><code>RarityTier</code></td>
+<td>—</td>
+<td>D</td>
+</tr>
+<tr>
+<td><code>inputsHash</code></td>
+<td>String(64)</td>
+<td>SHA-256 dos inputs canônicos</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>calculatedAt</code></td>
+<td>Instant</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h3>3.3 <code>TechnicalEvaluation</code> · <code>technical_evaluations</code></h3>
+<p><code>id</code>, <code>athleteId</code>, <code>evaluatorId</code>, <code>evaluatorRole</code> (<code>UserRole</code>), <code>rating</code> Decimal(4,2) 0–10, <code>weight</code> Decimal(3,2) (comissão 1.00 · scout homologado 0.80 · comunidade 0.50), <code>dimension</code> (<code>FISICA</code> | <code>TECNICA</code> | <code>TATICA</code>), <code>weekOf</code> LocalDate, <code>comment</code> String(500). LGPD: P.</p>
+<h3>3.4 <code>MatchPerformance</code> · <code>match_performances</code></h3>
+<p><code>id</code>, <code>athleteId</code>, <code>matchId</code>, <code>matchDate</code>, <code>competition</code>, <code>official</code> boolean, <code>minutesPlayed</code> 0–120, <code>rating</code> Decimal(4,2), <code>goals</code>, <code>assists</code>, <code>cleanSheet</code>, <code>tackles</code>, <code>yellowCards</code>, <code>redCards</code>, <code>mvp</code> boolean. LGPD: P.</p>
+<hr />
+<h2>4. Contexto <code>badge</code> (Athletic Persona)</h2>
+<h3>4.1 <code>AthleteBadge</code> · <code>athlete_badges</code> · <code>UNIQUE(athlete_id, badge_type, season)</code></h3>
+<table>
+<thead>
+<tr>
+<th>Atributo</th>
+<th>Tipo</th>
+<th>Restrições</th>
+<th>LGPD</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>UUID</td>
+<td>PK</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>athleteId</code></td>
+<td>UUID</td>
+<td>FK</td>
+<td>P</td>
+</tr>
+<tr>
+<td><code>badgeType</code></td>
+<td><code>BadgeType</code></td>
+<td>—</td>
+<td>N (os de <code>PHYSICAL_STATUS</code> são <strong>S</strong>)</td>
+</tr>
+<tr>
+<td><code>counter</code></td>
+<td>int</td>
+<td>≥ 0; só para <code>quantitative = true</code></td>
+<td>D</td>
+</tr>
+<tr>
+<td><code>season</code></td>
+<td>String(9)</td>
+<td><code>2026</code> ou <code>2026/27</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>awardedAt</code></td>
+<td>Instant</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>awardedBy</code></td>
+<td>UUID</td>
+<td>nulo = sistema; técnico para <code>MESTRE_TATICO</code></td>
+<td>P</td>
+</tr>
+<tr>
+<td><code>active</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h3>4.2 <code>InjuryRecord</code> · <code>injury_records</code> — <strong>sensível (Art. 11)</strong></h3>
+<p><code>id</code>, <code>athleteId</code>, <code>injuryType</code> (cifrado), <code>bodyPart</code>, <code>severity</code> (<code>LEVE</code> | <code>MODERADA</code> | <code>GRAVE</code>), <code>startedAt</code>, <code>expectedReturnDate</code>, <code>clearedAt</code>, <code>reportedBy</code> (staff médico/clube), <code>notes</code> (cifrado). Visível a terceiros apenas com <code>shareMedicalData = true</code>.</p>
+<h3>4.3 <code>BadgeAuditLog</code> · <code>badge_audit_log</code> (append-only)</h3>
+<p><code>id</code>, <code>athleteId</code>, <code>badgeType</code>, <code>action</code> (<code>AWARD</code> | <code>UPDATE_COUNTER</code> | <code>DEACTIVATE</code> | <code>ARCHIVE</code>), <code>reason</code>, <code>at</code>.</p>
+<hr />
+<h2>5. Contexto <code>feed</code></h2>
+<h3>5.1 <code>Post</code> · <code>posts</code></h3>
+<table>
+<thead>
+<tr>
+<th>Atributo</th>
+<th>Tipo</th>
+<th>Restrições</th>
+<th>LGPD</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>UUID</td>
+<td>PK</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>authorId</code></td>
+<td>UUID</td>
+<td>FK</td>
+<td>P</td>
+</tr>
+<tr>
+<td><code>authorRole</code></td>
+<td><code>UserRole</code></td>
+<td>denormalizado p/ bolinha</td>
+<td>N</td>
+</tr>
+<tr>
+<td><code>contentType</code></td>
+<td><code>PostContentType</code></td>
+<td>borda; validado por <code>RoleCapability.allowedContentTypes()</code></td>
+<td>N</td>
+</tr>
+<tr>
+<td><code>window</code></td>
+<td><code>FeedWindow</code></td>
+<td>default <code>contentType.defaultWindow</code></td>
+<td>N</td>
+</tr>
+<tr>
+<td><code>text</code></td>
+<td>String(2000)</td>
+<td>—</td>
+<td>P</td>
+</tr>
+<tr>
+<td><code>mediaKeys</code></td>
+<td>JSON array</td>
+<td>chaves S3</td>
+<td>P</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td><code>PostStatus</code></td>
+<td>default <code>PUBLISHED</code></td>
+<td>N</td>
+</tr>
+<tr>
+<td><code>severity</code></td>
+<td><code>AlertSeverity</code></td>
+<td>só para janela ALERTA</td>
+<td>N</td>
+</tr>
+<tr>
+<td><code>alertType</code></td>
+<td><code>AlertType</code></td>
+<td>só para janela ALERTA</td>
+<td>N</td>
+</tr>
+<tr>
+<td><code>clubId</code></td>
+<td>UUID</td>
+<td>opcional (mural do clube)</td>
+<td>N</td>
+</tr>
+<tr>
+<td><code>drillId</code></td>
+<td>UUID</td>
+<td>FK opcional → <code>TacticalDrill</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>publishedAt</code></td>
+<td>Instant</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>likeCount</code> / <code>commentCount</code> / <code>shareCount</code> / <code>saveCount</code></td>
+<td>int</td>
+<td>contadores denormalizados</td>
+<td>D</td>
+</tr>
+</tbody>
+</table>
+<h3>5.2 <code>TacticalDrill</code> · <code>tactical_drills</code></h3>
+<p><code>id</code>, <code>authorId</code>, <code>title</code>, <code>formation</code> (<code>4-3-3</code>…), <code>boardJson</code> (prancheta serializada), <code>videoKey</code>, <code>durationMin</code>, <code>targetAttributes</code> (JSON: <code>{"passe":85,"velocidade":80}</code>), <code>sourceKind</code> (<code>HOMOLOGADO</code> | <code>COMUNIDADE</code>).</p>
+<h3>5.3 <code>FeedEntry</code> · Cassandra <code>feed_entries</code></h3>
+<table>
+<thead>
+<tr>
+<th>Coluna</th>
+<th>Tipo CQL</th>
+<th>Papel</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>user_id</code></td>
+<td>uuid</td>
+<td>partição</td>
+</tr>
+<tr>
+<td><code>feed_window</code></td>
+<td>text</td>
+<td>partição</td>
+</tr>
+<tr>
+<td><code>published_at</code></td>
+<td>timeuuid</td>
+<td>clustering DESC (cursor)</td>
+</tr>
+<tr>
+<td><code>post_id</code>, <code>author_id</code></td>
+<td>uuid</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>author_role</code>, <code>content_type</code></td>
+<td>text</td>
+<td>filtros no cliente/servidor</td>
+</tr>
+<tr>
+<td><code>severity</code>, <code>alert_type</code>, <code>source_role</code></td>
+<td>text</td>
+<td>filtros da janela ALERTA</td>
+</tr>
+</tbody>
+</table>
+<h3>5.4 Filtros por janela (RF3) — parâmetros aceitos por <code>GET /v1/feeds/{window}</code></h3>
+<table>
+<thead>
+<tr>
+<th>Janela</th>
+<th>Query params</th>
+<th>Fonte do atributo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>PERFIL</strong></td>
+<td><code>tier</code> (lista <code>RarityTier</code>), <code>position</code>, <code>ageMin</code>/<code>ageMax</code>, <code>clubId</code>, <code>contractStatus</code></td>
+<td><code>DigitalTwin.rarityTier</code>, <code>Athlete.*</code></td>
+</tr>
+<tr>
+<td><strong>GEMEO</strong></td>
+<td><code>period</code> (<code>WEEK</code> | <code>MONTH</code> | <code>SEASON</code>), <code>metricType</code> (<code>FISICA</code> | <code>TECNICA</code> | <code>TATICA</code>), <code>eventType</code> (<code>TREINO</code> | <code>PARTIDA</code>), <code>athleteId</code></td>
+<td><code>TelemetryData</code>, <code>WeeklyScoreSnapshot</code></td>
+</tr>
+<tr>
+<td><strong>SCOUTING</strong></td>
+<td><code>attr[velocidade]=gt:80</code>, <code>attr[passe]=gt:85</code> (repetível), <code>compare=idA,idB</code>, <code>source</code> (<code>HOMOLOGADO</code> | <code>COMUNIDADE</code>)</td>
+<td><code>ScoutingAttribute</code>, <code>TacticalDrill.sourceKind</code>, <code>Scout.accredited</code></td>
+</tr>
+<tr>
+<td><strong>ALERTA</strong></td>
+<td><code>severity</code> (<code>BAIXA</code> | <code>MEDIA</code> | <code>ALTA</code> | <code>CRITICA</code>), <code>alertType</code> (<code>TRANSFERENCIA</code> | <code>LESAO</code> | <code>PUNICAO</code> | <code>INSTITUCIONAL</code>), <code>source</code> (<code>IMPRENSA</code> | <code>CLUBE</code> | <code>OFICIAL_LIGA</code>)</td>
+<td><code>Post.severity</code>, <code>Post.alertType</code>, <code>Post.authorRole</code></td>
+</tr>
+<tr>
+<td>todas</td>
+<td><code>cursor</code>, <code>size</code> (≤ 50)</td>
+<td><code>FeedEntry.published_at</code></td>
+</tr>
+</tbody>
+</table>
+<h3>5.5 <code>ScoutingAttribute</code> · <code>scouting_attributes</code> (view materializada semanal)</h3>
+<p><code>athleteId</code>, <code>isoWeek</code>, <code>velocidade</code>, <code>passe</code>, <code>finalizacao</code>, <code>drible</code>, <code>desarme</code>, <code>posicionamento</code>, <code>resistencia</code> — todos <code>Decimal(5,2)</code> 0–100, derivados de telemetria + avaliações. LGPD: D.</p>
+<hr />
+<h2>6. Contexto <code>telemetry</code> · Cassandra <code>telemetry_data</code></h2>
+<table>
+<thead>
+<tr>
+<th>Coluna</th>
+<th>Tipo</th>
+<th>Restrições</th>
+<th>LGPD</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>athlete_id</code></td>
+<td>uuid</td>
+<td>partição</td>
+<td>P</td>
+</tr>
+<tr>
+<td><code>year_month</code></td>
+<td>text</td>
+<td>partição (<code>2026-10</code>)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>recorded_at</code></td>
+<td>timestamp</td>
+<td>clustering DESC</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>event_type</code></td>
+<td>text</td>
+<td><code>TREINO</code> | <code>PARTIDA</code></td>
+<td>N</td>
+</tr>
+<tr>
+<td><code>metric_type</code></td>
+<td>text</td>
+<td><code>FISICA</code> | <code>TECNICA</code> | <code>TATICA</code></td>
+<td>N</td>
+</tr>
+<tr>
+<td><code>distance_km</code>, <code>max_speed_kmh</code>, <code>load_au</code></td>
+<td>decimal</td>
+<td>≥ 0</td>
+<td><strong>S</strong> (saúde)</td>
+</tr>
+<tr>
+<td><code>duration_min</code>, <code>rpe</code> (1–10)</td>
+<td>int</td>
+<td>—</td>
+<td><strong>S</strong></td>
+</tr>
+<tr>
+<td><code>passes_ok</code> / <code>passes_total</code></td>
+<td>int</td>
+<td>—</td>
+<td>P</td>
+</tr>
+<tr>
+<td><code>gps_track</code></td>
+<td>text (GeoJSON)</td>
+<td><strong>só com <code>locationHistory = true</code></strong></td>
+<td><strong>S</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Métricas derivadas (não persistidas): <code>acuteLoad7d</code>, <code>chronicLoad28d</code>, <code>acwr = acute/chronic</code> (gatilho <code>RISCO_FADIGA</code> &gt; 1.5).</p>
+<hr />
+<h2>7. Contexto <code>lgpd</code></h2>
+<h3>7.1 <code>UserLgpdPreferences</code> · <code>user_lgpd_preferences</code> — <strong>todas <code>DEFAULT FALSE</code></strong></h3>
+<table>
+<thead>
+<tr>
+<th>Atributo</th>
+<th>Finalidade</th>
+<th>Base legal</th>
+<th>Sensível</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>shareTelemetryWithClubs</code></td>
+<td>clubes veem telemetria</td>
+<td>Art. 7º, I</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>shareTelemetryWithScouts</code></td>
+<td>scouts veem telemetria</td>
+<td>Art. 7º, I</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>shareMedicalData</code></td>
+<td>status/lesões visíveis a terceiros</td>
+<td>Art. 11, I</td>
+<td><strong>S</strong></td>
+</tr>
+<tr>
+<td><code>shareBiometricData</code></td>
+<td>reconhecimento facial em vídeos</td>
+<td>Art. 11, I</td>
+<td><strong>S</strong></td>
+</tr>
+<tr>
+<td><code>locationHistory</code></td>
+<td>GPS de treinos/jogos</td>
+<td>Art. 7º, I</td>
+<td><strong>S</strong></td>
+</tr>
+<tr>
+<td><code>shareWithBrands</code></td>
+<td>ativação comercial</td>
+<td>Art. 7º, I</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>personalizedAds</code></td>
+<td>anúncios personalizados</td>
+<td>Art. 7º, I</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>aiAgentProcessing</code></td>
+<td>agentes de IA processam o perfil</td>
+<td>Art. 7º, I</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>updatedAt</code></td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h3>7.2 <code>ConsentAuditLog</code> · <code>consent_audit_log</code> (append-only)</h3>
+<p><code>id</code>, <code>userId</code>, <code>preference</code>, <code>oldValue</code>, <code>newValue</code>, <code>lgpdArticle</code>, <code>ipAddress</code>, <code>userAgent</code>, <code>changedAt</code>. Retenção: 5 anos após o fim do tratamento (prazo prescricional).</p>
+<h3>7.3 <code>DataExportRequest</code> · <code>data_export_requests</code></h3>
+<p><code>id</code>, <code>userId</code>, <code>status</code> (<code>ExportStatus</code>), <code>requestedAt</code>, <code>readyAt</code>, <code>expiresAt</code> (+7 d), <code>s3ObjectKey</code> (<code>exports/{userId}/{id}.json</code>), <code>sizeBytes</code>, <code>failureReason</code>, <code>attempts</code> (≤ 3).</p>
+<h3>7.4 Payload de exportação (Art. 18, V) — chaves de topo</h3>
+<p><code>profile</code>, <code>lgpdPreferences</code>, <code>consentHistory</code>, <code>termsAcceptances</code>, <code>sessions</code> (dispositivos), <code>digitalTwin</code>, <code>weeklyScores</code>, <code>badges</code>, <code>injuries</code>, <code>telemetry</code>, <code>posts</code>, <code>evaluationsReceived</code>, <code>generatedAt</code>, <code>format: application/json</code>.</p>
+<hr />
+<h2>8. Storage de objetos (S3 / MinIO)</h2>
+<table>
+<thead>
+<tr>
+<th>Bucket</th>
+<th>Prefixo</th>
+<th>Conteúdo</th>
+<th>Retenção</th>
+<th>LGPD</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>fas-media</code></td>
+<td><code>avatars/{userId}/</code></td>
+<td>foto de perfil</td>
+<td>enquanto conta ativa; apagado na anonimização</td>
+<td>P (biométrico se usado p/ reconhecimento → S)</td>
+</tr>
+<tr>
+<td><code>fas-media</code></td>
+<td><code>posts/{postId}/</code></td>
+<td>imagens/vídeos</td>
+<td>idem</td>
+<td>P</td>
+</tr>
+<tr>
+<td><code>fas-media</code></td>
+<td><code>drills/{drillId}/</code></td>
+<td>vídeos de prancheta</td>
+<td>idem</td>
+<td>P</td>
+</tr>
+<tr>
+<td><code>fas-lgpd-exports</code></td>
+<td><code>exports/{userId}/</code></td>
+<td>JSON de portabilidade</td>
+<td>7 dias (lifecycle)</td>
+<td>P</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>9. Enumerações</h2>
+<table>
+<thead>
+<tr>
+<th>Enum</th>
+<th>Valores</th>
+<th>Atributos extras</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>UserRole</code></td>
+<td><code>ATLETA</code> · <code>TECNICO_STAFF</code> · <code>CLUBE</code> · <code>SCOUT</code> · <code>MARCA</code> · <code>IMPRENSA</code> · <code>OFICIAL_LIGA</code></td>
+<td><code>ringColor</code> (#15805C · #5BA3E6 · #1E3A8A · #D4A017 · #7C3AED · #EA580C · #C9A227), <code>label</code></td>
+</tr>
+<tr>
+<td><code>AccountStatus</code></td>
+<td><code>PENDING_VERIFICATION</code> · <code>ACTIVE</code> · <code>SUSPENDED</code> · <code>PENDING_DELETE</code> · <code>ANONYMIZED</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ProfileVisibility</code></td>
+<td><code>SOMENTE_EU</code> (default) · <code>CONEXOES</code> · <code>PUBLICO</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ContractStatus</code></td>
+<td><code>AGENTE_LIVRE</code> · <code>CONTRATADO</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>Position</code></td>
+<td><code>GOLEIRO</code> · <code>ZAGUEIRO</code> · <code>LATERAL</code> · <code>VOLANTE</code> · <code>MEIA</code> · <code>PONTA</code> · <code>ATACANTE</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>FeedWindow</code></td>
+<td><code>PERFIL</code>(1) · <code>GEMEO</code>(2) · <code>SCOUTING</code>(3) · <code>ALERTA</code>(4)</td>
+<td><code>order</code>, <code>icon</code>, <code>route</code>, <code>label</code></td>
+</tr>
+<tr>
+<td><code>PostContentType</code></td>
+<td><code>TREINO</code> · <code>PARTIDA_MOMENTO</code> · <code>RELATORIO_TATICO</code> · <code>INSTITUCIONAL</code> · <code>LESAO_ALERTA</code></td>
+<td><code>borderColor</code> (#15805C · #2B5CB8 · #D4A017 · #6B7280 · #C0376B), <code>defaultWindow</code>, <code>sensitive</code></td>
+</tr>
+<tr>
+<td><code>PostStatus</code></td>
+<td><code>DRAFT</code> · <code>PUBLISHED</code> · <code>HIDDEN</code> · <code>REMOVED</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>AlertSeverity</code></td>
+<td><code>BAIXA</code> · <code>MEDIA</code> · <code>ALTA</code> · <code>CRITICA</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>AlertType</code></td>
+<td><code>TRANSFERENCIA</code> · <code>LESAO</code> · <code>PUNICAO</code> · <code>INSTITUCIONAL</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>MetricType</code></td>
+<td><code>FISICA</code> · <code>TECNICA</code> · <code>TATICA</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>EventType</code></td>
+<td><code>TREINO</code> · <code>PARTIDA</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>Period</code></td>
+<td><code>WEEK</code> · <code>MONTH</code> · <code>SEASON</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ReportSource</code></td>
+<td><code>HOMOLOGADO</code> · <code>COMUNIDADE</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>RarityTier</code></td>
+<td><code>COMMON</code>(0–400) · <code>RARE</code>(401–900) · <code>EPIC</code>(901–1600) · <code>LEGENDARY</code>(1601–2400) · <code>MYTHIC</code>(2401+)</td>
+<td><code>minScore</code>, <code>maxScore</code>, <code>visualEffect</code>, <code>fromScore()</code></td>
+</tr>
+<tr>
+<td><code>RewardTier</code></td>
+<td><code>BRONZE</code> · <code>SILVER</code> · <code>GOLD</code> · <code>PLATINUM</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>TwinStatus</code></td>
+<td><code>DRAFT</code> · <code>ACTIVE</code> · <code>SUSPENDED</code> · <code>PENDING_DELETE</code> · <code>ANONYMIZED</code> · <code>DELETED</code></td>
+<td><code>allowedNext()</code></td>
+</tr>
+<tr>
+<td><code>PhysicalStatus</code></td>
+<td><code>READY</code> · <code>FATIGUE_RISK</code> · <code>INJURED</code></td>
+<td><code>badge()</code>, <code>blocksCallUp()</code></td>
+</tr>
+<tr>
+<td><code>BadgeCategory</code></td>
+<td><code>SEASON_STATS</code> · <code>PHYSICAL_STATUS</code> · <code>SOCIAL_TACTICAL</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>BadgeType</code></td>
+<td><code>ARTILHEIRO</code> · <code>GARCOM</code> · <code>PAREDAO</code> · <code>XERIFAO</code> · <code>MOTORZINHO</code> · <code>PRONTO_PRA_JOGO</code> · <code>DEPARTAMENTO_MEDICO</code> · <code>RISCO_FADIGA</code> · <code>MVP</code> · <code>MESTRE_TATICO</code> · <code>EM_CHAMAS</code> · <code>LIDER_CAPITAO</code> · <code>FAIR_PLAY</code></td>
+<td><code>category</code>, <code>emoji</code>, <code>color</code>, <code>priority</code>, <code>quantitative</code></td>
+</tr>
+<tr>
+<td><code>ExportStatus</code></td>
+<td><code>REQUESTED</code> · <code>PROCESSING</code> · <code>READY</code> · <code>EXPIRED</code> · <code>FAILED</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>SessionState</code></td>
+<td><code>ACTIVE</code> · <code>REVOKED</code> · <code>EXPIRED</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>LgpdArticle</code></td>
+<td><code>ART_6_III</code> · <code>ART_6_IV</code> · <code>ART_6_VI</code> · <code>ART_6_X</code> · <code>ART_7_I</code> · <code>ART_7_V</code> · <code>ART_8_P5</code> · <code>ART_11</code> · <code>ART_18_I_II</code> · <code>ART_18_III</code> · <code>ART_18_V</code> · <code>ART_18_VI</code> · <code>ART_18_VII</code> · <code>ART_18_IX</code></td>
+<td><code>label</code> exibido na pill da UI</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>10. Relacionamentos (cardinalidades)</h2>
+<table>
+<thead>
+<tr>
+<th>De</th>
+<th>Para</th>
+<th>Cardinalidade</th>
+<th>Observação</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>User</code></td>
+<td><code>UserLgpdPreferences</code></td>
+<td>1 : 1</td>
+<td>criada no cadastro, tudo <code>FALSE</code></td>
+</tr>
+<tr>
+<td><code>User</code></td>
+<td><code>DigitalTwin</code></td>
+<td>1 : 1</td>
+<td>criada no cadastro em <code>DRAFT</code></td>
+</tr>
+<tr>
+<td><code>User</code></td>
+<td><code>TermsAcceptance</code></td>
+<td>1 : N</td>
+<td>imutável</td>
+</tr>
+<tr>
+<td><code>User</code></td>
+<td><code>ConsentAuditLog</code></td>
+<td>1 : N</td>
+<td>append-only</td>
+</tr>
+<tr>
+<td><code>User</code></td>
+<td><code>DataExportRequest</code></td>
+<td>1 : N</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>User</code></td>
+<td><code>Post</code></td>
+<td>1 : N</td>
+<td>autor</td>
+</tr>
+<tr>
+<td><code>Athlete</code></td>
+<td><code>AthleteBadge</code></td>
+<td>1 : N</td>
+<td>único por tipo+temporada</td>
+</tr>
+<tr>
+<td><code>Athlete</code></td>
+<td><code>InjuryRecord</code></td>
+<td>1 : N</td>
+<td>sensível</td>
+</tr>
+<tr>
+<td><code>Athlete</code></td>
+<td><code>TechnicalEvaluation</code></td>
+<td>1 : N</td>
+<td>avaliado</td>
+</tr>
+<tr>
+<td><code>Athlete</code></td>
+<td><code>MatchPerformance</code></td>
+<td>1 : N</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>Athlete</code></td>
+<td><code>TelemetryData</code></td>
+<td>1 : N</td>
+<td>Cassandra</td>
+</tr>
+<tr>
+<td><code>Athlete</code></td>
+<td><code>Club</code></td>
+<td>N : 1</td>
+<td><code>currentClubId</code>, opcional</td>
+</tr>
+<tr>
+<td><code>DigitalTwin</code></td>
+<td><code>WeeklyScoreSnapshot</code></td>
+<td>1 : N</td>
+<td>único por semana</td>
+</tr>
+<tr>
+<td><code>Post</code></td>
+<td><code>TacticalDrill</code></td>
+<td>0..1 : 0..1</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>Post</code></td>
+<td><code>FeedEntry</code></td>
+<td>1 : N</td>
+<td>fan-out por seguidor × janela</td>
+</tr>
+<tr>
+<td><code>Club</code></td>
+<td><code>LeagueOfficial</code></td>
+<td>N : 1</td>
+<td><code>verifiedBy</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>11. Regras de anonimização (job diário, após 30 dias)</h2>
+<table>
+<thead>
+<tr>
+<th>Entidade</th>
+<th>Ação</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>User</code></td>
+<td><code>email_enc</code>, <code>username</code>, <code>displayName</code>, <code>bio</code>, <code>city</code>, <code>avatarKey</code> → hash/<code>anon_{shortId}</code>; <code>status = ANONYMIZED</code></td>
+</tr>
+<tr>
+<td>Subclasses</td>
+<td>campos identificadores (licença, CNPJ, press card) → nulos</td>
+</tr>
+<tr>
+<td><code>Session</code>, <code>rt:*</code>, <code>stepup:*</code></td>
+<td>removidos do Redis</td>
+</tr>
+<tr>
+<td><code>Post</code></td>
+<td><code>text</code> → <code>[conteúdo removido]</code>, <code>mediaKeys</code> apagados do S3, autor → pseudônimo</td>
+</tr>
+<tr>
+<td><code>TelemetryData</code></td>
+<td><code>gps_track</code> apagado; métricas agregadas mantidas sem vínculo nominal</td>
+</tr>
+<tr>
+<td><code>InjuryRecord</code></td>
+<td>removido fisicamente</td>
+</tr>
+<tr>
+<td><code>WeeklyScoreSnapshot</code>, <code>AthleteBadge</code></td>
+<td>mantidos como agregados (<code>D</code>) ligados ao pseudônimo</td>
+</tr>
+<tr>
+<td><code>ConsentAuditLog</code>, <code>TermsAcceptance</code></td>
+<td>mantidos (obrigação legal de accountability) com <code>userId</code> pseudonimizado</td>
+</tr>
+<tr>
+<td><code>DataExportRequest</code></td>
+<td>objetos S3 apagados; registro marcado <code>EXPIRED</code></td>
+</tr>
+</tbody>
+</table></body></html>
