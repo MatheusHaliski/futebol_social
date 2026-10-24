@@ -1,0 +1,78 @@
+@startuml rf2_component
+title RF2 — Componentes de Identidade, Termos e Papéis extensíveis
+skinparam componentStyle rectangle
+left to right direction
+
+actor Usuário as U
+node "Agentes de IA (Python)" as Agents
+
+package "SPA / Mobile" {
+  component "Wizard de Cadastro\n(1 passo por papel)" as Wiz
+  component "Modal de Termos Velion\n(checkbox desmarcado)" as Terms
+  component "Anel de Perfil\n(ringColor por UserRole)" as Ring
+}
+
+node "Spring Boot Core" {
+  component "UserController\n/v1/users" as UC
+  component "TermsController\n/v1/terms" as TC
+  component "RegisterUserUseCase" as RUC
+  component "AcceptTermsUseCase" as AUC
+  component "RoleRegistry\n(Map<UserRole, RoleCapability>)" as RR
+  package "RoleCapability (Strategy)" {
+    component "AthleteCapability" as C1
+    component "TechnicalStaffCapability" as C2
+    component "ClubCapability" as C3
+    component "ScoutCapability" as C4
+    component "BrandCapability" as C5
+    component "PressCapability" as C6
+    component "LeagueOfficialCapability" as C7
+    component "AgentProvidedCapability\n(registro em runtime)" as C8
+  }
+  component "UserRepository\n(JPA JOINED)" as UR
+  component "TermsRepository" as TRp
+  component "LgpdPreferencesRepository" as LR
+  component "DigitalTwinRepository" as DTR
+  component "MailService" as Mail
+  component "Agent Role API\n(gRPC /roles/register)" as RoleAPI
+}
+
+database "MySQL 8" as DB {
+  component "users (base)" as T1
+  component "user_athletes · user_clubs\nuser_scouts · user_brands\nuser_press · user_technical_staff\nuser_league_officials" as T2
+  component "terms_versions\nterms_acceptances" as T3
+  component "user_lgpd_preferences" as T4
+  component "digital_twins" as T5
+}
+cloud "SMTP / SES" as SMTP
+
+U --> Wiz
+Wiz --> Terms
+Wiz --> UC
+Terms --> TC
+UC --> RUC
+TC --> AUC
+RUC --> RR
+RR --> C1
+RR --> C2
+RR --> C3
+RR --> C4
+RR --> C5
+RR --> C6
+RR --> C7
+RR --> C8
+Agents --> RoleAPI
+RoleAPI --> RR : register(capability)
+RUC --> UR
+RUC --> LR
+RUC --> DTR
+RUC --> TRp
+AUC --> TRp
+RUC --> Mail
+Mail --> SMTP
+UR --> T1
+UR --> T2
+TRp --> T3
+LR --> T4
+DTR --> T5
+UC --> Ring : ProfileDTO.ringColor
+@enduml

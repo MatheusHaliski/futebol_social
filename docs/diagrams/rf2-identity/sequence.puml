@@ -1,0 +1,55 @@
+@startuml rf2_sequence
+title RF2 — Sequência: cadastro de ATLETA com Strategy por papel
+autonumber
+
+actor "Usuário" as U
+participant "SPA" as SPA
+participant "TermsController" as TC
+participant "UserController" as UC
+participant "RegisterUserUseCase" as RUC
+participant "RoleRegistry" as RR
+participant "AthleteCapability" as CAP
+participant "UserRepository (JPA)" as UR
+participant "LgpdPreferencesRepository" as LR
+participant "DigitalTwinRepository" as TR
+participant "TermsAcceptanceRepository" as TAR
+participant "MailService" as Mail
+database "MySQL" as DB
+
+U -> SPA : escolhe ATLETA, preenche dados
+SPA -> TC : GET /v1/terms/current
+TC --> SPA : { version: "2026.10", url }
+SPA -> U : exibe termos (checkbox desmarcado)
+U -> SPA : marca aceite, clica "Criar conta"
+SPA -> UC : POST /v1/users\n{ role: ATLETA, ..., termsVersion: "2026.10" }
+UC -> RUC : execute(cmd)
+RUC -> RUC : valida idade, e-mail, versão dos termos
+RUC -> RR : resolve(ATLETA)
+RR --> RUC : AthleteCapability
+RUC -> CAP : instantiate(cmd)
+CAP --> RUC : Athlete(position, club, …)\nstatus = PENDING_VERIFICATION\nvisibility = SOMENTE_EU
+RUC -> UR : save(athlete)
+UR -> DB : INSERT users + user_athletes (JOINED)
+RUC -> LR : save(UserLgpdPreferences(all = FALSE))
+LR -> DB : INSERT user_lgpd_preferences
+RUC -> TR : save(DigitalTwin(DRAFT, COMMON))
+TR -> DB : INSERT digital_twins
+RUC -> TAR : save(TermsAcceptance(version, ip, ua))
+TAR -> DB : INSERT terms_acceptances
+RUC -> Mail : sendVerification(token 24h)
+RUC --> UC : User
+UC --> SPA : 201 { id, role: ATLETA, ringColor: "#15805C" }
+SPA -> U : "Verifique seu e-mail"
+
+== Verificação ==
+U -> UC : GET /v1/users/verify?token=…
+UC -> RUC : verify(token)
+RUC -> UR : status = ACTIVE
+UR -> DB : UPDATE users
+UC --> U : 200 → redireciona para login (RF1)
+
+== Extensão por Agente IA ==
+participant "Agente Python" as AG
+AG -> RR : register(AgentProvidedCapability(PREPARADOR_FISICO))
+RR --> AG : ok (novo papel disponível sem deploy do core)
+@enduml

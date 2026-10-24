@@ -1,0 +1,84 @@
+@startuml rf5_component
+title RF5 — Componentes da Central de Privacidade (anatomia da tela → API → persistência)
+skinparam componentStyle rectangle
+left to right direction
+
+actor Titular as T
+
+package "SPA — /configuracoes" {
+  component "Nav lateral\n(5 seções)" as Nav
+  component "Conta\ninputs editáveis · pill Art. 18, III" as SConta
+  component "Privacidade\nradio visibilidade (SOMENTE_EU)\ntoggles opt-in · pills Art. 7º/11/18" as SPriv
+  component "Aparência\nmodo escuro · fonte\n(preferência, não dado pessoal)" as SApar
+  component "Idioma\npt-BR · en-US · es" as SIdi
+  component "Seus dados\nExportar (Art. 18, V)\nZona de risco: Excluir (Art. 18, VI)" as SDados
+  component "ConfirmDialog\n(dupla confirmação + step-up)" as Confirm
+}
+
+node "Spring Boot Core" {
+  component "ProfileController\n/v1/me/profile" as PC
+  component "PrivacyController\n/v1/me/privacy" as PrC
+  component "PreferencesController\n/v1/me/preferences/{ui,locale}" as PfC
+  component "DataRightsController\n/v1/me/data-export · DELETE /v1/me\n/cancel-deletion · /activity" as DRC
+  component "StepUpUseCase (RF1)" as SU
+  component "UpdatePrivacyUseCase" as UP
+  component "ExportUserDataUseCase\n(worker assíncrono)" as EX
+  component "DeleteAccountUseCase" as DEL
+  component "AnonymizeDueAccountsJob\n(cron diário 02:30)" as JOB
+  component "LgpdComplianceService" as LS
+  component "DarkPatternGuard\n(sem pré-marcação · sem agrupamento)" as DPG
+  component "LgpdPreferencesRepository" as LR
+  component "ConsentAuditRepository\n(append-only)" as CAR
+  component "DataExportRepository" as DER
+  component "UserRepository / TwinRepository\nPostRepository" as UR
+  component "PiiCryptoConverter\n(AES-256)" as Crypto
+  component "SessionRevoker" as SR
+  component "ExportStorage" as ES
+  component "Notifier (janela ALERTA)" as NT
+}
+
+database "MySQL 8\nuser_lgpd_preferences\nconsent_audit_log\ndata_export_requests\nusers · digital_twins · posts" as MySQL
+database "Redis 7\nsession:* (revogação)" as Redis
+cloud "S3 / MinIO\nexports/{userId}/*.json (7 d)\nmídias do usuário" as S3
+component "RF4 Badges · RF3 Feeds\n(consomem prefs p/ filtrar dados sensíveis)" as Cons
+
+T --> Nav
+Nav --> SConta
+Nav --> SPriv
+Nav --> SApar
+Nav --> SIdi
+Nav --> SDados
+SDados --> Confirm
+SConta --> PC
+SPriv --> PrC
+SApar --> PfC
+SIdi --> PfC
+Confirm --> SU
+SDados --> DRC
+PrC --> UP
+DRC --> EX
+DRC --> DEL
+DRC --> SU
+UP --> LS
+UP --> DPG
+EX --> LS
+DEL --> LS
+JOB --> LS
+UP --> LR
+UP --> CAR
+EX --> DER
+EX --> ES
+EX --> NT
+DEL --> UR
+DEL --> SR
+JOB --> UR
+JOB --> ES
+LS --> Crypto
+LR --> MySQL
+CAR --> MySQL
+DER --> MySQL
+UR --> MySQL
+SR --> Redis
+ES --> S3
+LR --> Cons
+@enduml

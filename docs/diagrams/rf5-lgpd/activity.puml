@@ -1,0 +1,85 @@
+@startuml rf5_activity
+title RF5 — Central de Privacidade: consentimento, exportação e exclusão com graça · Diagrama de Atividades
+
+|Titular|
+start
+:Abre Configurações\n(Conta · Privacidade · Aparência · Idioma · Seus dados);
+switch (seção?)
+case (Privacidade)
+  |SPA|
+  :Renderiza radio "Quem pode ver" (padrão SOMENTE_EU)\ne toggles de consentimento — **todos desligados**\ncom pill do artigo LGPD;
+  |Titular|
+  :Liga/desliga um toggle (1 clique);
+  |SPA|
+  if (toggle sensível — Art. 11?) then (sim)
+    :Exibe aviso destacado\n(dado médico/biométrico);
+    |Titular|
+    :Confirma especificamente;
+    |SPA|
+  endif
+  :PUT /v1/me/privacy { key: value };
+  |Core API|
+  :assertNoDarkPatterns()\n(sem agrupamento, sem pré-marcação);
+  :prefs.set(key, value);
+  :Grava ConsentAuditLog\n(old → new, artigo, IP, UA, data);
+  :200 PrivacySettingsDTO;
+  |SPA|
+  :Atualiza toggle — revogar tem o mesmo custo\nque conceder (Art. 8º, §5º);
+
+case (Seus dados → Exportar)
+  |SPA|
+  :POST /v1/me/data-export;
+  |Core API|
+  :Exige step-up (reautenticação);
+  :Cria DataExportRequest(REQUESTED);
+  :202 Accepted { id };
+  fork
+    |Core API|
+    :Worker: status = PROCESSING;
+    :buildExportPayload()\nperfil · prefs · consentimentos · termos\ntwin · scores · badges · lesões\ntelemetria · posts;
+    :Serializa JSON (legível por máquina);
+    :Upload S3 (expira em 7 d);
+    :status = READY · notifica janela ALERTA;
+  fork again
+    |Titular|
+    :Acompanha status / recebe notificação;
+  end fork
+  |Titular|
+  :Baixa via URL pré-assinada (24 h);
+
+case (Seus dados → Excluir conta)
+  |SPA|
+  :Zona de risco: explica consequências\n+ período de graça de 30 dias;
+  |Titular|
+  :Digita "EXCLUIR" (confirmação 1);
+  :Reautentica (confirmação 2 / step-up);
+  |SPA|
+  :DELETE /v1/me;
+  |Core API|
+  :User.status = PENDING_DELETE\nTwin.status = PENDING_DELETE;
+  :scheduledPurgeAt = now + 30 d;
+  :Revoga todas as sessões (Redis);
+  :Posts ocultos · card invisível;
+  :202 { scheduledPurgeAt };
+  |Titular|
+  if (fez login ou cancel-deletion em ≤ 30 d?) then (sim)
+    |Core API|
+    :cancelDeletion(): status = ACTIVE\n(twin volta ao tier anterior);
+    |Titular|
+    :Conta restaurada;
+  else (não)
+    |Job diário 02:30|
+    :Seleciona contas com scheduledPurgeAt ≤ now;
+    :anonymize(): PII → hash irreversível,\nmídias removidas do S3, posts anonimizados;
+    :status = ANONYMIZED (snapshots agregados mantidos);
+    :Registra evento de auditoria;
+  endif
+
+case (Aparência / Idioma)
+  |SPA|
+  :PUT /v1/me/preferences/ui ou /locale;
+  |Core API|
+  :Persiste preferência de interface\n(não é dado pessoal — sem ConsentAuditLog);
+endswitch
+stop
+@enduml

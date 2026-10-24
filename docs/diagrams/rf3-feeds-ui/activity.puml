@@ -1,0 +1,61 @@
+@startuml rf3_activity
+title RF3 — Publicar via FAB, classificar card e navegar entre janelas · Diagrama de Atividades
+
+|Usuário|
+start
+:Abre o app (mobile);
+
+|SPA|
+:GET /v1/ui/navigation;
+:Renderiza Bottom Bar com **4 abas**\nPERFIL · GEMEO · SCOUTING · ALERTA\n+ FAB central elevado;
+:Carrega janela padrão (PERFIL)\nGET /v1/feeds/PERFIL;
+
+repeat
+  switch (gesto do usuário?)
+  case (scroll ↓)
+    :Oculta Bottom Bar (translateY 100%);
+    if (chegou ao fim da página?) then (sim)
+      :GET /v1/feeds/{window}?cursor=next;
+    endif
+  case (scroll ↑)
+    :Reexibe Bottom Bar;
+  case (swipe lateral)
+    :Troca para janela adjacente\n(estado e cursor preservados por janela);
+  case (toque em aba)
+    :Ativa janela escolhida\n(sem recarregar as demais);
+  case (toque no FAB)
+    |Usuário|
+    :Escolhe PostContentType permitido\npara o seu UserRole;
+    :Escreve texto, anexa mídia;
+    |SPA|
+    if (há mídia?) then (sim)
+      :POST /v1/posts/upload-url → URL pré-assinada;
+      :PUT direto no S3;
+    endif
+    :POST /v1/posts { contentType, text, mediaKeys };
+    |Core API|
+    if (contentType.allowedFor(authorRole)?) then (não)
+      :403 — tipo não permitido para o papel;
+      |SPA|
+    else (sim)
+      if (contentType == LESAO_ALERTA?) then (sim)
+        :Exige shareMedicalData == true\nou destino restrito ao clube;
+      endif
+      :CardClassifier.classify()\nringColor ← authorRole\nborderColor ← contentType\nwindow ← contentType.defaultWindow;
+      :Persiste Post (MySQL, PUBLISHED);
+      fork
+        :Fan-out: FeedEntry no Cassandra\n(autor + seguidores, partição por janela);
+      fork again
+        :Evict cache Redis das janelas afetadas;
+      fork again
+        :Publica PostPublished (badges, notificações);
+      end fork
+      :201 FeedCardDTO;
+      |SPA|
+      :Insere card no topo da janela destino\ncom bolinha + borda corretas;
+    endif
+  endswitch
+repeat while (app aberto?) is (sim)
+->não;
+stop
+@enduml

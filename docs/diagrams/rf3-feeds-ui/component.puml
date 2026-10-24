@@ -1,0 +1,82 @@
+@startuml rf3_component
+title RF3 — Componentes da SPA multi-janela e do pipeline de feed
+skinparam componentStyle rectangle
+left to right direction
+
+actor Usuário as U
+
+package "SPA / Mobile (React / Expo)" {
+  component "App Shell\n(Topbar + Sidebar desktop)" as Shell
+  component "BottomNavigation\n4 abas · hide-on-scroll · a11y 3:1" as BN
+  component "FAB central\n(criar post)" as FAB
+  component "SwipePager\n(gestos entre janelas)" as Pager
+  component "FeedWindow PERFIL" as W1
+  component "FeedWindow GEMEO" as W2
+  component "FeedWindow SCOUTING" as W3
+  component "FeedWindow ALERTA" as W4
+  component "FeedCard\n(anel autor + borda conteúdo\n+ tier + micro-badges)" as Card
+  component "PostComposer\n(tipos permitidos por papel)" as Composer
+  component "FeedStore\n(cursor/scroll por janela)" as Store
+}
+
+node "Spring Boot Core" {
+  component "NavigationController\n/v1/ui/navigation" as NC
+  component "FeedController\n/v1/feeds/{window}" as FC
+  component "PostController\n/v1/posts" as PC
+  component "ReadFeedUseCase" as RF
+  component "PublishPostUseCase" as PP
+  component "CardClassifier" as CL
+  component "FeedFanOutService" as FO
+  component "FeedCache" as Cache
+  component "FeedEntryRepository" as FER
+  component "PostRepository" as PR
+  component "MediaStorage" as MS
+  component "DomainEvents\n(PostPublished)" as Ev
+}
+
+database "Cassandra 4\nfeed_entries\n(PK userId, window;\nCK publishedAt DESC)" as Cass
+database "Redis 7\nfeed:{userId}:{window}:{cursor}" as Redis
+database "MySQL 8\nposts · tactical_drills" as MySQL
+cloud "S3 / MinIO\nmídias" as S3
+component "Badges (RF4.1)\nNotificações (ALERTA)" as Down
+
+U --> Shell
+Shell --> BN
+Shell --> Pager
+BN --> FAB
+Pager --> W1
+Pager --> W2
+Pager --> W3
+Pager --> W4
+W1 --> Card
+W2 --> Card
+W3 --> Card
+W4 --> Card
+FAB --> Composer
+W1 --> Store
+W2 --> Store
+W3 --> Store
+W4 --> Store
+
+BN --> NC
+Store --> FC
+Composer --> PC
+Composer --> S3 : PUT pré-assinado
+FC --> RF
+PC --> PP
+PC --> MS
+PP --> CL
+PP --> PR
+PP --> FO
+PP --> Ev
+FO --> FER
+FO --> Cache : evict
+RF --> Cache
+RF --> FER
+RF --> PR
+FER --> Cass
+Cache --> Redis
+PR --> MySQL
+MS --> S3
+Ev --> Down
+@enduml

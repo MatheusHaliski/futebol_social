@@ -1,0 +1,181 @@
+@startuml rf4_class
+title RF4 — Rarity Engine & Gêmeo Digital · Diagrama de Classes
+skinparam classAttributeIconSize 0
+hide empty fields
+
+package "web" {
+  class TwinController <<@RestController /v1/twins>> {
+    +myTwin() : TwinCardDTO
+    +twinOf(userId : UUID) : TwinCardDTO
+    +history(userId : UUID) : List<WeeklyScoreDTO>
+  }
+  class "record TwinCardDTO" as TwinCardDTO {
+    +userId : UUID
+    +status : TwinStatus
+    +scoreTotal : int
+    +rarityTier : RarityTier
+    +visualEffect : String
+    +physicalStatus : PhysicalStatus
+    +weekBreakdown : ScoreBreakdownDTO
+  }
+}
+
+package "application" {
+  class WeeklyRarityJob <<@Scheduled(cron = "0 0 3 * * MON")>> {
+    +run() : void
+  }
+  class RecalculateTwinUseCase {
+    +execute(userId : UUID, isoWeek : String) : WeeklyScoreSnapshot
+  }
+  class ScoreInputCollector {
+    +collect(userId : UUID, isoWeek : String) : ScoreInputs
+  }
+}
+
+package "domain.twin" {
+  class RarityCalculationService <<Domain Service · determinístico>> {
+    {static} -W_PHYSICAL : BigDecimal = 0.30
+    {static} -W_TECHNICAL : BigDecimal = 0.40
+    {static} -W_MATCH : BigDecimal = 0.30
+    {static} -MAX_SCORE : int = 3000
+    --
+    +calculate(inputs : ScoreInputs) : ScoreResult
+    -physicalScore(i) : BigDecimal   (assiduidade × carga normalizada)
+    -technicalScore(i) : BigDecimal  (média ponderada das avaliações 0–10)
+    -matchScore(i) : BigDecimal      (minutos + rating + oficiais)
+    -normalize(v, min, max) : BigDecimal  (HALF_EVEN, escala 4)
+  }
+  class "record ScoreInputs" as ScoreInputs {
+    +userId : UUID
+    +isoWeek : String
+    +trainingSessions : int
+    +plannedSessions : int
+    +totalLoadAu : BigDecimal
+    +avgRpe : BigDecimal
+    +evaluations : List<TechnicalEvaluation>
+    +matches : List<MatchPerformance>
+    +badgeBonus : BigDecimal (RF4.1)
+    --
+    +hash() : String  (SHA-256 canônico)
+  }
+  class "record ScoreResult" as ScoreResult {
+    +physical : BigDecimal
+    +technical : BigDecimal
+    +match : BigDecimal
+    +total : int
+    +tier : RarityTier
+  }
+  class DigitalTwin <<@Entity @Table(digital_twins)>> {
+    -id : UUID
+    -userId : UUID
+    -status : TwinStatus
+    -physicalStatus : PhysicalStatus
+    -scoreTotal : int
+    -rarityTier : RarityTier
+    -rewardTier : RewardTier
+    -lastCalculatedWeek : String
+    -activatedAt : Instant
+    -suspendedAt : Instant
+    --
+    +transitionTo(next : TwinStatus) : void
+    +applyScore(s : WeeklyScoreSnapshot) : TierChange
+    +canTransition(next) : boolean
+  }
+  class WeeklyScoreSnapshot <<@Entity @Table(weekly_score_snapshots)\n@UniqueConstraint(twin_id, iso_week)>> {
+    -id : UUID
+    -isoWeek : String
+    -physicalScore : BigDecimal
+    -technicalScore : BigDecimal
+    -matchScore : BigDecimal
+    -scoreTotal : int
+    -rarityTier : RarityTier
+    -inputsHash : String
+    -calculatedAt : Instant
+  }
+  class TechnicalEvaluation <<@Entity>> {
+    -evaluatorId : UUID
+    -evaluatorRole : UserRole
+    -rating : BigDecimal
+    -weight : BigDecimal (comissão 1.0 · comunidade 0.5)
+    -weekOf : LocalDate
+  }
+  class MatchPerformance <<@Entity>> {
+    -matchDate : LocalDate
+    -minutesPlayed : int
+    -rating : BigDecimal
+    -official : boolean
+    -goals : int
+    -assists : int
+    -cleanSheet : boolean
+  }
+  class InvalidTwinTransitionException <<RuntimeException>>
+  class "record TierChange" as TierChange {
+    +from : RarityTier
+    +to : RarityTier
+    +promoted : boolean
+  }
+  enum RarityTier {
+    COMMON(0, 400, "border-default")
+    RARE(401, 900, "glow-blue")
+    EPIC(901, 1600, "particles-purple")
+    LEGENDARY(1601, 2400, "frame-white-gold")
+    MYTHIC(2401, MAX, "aura-dynamic-mvp")
+    --
+    +minScore : int
+    +maxScore : int
+    +visualEffect : String
+    {static} +fromScore(score : int) : RarityTier
+  }
+  enum TwinStatus {
+    DRAFT
+    ACTIVE
+    SUSPENDED
+    PENDING_DELETE
+    ANONYMIZED
+    DELETED
+    --
+    +allowedNext() : Set<TwinStatus>
+  }
+  enum RewardTier {
+    BRONZE
+    SILVER
+    GOLD
+    PLATINUM
+  }
+}
+
+package "infrastructure" {
+  class DigitalTwinRepository <<JPA>>
+  class WeeklyScoreSnapshotRepository <<JPA>> {
+    +existsByTwinAndWeek(twinId, isoWeek) : boolean
+  }
+  class TelemetryRepository <<Cassandra>> {
+    +weekly(athleteId, isoWeek) : List<TelemetryData>
+  }
+  class TwinEventPublisher {
+    +tierChanged(e : TierChange) : void
+  }
+}
+
+TwinController --> DigitalTwinRepository
+TwinController ..> TwinCardDTO
+WeeklyRarityJob --> RecalculateTwinUseCase : para cada twin ACTIVE
+RecalculateTwinUseCase --> ScoreInputCollector
+RecalculateTwinUseCase --> RarityCalculationService
+RecalculateTwinUseCase --> WeeklyScoreSnapshotRepository
+RecalculateTwinUseCase --> DigitalTwinRepository
+RecalculateTwinUseCase --> TwinEventPublisher
+ScoreInputCollector --> TelemetryRepository
+ScoreInputCollector ..> ScoreInputs
+ScoreInputCollector ..> TechnicalEvaluation
+ScoreInputCollector ..> MatchPerformance
+RarityCalculationService ..> ScoreInputs
+RarityCalculationService ..> ScoreResult
+ScoreResult --> RarityTier
+DigitalTwin "1" *-- "0..*" WeeklyScoreSnapshot
+DigitalTwin --> TwinStatus
+DigitalTwin --> RarityTier
+DigitalTwin --> RewardTier
+DigitalTwin ..> InvalidTwinTransitionException : throws
+DigitalTwin ..> TierChange
+@enduml

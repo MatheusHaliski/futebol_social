@@ -1,0 +1,37 @@
+@startuml rf2_state
+title RF2 — Máquina de Estados da Conta (AccountStatus) e do Aceite de Termos
+
+state "AccountStatus" as Acc {
+  [*] --> PENDING_VERIFICATION : POST /v1/users\n(termos aceitos, LGPD prefs FALSE, twin DRAFT)
+  PENDING_VERIFICATION --> ACTIVE : e-mail verificado
+  PENDING_VERIFICATION --> [*] : token expirado + 7 d\nsem reenvio (purge)
+  ACTIVE --> SUSPENDED : moderação / violação de termos
+  SUSPENDED --> ACTIVE : reativação administrativa
+  ACTIVE --> PENDING_DELETE : DELETE /v1/me (RF5)
+  SUSPENDED --> PENDING_DELETE : DELETE /v1/me
+  PENDING_DELETE --> ACTIVE : login ou cancel-deletion\n(≤ 30 dias)
+  PENDING_DELETE --> ANONYMIZED : job diário (≥ 30 dias)
+  ANONYMIZED --> [*]
+
+  PENDING_VERIFICATION : login negado
+  ACTIVE : login permitido se termos vigentes aceitos
+  SUSPENDED : perfil oculto · posts ocultos
+  PENDING_DELETE : sessões revogadas · soft-delete
+}
+
+state "Termos Velion por usuário" as T {
+  [*] --> NOT_ACCEPTED
+  NOT_ACCEPTED --> ACCEPTED_CURRENT : TermsAcceptance(version = vigente)
+  ACCEPTED_CURRENT --> OUTDATED : nova TermsVersion publicada\n(current = true)
+  OUTDATED --> ACCEPTED_CURRENT : POST /v1/terms/accept\n(nova versão)
+  OUTDATED : login responde 428\naté re-aceite
+  ACCEPTED_CURRENT : acesso normal
+}
+
+Acc -[hidden]-> T
+note bottom of T
+  Cada aceite é um registro imutável
+  (versão, data, IP, user-agent) —
+  trilha exigida para accountability (Art. 6º, X).
+end note
+@enduml

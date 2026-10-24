@@ -1,0 +1,381 @@
+@startuml class_diagram
+title Football AI · Social — Modelo de Domínio Rico (visão global)
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+hide empty methods
+
+' ======================= ENUMS =======================
+package "domain.shared (enums)" <<Rectangle>> {
+  enum UserRole {
+    ATLETA        : ring #15805C (Verde)
+    TECNICO_STAFF : ring #5BA3E6 (Azul Claro)
+    CLUBE         : ring #1E3A8A (Azul Escuro)
+    SCOUT         : ring #D4A017 (Amarelo)
+    MARCA         : ring #7C3AED (Roxo)
+    IMPRENSA      : ring #EA580C (Laranja)
+    OFICIAL_LIGA  : ring #C9A227 (Dourado)
+    --
+    +ringColor : String
+    +label : String
+  }
+  enum PostContentType {
+    TREINO           : borda Verde    → GEMEO
+    PARTIDA_MOMENTO  : borda Azul     → PERFIL
+    RELATORIO_TATICO : borda Amarela  → SCOUTING
+    INSTITUCIONAL    : borda Cinza    → ALERTA
+    LESAO_ALERTA     : borda Vermelha → ALERTA (sensível)
+    --
+    +borderColor : String
+    +defaultWindow : FeedWindow
+    +sensitive : boolean
+  }
+  enum FeedWindow {
+    PERFIL   : 1 · Descoberta & Social
+    GEMEO    : 2 · Telemetria & Treinos
+    SCOUTING : 3 · Prancheta & Análises
+    ALERTA   : 4 · Saúde, Lesões & DM
+    --
+    +order : int
+    +icon : String
+    +route : String
+  }
+  enum RarityTier {
+    COMMON    : 0–400     borda padrão
+    RARE      : 401–900   glow azul
+    EPIC      : 901–1600  partículas roxas
+    LEGENDARY : 1601–2400 branco + dourado
+    MYTHIC    : 2401+     aura dinâmica + MVP
+    --
+    +minScore : int
+    +maxScore : int
+    +visualEffect : String
+    {static} +fromScore(score : int) : RarityTier
+  }
+  enum RewardTier {
+    BRONZE
+    SILVER
+    GOLD
+    PLATINUM
+  }
+  enum TwinStatus {
+    DRAFT
+    ACTIVE
+    SUSPENDED
+    PENDING_DELETE
+    ANONYMIZED
+    DELETED
+  }
+  enum AccountStatus {
+    PENDING_VERIFICATION
+    ACTIVE
+    SUSPENDED
+    PENDING_DELETE
+    ANONYMIZED
+  }
+  enum ProfileVisibility {
+    SOMENTE_EU  : padrão (Privacy by Default)
+    CONEXOES
+    PUBLICO
+  }
+  enum BadgeCategory {
+    SEASON_STATS
+    PHYSICAL_STATUS
+    SOCIAL_TACTICAL
+  }
+  enum BadgeType {
+    ARTILHEIRO ⚽ | GARCOM 🎯 | PAREDAO 🧱 | XERIFAO 🧱 | MOTORZINHO ⏱️
+    PRONTO_PRA_JOGO ⚡ | DEPARTAMENTO_MEDICO 🚑 | RISCO_FADIGA ⚠️
+    MVP 🏆 | MESTRE_TATICO 🧠 | EM_CHAMAS 🔥 | LIDER_CAPITAO 👑 | FAIR_PLAY 🛡️
+    --
+    +category : BadgeCategory
+    +emoji : String
+    +color : String
+    +priority : int
+    +quantitative : boolean
+  }
+  enum PhysicalStatus {
+    READY
+    FATIGUE_RISK
+    INJURED
+  }
+}
+
+' ======================= IDENTITY =======================
+package "domain.identity" <<Rectangle>> {
+  abstract class User <<@Entity @Inheritance(JOINED)>> {
+    -id : UUID
+    -email : String <<encrypted>>
+    -passwordHash : String
+    -username : String
+    -displayName : String
+    -birthDate : LocalDate
+    -bio : String
+    -role : UserRole
+    -status : AccountStatus
+    -visibility : ProfileVisibility
+    -locale : String
+    -darkMode : boolean
+    -createdAt : Instant
+    -deletionRequestedAt : Instant
+    -scheduledPurgeAt : Instant
+    --
+    +requestDeletion() : void
+    +cancelDeletion() : void
+    +anonymize() : void
+    +hasAcceptedCurrentTerms(v : TermsVersion) : boolean
+  }
+  class Athlete <<@Entity>> {
+    -position : String
+    -dominantFoot : String
+    -heightCm : int
+    -weightKg : int
+    -currentClubId : UUID
+  }
+  class TechnicalStaff <<@Entity>> {
+    -specialty : String
+    -licenseCode : String
+  }
+  class Club <<@Entity>> {
+    -legalName : String
+    -federationCode : String
+    -city : String
+  }
+  class Scout <<@Entity>> {
+    -agency : String
+    -regionsOfInterest : String
+  }
+  class Brand <<@Entity>> {
+    -tradeName : String
+    -segment : String
+  }
+  class Press <<@Entity>> {
+    -outlet : String
+    -pressCardId : String
+  }
+  class LeagueOfficial <<@Entity>> {
+    -entityName : String
+    -officialRole : String
+  }
+  class TermsVersion <<@Entity>> {
+    -id : UUID
+    -version : String
+    -owner : String = "Velion / Orange Social"
+    -effectiveFrom : Instant
+    -current : boolean
+  }
+  class TermsAcceptance <<@Entity>> {
+    -id : UUID
+    -termsVersion : String
+    -acceptedAt : Instant
+    -ipAddress : String
+    -userAgent : String
+  }
+  interface RoleCapability <<Strategy>> {
+    +supports(role : UserRole) : boolean
+    +onRegister(cmd : RegisterUserCommand) : User
+    +allowedContentTypes() : Set<PostContentType>
+  }
+}
+
+User <|-- Athlete
+User <|-- TechnicalStaff
+User <|-- Club
+User <|-- Scout
+User <|-- Brand
+User <|-- Press
+User <|-- LeagueOfficial
+User "1" *-- "0..*" TermsAcceptance
+TermsAcceptance ..> TermsVersion : references version
+User --> UserRole
+User --> AccountStatus
+User --> ProfileVisibility
+RoleCapability ..> UserRole
+
+' ======================= LGPD =======================
+package "domain.lgpd" <<Rectangle>> {
+  class UserLgpdPreferences <<@Entity>> {
+    -id : UUID
+    -shareTelemetryWithClubs : boolean = false
+    -shareTelemetryWithScouts : boolean = false
+    -shareMedicalData : boolean = false  <<Art.11>>
+    -shareBiometricData : boolean = false <<Art.11>>
+    -locationHistory : boolean = false
+    -shareWithBrands : boolean = false
+    -personalizedAds : boolean = false
+    -aiAgentProcessing : boolean = false
+    -updatedAt : Instant
+    --
+    +change(pref : String, value : boolean, ctx : ConsentContext) : ConsentAuditLog
+  }
+  class ConsentAuditLog <<@Entity append-only>> {
+    -id : UUID
+    -preference : String
+    -oldValue : boolean
+    -newValue : boolean
+    -lgpdArticle : String
+    -changedAt : Instant
+    -ipAddress : String
+  }
+  class DataExportRequest <<@Entity>> {
+    -id : UUID
+    -status : ExportStatus
+    -requestedAt : Instant
+    -readyAt : Instant
+    -expiresAt : Instant
+    -s3ObjectKey : String
+  }
+  enum ExportStatus {
+    REQUESTED
+    PROCESSING
+    READY
+    EXPIRED
+    FAILED
+  }
+}
+User "1" *-- "1" UserLgpdPreferences
+User "1" *-- "0..*" ConsentAuditLog
+User "1" *-- "0..*" DataExportRequest
+DataExportRequest --> ExportStatus
+
+' ======================= TWIN / RARITY =======================
+package "domain.twin" <<Rectangle>> {
+  class DigitalTwin <<@Entity>> {
+    -id : UUID
+    -status : TwinStatus
+    -physicalStatus : PhysicalStatus
+    -scoreTotal : int
+    -rarityTier : RarityTier
+    -rewardTier : RewardTier
+    -lastCalculatedWeek : String (ISO week)
+    -activatedAt : Instant
+    --
+    +transitionTo(next : TwinStatus) : void
+    +applyScore(snapshot : WeeklyScoreSnapshot) : void
+  }
+  class WeeklyScoreSnapshot <<@Entity>> {
+    -id : UUID
+    -isoWeek : String
+    -physicalScore : BigDecimal  (30%)
+    -technicalScore : BigDecimal (40%)
+    -matchScore : BigDecimal     (30%)
+    -scoreTotal : int
+    -rarityTier : RarityTier
+    -calculatedAt : Instant
+    -inputsHash : String
+  }
+  class TechnicalEvaluation <<@Entity>> {
+    -id : UUID
+    -evaluatorId : UUID
+    -rating : BigDecimal (0–10)
+    -weekOf : LocalDate
+  }
+  class MatchPerformance <<@Entity>> {
+    -id : UUID
+    -matchDate : LocalDate
+    -minutesPlayed : int
+    -goals : int
+    -assists : int
+    -cleanSheet : boolean
+    -rating : BigDecimal
+    -official : boolean
+  }
+}
+User "1" *-- "1" DigitalTwin
+DigitalTwin "1" *-- "0..*" WeeklyScoreSnapshot
+DigitalTwin --> TwinStatus
+DigitalTwin --> RarityTier
+DigitalTwin --> RewardTier
+DigitalTwin --> PhysicalStatus
+User "1" *-- "0..*" TechnicalEvaluation
+User "1" *-- "0..*" MatchPerformance
+
+' ======================= BADGES =======================
+package "domain.badge" <<Rectangle>> {
+  class AthleteBadge <<@Entity>> {
+    -id : UUID
+    -badgeType : BadgeType
+    -counter : int
+    -season : String
+    -awardedAt : Instant
+    -awardedBy : UUID
+    -active : boolean
+  }
+  class InjuryRecord <<@Entity sensitive Art.11>> {
+    -id : UUID
+    -injuryType : String
+    -startedAt : LocalDate
+    -expectedReturnDate : LocalDate
+    -clearedAt : LocalDate
+  }
+  class BadgeAuditLog <<@Entity append-only>> {
+    -id : UUID
+    -badgeType : BadgeType
+    -action : String
+    -reason : String
+    -at : Instant
+  }
+}
+Athlete "1" *-- "0..*" AthleteBadge
+Athlete "1" *-- "0..*" InjuryRecord
+AthleteBadge --> BadgeType
+BadgeType --> BadgeCategory
+Athlete "1" *-- "0..*" BadgeAuditLog
+
+' ======================= FEED =======================
+package "domain.feed" <<Rectangle>> {
+  class Post <<@Entity>> {
+    -id : UUID
+    -authorId : UUID
+    -authorRole : UserRole  (bolinha)
+    -contentType : PostContentType (borda)
+    -window : FeedWindow
+    -text : String
+    -mediaKeys : List<String> (S3)
+    -publishedAt : Instant
+    -status : PostStatus
+  }
+  enum PostStatus {
+    DRAFT
+    PUBLISHED
+    HIDDEN
+    REMOVED
+  }
+  class TacticalDrill <<@Entity>> {
+    -id : UUID
+    -title : String
+    -formation : String
+    -boardJson : String (prancheta)
+    -videoKey : String
+  }
+  class FeedEntry <<Cassandra table>> {
+    -userId : UUID  <<PK>>
+    -window : FeedWindow <<PK>>
+    -publishedAt : TimeUUID <<clustering DESC>>
+    -postId : UUID
+    -contentType : PostContentType
+    -authorRole : UserRole
+  }
+}
+User "1" --> "0..*" Post : author
+Post --> PostContentType
+Post --> FeedWindow
+Post --> PostStatus
+Post "0..1" --> "0..1" TacticalDrill
+FeedEntry ..> Post : fan-out
+
+' ======================= TELEMETRY =======================
+package "domain.telemetry" <<Rectangle>> {
+  class TelemetryData <<Cassandra table>> {
+    -athleteId : UUID <<PK>>
+    -sessionDate : LocalDate <<PK>>
+    -recordedAt : Instant <<clustering>>
+    -distanceKm : BigDecimal
+    -durationMin : int
+    -rpe : int (1–10)
+    -loadAu : BigDecimal (RPE × min)
+    -maxSpeedKmh : BigDecimal
+    -gpsTrack : String (opt-in locationHistory)
+  }
+}
+Athlete "1" --> "0..*" TelemetryData
+@enduml

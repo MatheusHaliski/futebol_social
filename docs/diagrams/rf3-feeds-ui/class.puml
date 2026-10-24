@@ -1,0 +1,171 @@
+@startuml rf3_class
+title RF3 — SPA, Navegação Móvel (4 janelas) e Classificação de Cards · Diagrama de Classes
+skinparam classAttributeIconSize 0
+hide empty fields
+
+package "web" {
+  class FeedController <<@RestController /v1/feeds>> {
+    +feed(window : FeedWindow, cursor : String, size : int) : CursorPage<FeedCardDTO>
+  }
+  class PostController <<@RestController /v1/posts>> {
+    +publish(req : PublishPostRequest) : FeedCardDTO
+    +uploadUrl(req : MediaUploadRequest) : PresignedUrlDTO
+  }
+  class NavigationController <<@RestController /v1/ui>> {
+    +navigation() : NavigationDTO
+  }
+  class "record FeedCardDTO" as FeedCardDTO {
+    +postId : UUID
+    +authorId : UUID
+    +authorName : String
+    +authorRole : UserRole
+    +ringColor : String      <<bolinha do autor>>
+    +contentType : PostContentType
+    +borderColor : String    <<borda do conteúdo>>
+    +window : FeedWindow
+    +text : String
+    +mediaUrls : List<String>
+    +publishedAt : Instant
+    +rarityTier : RarityTier
+    +topBadges : List<BadgeDTO>  (≤ 3)
+  }
+  class "record NavigationDTO" as NavigationDTO {
+    +tabs : List<TabDTO>   (exatamente 4)
+    +fab : FabDTO
+    +hideOnScroll : boolean = true
+    +swipeEnabled : boolean = true
+  }
+  class "record TabDTO" as TabDTO {
+    +window : FeedWindow
+    +order : int
+    +icon : String
+    +label : String  <<nunca truncado>>
+    +route : String
+    +minContrast : String = "3:1"
+  }
+  class "record CursorPage<T>" as CursorPage {
+    +items : List<T>
+    +nextCursor : String
+    +hasMore : boolean
+  }
+}
+
+package "application" {
+  class PublishPostUseCase {
+    +execute(cmd : PublishPostCommand) : Post
+  }
+  class ReadFeedUseCase {
+    +execute(userId : UUID, window : FeedWindow, cursor : String) : CursorPage<FeedCardDTO>
+  }
+  class FeedFanOutService {
+    +fanOut(post : Post) : void   (autor + seguidores → FeedEntry)
+  }
+  class CardClassifier <<Domain Service>> {
+    +classify(post : Post, author : User) : CardClassification
+  }
+  class "record CardClassification" as CC {
+    +ringColor : String
+    +borderColor : String
+    +window : FeedWindow
+  }
+}
+
+package "domain.feed" {
+  class Post <<@Entity>> {
+    -id : UUID
+    -authorId : UUID
+    -authorRole : UserRole
+    -contentType : PostContentType
+    -window : FeedWindow
+    -text : String
+    -mediaKeys : List<String>
+    -status : PostStatus
+    -publishedAt : Instant
+    --
+    +publish() : void
+    +hide() : void
+  }
+  class TacticalDrill <<@Entity>> {
+    -id : UUID
+    -title : String
+    -formation : String
+    -boardJson : String
+    -videoKey : String
+  }
+  class FeedEntry <<Cassandra>> {
+    -userId : UUID <<PK>>
+    -window : FeedWindow <<PK>>
+    -publishedAt : TimeUUID <<clustering DESC>>
+    -postId : UUID
+    -contentType : PostContentType
+    -authorRole : UserRole
+  }
+  enum FeedWindow {
+    PERFIL(1, "user", "/perfil")
+    GEMEO(2, "activity", "/gemeo")
+    SCOUTING(3, "clipboard", "/scouting")
+    ALERTA(4, "bell", "/alerta")
+    --
+    +order : int
+    +icon : String
+    +route : String
+  }
+  enum PostContentType {
+    TREINO("#15805C", GEMEO)
+    PARTIDA_MOMENTO("#2B5CB8", PERFIL)
+    RELATORIO_TATICO("#D4A017", SCOUTING)
+    INSTITUCIONAL("#6B7280", ALERTA)
+    LESAO_ALERTA("#C0376B", ALERTA)
+    --
+    +borderColor : String
+    +defaultWindow : FeedWindow
+    +sensitive : boolean
+    +allowedFor(role : UserRole) : boolean
+  }
+  enum PostStatus {
+    DRAFT
+    PUBLISHED
+    HIDDEN
+    REMOVED
+  }
+}
+
+package "infrastructure" {
+  class PostRepository <<JPA>>
+  class FeedEntryRepository <<Cassandra>> {
+    +pageByUserAndWindow(userId, window, cursor, size) : Slice<FeedEntry>
+  }
+  class FeedCache <<Redis>> {
+    +get(userId, window, cursor) : Optional<CursorPage>
+    +put(...) : void   (TTL 60 s)
+    +evict(userId, window) : void
+  }
+  class MediaStorage <<S3>> {
+    +presignUpload(key, contentType) : URL
+  }
+}
+
+FeedController --> ReadFeedUseCase
+PostController --> PublishPostUseCase
+PostController --> MediaStorage
+NavigationController ..> NavigationDTO
+NavigationDTO *-- TabDTO
+TabDTO --> FeedWindow
+PublishPostUseCase --> CardClassifier
+PublishPostUseCase --> PostRepository
+PublishPostUseCase --> FeedFanOutService
+FeedFanOutService --> FeedEntryRepository
+FeedFanOutService --> FeedCache : evict
+ReadFeedUseCase --> FeedCache
+ReadFeedUseCase --> FeedEntryRepository
+ReadFeedUseCase --> PostRepository
+ReadFeedUseCase ..> FeedCardDTO
+ReadFeedUseCase ..> CursorPage
+CardClassifier ..> CC
+Post --> PostContentType
+Post --> FeedWindow
+Post --> PostStatus
+Post "0..1" --> "0..1" TacticalDrill
+FeedEntry ..> Post
+PostContentType --> FeedWindow : defaultWindow
+@enduml

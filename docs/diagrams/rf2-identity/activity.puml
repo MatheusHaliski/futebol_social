@@ -1,0 +1,63 @@
+@startuml rf2_activity
+title RF2 — Cadastro polimórfico com aceite de Termos Velion · Diagrama de Atividades
+
+|Usuário|
+start
+:Abre tela de cadastro;
+:Escolhe categoria (UserRole)\nATLETA · TECNICO_STAFF · CLUBE · SCOUT\nMARCA · IMPRENSA · OFICIAL_LIGA;
+:Preenche dados comuns\n(e-mail, senha, nome, nascimento);
+:Preenche dados específicos do papel\n(posição / clube / agência / veículo…);
+
+|SPA|
+:GET /v1/terms/current;
+:Exibe Termos de Uso + Política de Privacidade\n(Velion · Orange Social) — versão vigente;
+:Checkbox de aceite **desmarcado** por padrão\n(sem dark pattern);
+if (usuário marcou aceite?) then (não)
+  :Botão "Criar conta" permanece desabilitado;
+  stop
+endif
+:POST /v1/users { role, dados, termsVersion };
+
+|Core API|
+:Valida payload (Bean Validation);
+if (idade < 13?) then (sim)
+  :422 — menor sem responsável\n(ECA Digital);
+  stop
+endif
+if (termsVersion == versão vigente?) then (não)
+  :409 — termos desatualizados,\nrecarregar;
+  stop
+endif
+if (e-mail / username já usados?) then (sim)
+  :409 Conflict;
+  stop
+endif
+:RoleRegistry.resolve(role) → RoleCapability;
+:capability.instantiate(cmd)\n(subclasse JPA correta);
+fork
+  :Persiste User (JOINED)\nstatus = PENDING_VERIFICATION\nvisibility = SOMENTE_EU;
+fork again
+  :Cria UserLgpdPreferences\n(todos os toggles = FALSE);
+fork again
+  :Cria DigitalTwin\nstatus = DRAFT · tier = COMMON;
+fork again
+  :Grava TermsAcceptance\n(version, ip, userAgent, timestamp);
+end fork
+:Gera EmailVerificationToken (24 h);
+:Envia e-mail de verificação;
+:201 Created { userId, ringColor };
+
+|Usuário|
+:Clica no link do e-mail;
+|Core API|
+:GET /v1/users/verify?token=…;
+if (token válido e não expirado?) then (não)
+  :410 Gone — reenviar;
+  stop
+endif
+:status = ACTIVE;
+:Publica evento UserActivated\n(Twin pode ir para ACTIVE ao 1º treino);
+|Usuário|
+:Login (RF1) e onboarding\nna janela PERFIL com anel colorido;
+stop
+@enduml

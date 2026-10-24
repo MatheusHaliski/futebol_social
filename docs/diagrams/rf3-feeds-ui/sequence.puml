@@ -1,0 +1,64 @@
+@startuml rf3_sequence
+title RF3 — Sequência: leitura paginada da janela GEMEO e publicação de TREINO
+autonumber
+
+actor "Atleta (mobile)" as U
+participant "BottomNav / FeedWindow" as UI
+participant "FeedController" as FC
+participant "ReadFeedUseCase" as RF
+participant "FeedCache (Redis)" as Cache
+participant "FeedEntryRepository\n(Cassandra)" as FER
+participant "PostRepository (MySQL)" as PR
+participant "PostController" as PC
+participant "PublishPostUseCase" as PP
+participant "CardClassifier" as CL
+participant "FeedFanOutService" as FO
+participant "MediaStorage (S3)" as S3
+
+== Abrir janela GEMEO (swipe) ==
+U -> UI : swipe ← (PERFIL → GEMEO)
+UI -> FC : GET /v1/feeds/GEMEO?size=20
+FC -> RF : execute(userId, GEMEO, cursor=null)
+RF -> Cache : get(userId, GEMEO, null)
+Cache --> RF : miss
+RF -> FER : pageByUserAndWindow(userId, GEMEO, null, 20)
+FER --> RF : Slice<FeedEntry> (20, nextCursor)
+RF -> PR : findAllById(postIds)
+PR --> RF : posts + autores (ringColor, tier, topBadges)
+RF -> Cache : put(page, TTL 60 s)
+RF --> FC : CursorPage<FeedCardDTO>
+FC --> UI : 200 { items[20], nextCursor }
+UI -> U : renderiza cards (borda verde = TREINO)
+
+== Scroll infinito + ocultação da barra ==
+U -> UI : scroll ↓
+UI -> UI : hide BottomNav
+UI -> FC : GET /v1/feeds/GEMEO?cursor=nextCursor
+FC -> RF : execute(…, cursor)
+RF -> Cache : get(...)
+Cache --> RF : hit
+RF --> FC : page
+FC --> UI : 200
+U -> UI : scroll ↑
+UI -> UI : show BottomNav
+
+== Publicar TREINO pelo FAB ==
+U -> UI : toque no FAB → TREINO
+UI -> PC : POST /v1/posts/upload-url {image/jpeg}
+PC -> S3 : presignUpload(key)
+S3 --> PC : URL
+PC --> UI : { url, key }
+UI -> S3 : PUT (mídia)
+UI -> PC : POST /v1/posts { TREINO, text, [key] }
+PC -> PP : execute(cmd)
+PP -> PP : TREINO.allowedFor(ATLETA) ✓
+PP -> CL : classify(post, author)
+CL --> PP : ring #15805C · border #15805C · window GEMEO
+PP -> PR : save(post PUBLISHED)
+PP -> FO : fanOut(post)
+FO -> FER : insert FeedEntry (autor + seguidores, GEMEO)
+FO -> Cache : evict(userId*, GEMEO)
+PP --> PC : Post
+PC --> UI : 201 FeedCardDTO
+UI -> U : card inserido no topo de GEMEO
+@enduml

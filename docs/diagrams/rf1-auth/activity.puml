@@ -1,0 +1,72 @@
+@startuml rf1_activity
+title RF1 — Login, Refresh com rotação e Logout em tempo real · Diagrama de Atividades
+
+|Cliente (SPA / Mobile)|
+start
+:Envia credenciais\nPOST /v1/auth/login;
+
+|Gateway|
+:RateLimitFilter: consome token\ndo bucket por IP;
+if (bucket vazio?) then (sim)
+  :429 Too Many Requests\n+ Retry-After;
+  stop
+endif
+
+|Core API|
+:Busca User por e-mail;
+if (usuário existe e BCrypt confere?) then (não)
+  :Incrementa contador de falhas\n(bloqueio progressivo);
+  :401 Unauthorized;
+  stop
+endif
+if (AccountStatus == PENDING_DELETE?) then (sim)
+  :Cancela exclusão\n(login no período de graça — RF5);
+endif
+if (Termos Velion vigentes aceitos?) then (não)
+  :428 Precondition Required\n{ termsVersion, acceptUrl };
+  stop
+endif
+:SessionPolicy.enforce()\n(remove sessão mais antiga se > 5);
+:Cria Session (UUID) e RefreshToken;
+:Salva session:{userId}:{sessionId}\nno Redis com TTL = 7 dias;
+:Emite Access JWT (15 min)\nclaims: sub, role, sid, jti;
+:200 { accessToken, refreshToken, sessionId };
+
+|Cliente (SPA / Mobile)|
+:Armazena tokens;
+repeat
+  :Chama API com Bearer access;
+  |Gateway|
+  :JwtAuthenticationFilter\nvalida assinatura + exp;
+  if (jti na blacklist OU sessão ausente?) then (sim)
+    :401 — força logout local\nem todas as abas (BroadcastChannel);
+    stop
+  endif
+  |Cliente (SPA / Mobile)|
+repeat while (access expirou?) is (não)
+->sim;
+
+:POST /v1/auth/refresh { refreshToken };
+|Core API|
+:Carrega RefreshToken;
+if (revogado, expirado ou já rotacionado?) then (sim)
+  :Reuso detectado →\nrevoga TODA a sessão;
+  :401 + evento de segurança;
+  stop
+endif
+:Rotaciona: marca antigo como rotatedTo,\nemite novo refresh + novo access;
+:Atualiza Session.lastSeenAt;
+:200 novo TokenPair;
+
+|Cliente (SPA / Mobile)|
+:Usuário clica "Sair";
+:POST /v1/auth/logout;
+|Core API|
+:Blacklist do jti do access (TTL = restante);
+:Delete session:{userId}:{sessionId};
+:Revoga RefreshToken;
+:204 No Content;
+|Cliente (SPA / Mobile)|
+:Limpa tokens; abas anônimas/secundárias\nrecebem 401 na próxima chamada;
+stop
+@enduml

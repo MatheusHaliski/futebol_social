@@ -1,0 +1,69 @@
+@startuml rf4_1_component
+title RF4.1 — Componentes de Badges, Status Físico e Card do Atleta
+skinparam componentStyle rectangle
+left to right direction
+
+actor "Scout / Treinador / Atleta" as U
+
+package "SPA" {
+  component "AthleteCard\n(anel · tier · 3 micro-badges)" as Card
+  component "BadgeBottomSheet\n(gráfico / histórico)" as Sheet
+}
+
+node "Spring Boot Core" {
+  component "AthleteCardController\n/v1/athletes/{id}/card\n/badges/{type}/history" as C
+  component "BuildAthleteCardUseCase\n(+ privacidade Art. 11)" as UC
+  component "BadgeHistoryUseCase" as HU
+  component "BadgeRecalcListener\n(@EventListener)" as L
+  component "BadgeAwardService\n(ACWR · critérios · topBadges)" as BS
+  component "TopBadgePolicy" as TP
+  component "CallUpGuard\n(bloqueia convocação se INJURED)" as CG
+  component "AthleteBadgeRepository" as BR
+  component "InjuryRecordRepository" as IR
+  component "BadgeAuditRepository" as AR
+  component "TelemetryRepository" as TR
+  component "MatchRepository" as MR
+  component "LgpdPreferencesRepository" as LP
+  component "Card cache" as CC
+}
+
+queue "Eventos\nTrainingLogged · MatchRecorded\nEvaluationSubmitted · InjuryOpened/Cleared" as Qin
+queue "BadgesUpdated" as Qout
+component "Rarity Engine (RF4)\nbônus de badges" as RE
+component "Convocações / Alertas (RF3 ALERTA)" as CallUp
+database "MySQL 8\nathlete_badges · injury_records\nbadge_audit_log · match_performances" as MySQL
+database "Cassandra 4\ntelemetry_data" as Cass
+database "Redis 7\ncard:{athleteId}" as Redis
+
+U --> Card
+Card --> Sheet
+Card --> C
+Sheet --> C
+C --> UC
+C --> HU
+UC --> BS
+UC --> BR
+UC --> LP
+UC --> CC
+HU --> MR
+HU --> IR
+HU --> LP
+Qin --> L
+L --> BS
+L --> BR
+L --> AR
+L --> IR
+L --> TR
+L --> Qout
+BS --> TP
+CG --> IR
+CallUp --> CG
+Qout --> RE
+Qout --> CC : evict
+BR --> MySQL
+IR --> MySQL
+AR --> MySQL
+MR --> MySQL
+TR --> Cass
+CC --> Redis
+@enduml
