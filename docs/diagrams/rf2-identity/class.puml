@@ -65,7 +65,11 @@ package "domain.identity" {
     +hasAcceptedCurrentTerms(v) : boolean
   }
   class Athlete <<@Entity @Table(user_athletes)>>
-  class TechnicalStaff <<@Entity @Table(user_technical_staff)>>
+  class Staff <<@Entity @Table(user_staff)>>
+  class HealthStaff <<@Entity @Table(user_health_staff)>>
+  class Agent <<@Entity @Table(user_agents)>>
+  class Supporter <<@Entity @Table(user_supporters)>>
+  class AiAgent <<@Entity @Table(user_ai_agents)>>
   class Club <<@Entity @Table(user_clubs)>>
   class Scout <<@Entity @Table(user_scouts)>>
   class Brand <<@Entity @Table(user_brands)>>
@@ -74,12 +78,18 @@ package "domain.identity" {
 
   enum UserRole {
     ATLETA("#15805C")
-    TECNICO_STAFF("#5BA3E6")
-    CLUBE("#1E3A8A")
+    STAFF("#5BA3E6")
+    STAFF_SAUDE("#E11D48")
+    CLUBE("#4C6EF5")
     SCOUT("#D4A017")
+    AGENTE("#0EA5A4")
     MARCA("#7C3AED")
     IMPRENSA("#EA580C")
     OFICIAL_LIGA("#C9A227")
+    TORCEDOR("#F472B6")
+    AGENTE_IA("#22D3EE")
+    ARBITRO("#94A3B8") <<registry>>
+    TORCIDA_ORGANIZADA("#EC4899") <<registry>>
     --
     +ringColor : String
   }
@@ -112,11 +122,18 @@ package "domain.identity" {
   interface RoleCapability <<Strategy>> {
     +role() : UserRole
     +instantiate(cmd : RegisterUserCommand) : User
-    +allowedContentTypes() : Set<PostContentType>
+    +canPublish(type : PostContentType, ctx : UserContext) : boolean
+    +canOriginateInjuryRecord(ctx) : boolean
+    +countsForRarity(ctx) : boolean
+    +audiencePolicy(ctx) : AudiencePolicy
     +defaultWindow() : FeedWindow
   }
   class AthleteCapability
-  class TechnicalStaffCapability
+  class StaffCapability
+  class HealthStaffCapability
+  class AgentCapability
+  class SupporterCapability
+  class AiAgentCapability
   class ClubCapability
   class ScoutCapability
   class BrandCapability
@@ -126,7 +143,11 @@ package "domain.identity" {
 }
 
 User <|-- Athlete
-User <|-- TechnicalStaff
+User <|-- Staff
+User <|-- HealthStaff
+User <|-- Agent
+User <|-- Supporter
+User <|-- AiAgent
 User <|-- Club
 User <|-- Scout
 User <|-- Brand
@@ -139,7 +160,11 @@ User "1" *-- "0..1" EmailVerificationToken
 TermsAcceptance ..> TermsVersion
 
 RoleCapability <|.. AthleteCapability
-RoleCapability <|.. TechnicalStaffCapability
+RoleCapability <|.. StaffCapability
+RoleCapability <|.. HealthStaffCapability
+RoleCapability <|.. AgentCapability
+RoleCapability <|.. SupporterCapability
+RoleCapability <|.. AiAgentCapability
 RoleCapability <|.. ClubCapability
 RoleCapability <|.. ScoutCapability
 RoleCapability <|.. BrandCapability

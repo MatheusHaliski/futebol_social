@@ -18,17 +18,24 @@ A plataforma é uma rede social técnica de alta performance para o futebol, con
 - **Aceite obrigatório e versionado** dos Termos de Uso e da Política de Privacidade da **Velion (proprietária da Orange Social)** — entidade `TermsAcceptance` com `termsVersion`, `acceptedAt`, `ipAddress`, `userAgent`. Login bloqueado enquanto houver versão vigente não aceita.
 - **Herança JPA** (`@Inheritance(strategy = JOINED)`) a partir de `User`, com um `UserRole` e uma cor de anel universal:
 
-| UserRole | Anel (cor / hex) | Foco |
-|---|---|---|
-| `ATLETA` | Verde `#15805C` | Telemetria, treino diário, currículo esportivo |
-| `TECNICO_STAFF` | Azul Claro `#5BA3E6` | Pranchetas táticas, treinos, gestão de elenco |
-| `CLUBE` | Azul Escuro `#1E3A8A` | Gestão institucional, plantel, oportunidades |
-| `SCOUT` | Amarelo `#D4A017` | Relatórios de observação, dados táticos |
-| `MARCA` | Roxo `#7C3AED` | Patrocínio e ativação comercial |
-| `IMPRENSA` | Laranja `#EA580C` | Cobertura e comunicados oficiais |
-| `OFICIAL_LIGA` | Dourado `#C9A227` | Entidades organizadoras e arbitragem |
+| UserRole | Anel (cor / hex · contraste sobre `#171A21`) | Foco | Sub-tipo / verificação |
+|---|---|---|---|
+| `ATLETA` | Verde `#15805C` · 3,54 | Telemetria, treino diário, currículo, Gêmeo | `categoria`, `menorDeIdade` (Art. 14) |
+| `STAFF` (ex-`TECNICO_STAFF`) | Azul Claro `#5BA3E6` · 6,49 | Pranchetas, treinos, gestão de elenco e esportiva | `StaffSpecialty`: TREINADOR, AUXILIAR, TREINADOR_GOLEIROS, PREPARADOR_FISICO, FISIOLOGISTA, ANALISTA_DESEMPENHO, GESTAO (diretor esportivo), OUTRO |
+| `STAFF_SAUDE` | Carmim `#E11D48` · 3,71 | Status médico, reabilitação, nutrição, psicologia | `HealthSpecialty`: MEDICO (CRM), FISIOTERAPEUTA (CREFITO), NUTRICIONISTA (CRN), PSICOLOGO (CRP), MASSAGISTA — único papel além do atleta que origina `InjuryRecord`/`LESAO_ALERTA` |
+| `CLUBE` | Azul `#4C6EF5` · 4,03 (corrige `#1E3A8A`, que tinha 1,68) | Institucional, plantel, oportunidades, mural | `ClubeTipo`: PROFISSIONAL, FORMADOR_CCF, ESCOLINHA_ACADEMIA, AMADOR |
+| `SCOUT` | Amarelo `#D4A017` · 7,33 | Observação, relatórios, shortlists | `VerificationLevel`: COMUNIDADE, VERIFICADO, HOMOLOGADO — só VERIFICADO+ conta no Rarity Engine |
+| `AGENTE` | Teal `#0EA5A4` · 5,75 | Representação, mercado, oportunidades | `fifaLicenseId` (RNAF/CBF); representações com consentimento do atleta |
+| `MARCA` | Roxo `#7C3AED` · 3,06 | Patrocínio e ativação comercial | `MarcaCategoria`: PATROCINADOR, MATERIAL, AGENCIA, APOSTAS (18+, advertência, exclui atletas/staff/árbitros/liga, feature flag) |
+| `IMPRENSA` | Laranja `#EA580C` · 4,89 | Cobertura, comunicados, criação de conteúdo | `MidiaTipo`: VEICULO_CREDENCIADO, JORNALISTA, CRIADOR_INDEPENDENTE, CANAL_PODCAST |
+| `OFICIAL_LIGA` | Dourado `#C9A227` · 7,20 | Entidades organizadoras (sem arbitragem) | `EntidadeTipo`: CONFEDERACAO, FEDERACAO_ESTADUAL, LIGA, ORGANIZADOR_TORNEIO |
+| `TORCEDOR` | Rosa `#F472B6` · 6,57 | Acompanhar, reagir, colecionar cards (FLAIR) | `clubeDoCoracao`; sem Gêmeo/Rarity |
+| `AGENTE_IA` | Ciano `#22D3EE` · 9,63 | Automação transparente (resumos, alertas, análises) | `operatedBy`, `modelId`, `purpose`, `disclosureVersion`; toda publicação rotulada "IA" |
+| `ARBITRO` *(via registry)* | Ardósia `#94A3B8` · 6,79 | Arbitragem, súmulas | `quadro`: ESTADUAL, RENAF, FIFA; `funcao`: ARBITRO, ASSISTENTE, VAR |
+| `TORCIDA_ORGANIZADA` *(via registry)* | Magenta `#EC4899` · 4,94 | Conta coletiva de torcida | CNPJ / cadastro de membros (Lei 14.597/2023, art. 178) |
 
-- Arquitetura **extensível** (Strategy + polimorfismo JPA + `RoleCapability`), para que **Agentes Inteligentes** registrem novos papéis sem alterar o core (ex.: `AGENTE_IA`, `PREPARADOR_FISICO`).
+- **11 papéis core + 2 reservados** (cores no enum, comportamento no `RoleRegistry`). Arquitetura **extensível** (Strategy + polimorfismo JPA + `RoleCapability(role, subtype, verificationLevel)`), para que **Agentes Inteligentes** registrem novos papéis sem alterar o core. Fundamentação e benchmark em [`docs/research/01_tipos_de_usuarios.md`](research/01_tipos_de_usuarios.md).
+- Regras-chave do `RoleCapability`: `LESAO_ALERTA` só por ATLETA (próprio) ou STAFF_SAUDE verificado; `RELATORIO_TATICO` de SCOUT.COMUNIDADE/IMPRENSA é `OPINATIVA` e não entra nos 40 % do Rarity; `INSTITUCIONAL` só para contas de organização e STAFF.GESTAO/AGENTE verificados; `AGENTE_IA` sempre `aiGenerated = true`.
 
 ### RF3 — SPA, Arquitetura de Navegação Móvel e Classificação de Cards (UI/UX)
 - API REST v1 pronta para SPA/Mobile. Desktop: **Sidebar lateral + Topbar**. Mobile: **Bottom Navigation / Tab Bar** com **limite estrito de 4 abas primárias** na zona de alcance do polegar (*Thumb Zone*), mapeadas 1:1 ao enum `FeedWindow` (`order`, `icon`, `label`, `route`), cada uma com rota própria, paginação por cursor (Cassandra) e cache (Redis):
@@ -41,6 +48,22 @@ A plataforma é uma rede social técnica de alta performance para o futebol, con
   - **Ocultação dinâmica**: oculta no scroll para baixo no feed e reaparece no scroll para cima (área útil de leitura).
   - **Navegação por gestos**: swipe lateral entre as 4 janelas independentes, preservando estado/cursor de cada feed.
   - **Acessibilidade (WCAG 2.1 AA)**: contraste mínimo **3:1** em ícones e rótulos da barra; rótulos nunca truncados; alvos ≥ 44×44 pt; animações curtas e respeitando `prefers-reduced-motion`.
+- **Painel de filtros segmentado por janela** (`<aside class="filters-panel">` dentro de cada aba; o endpoint de cada janela recebe os mesmos parâmetros):
+
+| Janela | Filtros (query params de `GET /v1/feeds/{window}`) |
+|---|---|
+| **PERFIL** (Descoberta) | `tier[]` (COMMON…MYTHIC) · `position` · `ageMin`/`ageMax` · `clubId` · `contractStatus` (AGENTE_LIVRE \| CONTRATADO) |
+| **GEMEO** (Telemetria) | `period` (WEEK \| MONTH \| SEASON) · `metricType` (FISICA \| TECNICA \| TATICA) · `eventType` (TREINO \| PARTIDA) · `athleteId` |
+| **SCOUTING** (Análise) | `attr[velocidade]=gt:80`, `attr[passe]=gt:85`… (repetível) · `compare=idA,idB` (side-by-side) · `source` (HOMOLOGADO \| COMUNIDADE) |
+| **ALERTA** (Comunicados) | `severity` (BAIXA \| MEDIA \| ALTA \| CRITICA) · `alertType` (TRANSFERENCIA \| LESAO \| PUNICAO \| INSTITUCIONAL) · `source` (IMPRENSA \| CLUBE \| OFICIAL_LIGA) |
+
+- **Sub-abas (segment control) por janela** — nenhuma novidade vira aba primária ([`docs/research/02_novas_abas_e_features.md`](research/02_novas_abas_e_features.md)):
+  - PERFIL: `Feed` · `Ranking` (clubes e jogadores por tier/score, posição, liga, idade) · `Explorar` (globo MapLibre com clubes do mundo via Wikidata/openfootball + busca de ligas/clubes) · `Momentos`
+  - GEMEO: `Telemetria` · `Evolução` (linha do tempo de score/tier) · `Carga & Recuperação` (ACWR 7:28, prontidão 1–100, privado por padrão) · `DNA de jogo` (radar 5 eixos + estilos) · `Comparador` (≤ 3 atletas) · `Provador tático` (fit % por posição/esquema) · `Avatar 3D` · `Rascunhos Autopilot`
+  - SCOUTING: `Pranchetas` · `Comparar` · `Relatórios` · `Lens` (scouting por vídeo; rostos exigem `shareBiometricData`)
+  - ALERTA: `Tudo` · `Mural do Clube` · `Saúde` · `DM`
+- **FAB → Copilot**: sugere tipo, texto e badges do card; humano aceita/edita. **Autopilot** (opt-in por fonte: wearable, súmula) gera só rascunhos privados, nunca com dados de saúde sem `shareMedicalData`, com revisão humana (LGPD Art. 20); desabilitado para sub-18.
+- **Sidebar desktop (7 seções, 27 itens)**: DESCOBRIR (Feed, Buscar, Explorar, Clubes & Ligas, Lens) · MEU GÊMEO (7 sub-abas acima) · CARDS (Meus cards, Criar card, Copilot, Autopiloto) · PERFIL (Meu perfil, Histórico, Privacidade LGPD) · JOGAR E GANHAR (Momentos, FLAIR, Destaques/Rankings, Cupons) · LOJA (Pontos) · GESTÃO (Meu clube, Minha liga, Administração). Cada item declara os papéis que o veem; "☰ Mais" no mobile abriga JOGAR E GANHAR, LOJA, PERFIL e GESTÃO — nunca ações de criação.
 - **Classificação estrita de Cards** = *Bolinha do Autor* (`UserRole`) + *Borda de Conteúdo* (`PostContentType`):
 
 | PostContentType | Borda | Janela padrão | Conteúdo |
@@ -91,6 +114,13 @@ Experiência imersiva inspirada em cards de jogos e redes de telemetria esportiv
 - **Micro-Badges no topo do Card**: `AthleteCardDTO.topBadges` retorna até **3 badges prioritários** (ordenação: status médico ativo > `priority` > `counter`), para leitura rápida por scouts e treinadores.
 - **Tap to Expand**: `GET /v1/athletes/{id}/badges/{badgeType}/history` alimenta o *Bottom Sheet* com o histórico completo (série temporal de gols, evolução de minutagem, histórico médico), paginado.
 - Os badges alimentam o **Rarity Engine** (RF4) como entradas das parcelas de avaliação técnica (40%) e desempenho em partidas (30%); `BadgeAwardService` é determinístico e auditável (`BadgeAuditLog`).
+
+### RF6 — Modo FLAIR: jogo de cartas com os Cards do app (Jogar e Ganhar)
+- Cada Card de Atleta/Clube vira **carta jogável** congelada por semana: `Card(subjectType, subjectId, snapshotWeek, tier, power)`.
+- **Poder determinístico**: `Power = Score_Total(semana) × tierMult × (1 + Σ bonusBadges)` — `tierMult` COMMON 1,00 · RARE 1,05 · EPIC 1,10 · LEGENDARY 1,20 · MYTHIC 1,30; bônus `MVP` +3 %, `EM_CHAMAS` +2 %, `FAIR_PLAY` +1 % (cap 10 %); capitão +20 %. Cards de atletas `INJURED`/`PENDING_DELETE` não pontuam e o estado médico **nunca** aparece (Art. 11).
+- **Loop**: coleção (pacotes grátis a cada 12 h + conquistas, pool e probabilidades visíveis) → escalação (`Deck` de 5 + capitão, restrição por tier) → duelo 1×1 em 3 lances (atacante escolhe o eixo Físico/Técnico/Partidas; "Snap" dobra) ou liga semanal de 8 → recompensas (`Pontos`, `Pack`, `Cupom` de marca com `shareWithBrands`, `Momento`, cosmético).
+- **Regulatório (Brasil)**: sem dinheiro real, sem inscrição paga, sem prêmio monetário, **nenhum pacote pago aleatório** (ECA Digital, Lei 15.211/2025, art. 20); enquadra-se como fantasy sport gratuito (Lei 14.790/2023); sub-13 sem modo competitivo público; consentimento parental para menores (Art. 14); anti-vício (limite diário, sem "quase ganhou", desligável em 1 toque).
+- Entidades: `Card`, `CardOwnership`, `Deck`, `Pack`, `Match`, `Reward`, `Season`, `Moment`, `PointsLedger`. Entra no roadmap após Rankings e Evolução (usa seus snapshots).
 
 ### RF5 — Central de Compliance LGPD / Privacy by Design (Lei nº 13.709/2018)
 Modelar a **Central de Privacidade** exatamente como a *Anatomia da Tela* de referência (padrão Meta/Google), com **5 seções** navegáveis e cada controle etiquetado com o artigo da LGPD que cumpre (`lgpdArticle` no DTO):

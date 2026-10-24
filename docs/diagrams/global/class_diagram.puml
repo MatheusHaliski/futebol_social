@@ -8,15 +8,39 @@ hide empty methods
 package "domain.shared (enums)" <<Rectangle>> {
   enum UserRole {
     ATLETA        : ring #15805C (Verde)
-    TECNICO_STAFF : ring #5BA3E6 (Azul Claro)
-    CLUBE         : ring #1E3A8A (Azul Escuro)
+    STAFF         : ring #5BA3E6 (Azul Claro)
+    STAFF_SAUDE   : ring #E11D48 (Carmim)
+    CLUBE         : ring #4C6EF5 (Azul)
     SCOUT         : ring #D4A017 (Amarelo)
+    AGENTE        : ring #0EA5A4 (Teal)
     MARCA         : ring #7C3AED (Roxo)
     IMPRENSA      : ring #EA580C (Laranja)
     OFICIAL_LIGA  : ring #C9A227 (Dourado)
+    TORCEDOR      : ring #F472B6 (Rosa)
+    AGENTE_IA     : ring #22D3EE (Ciano)
+    ARBITRO       : ring #94A3B8 (registry)
+    TORCIDA_ORGANIZADA : ring #EC4899 (registry)
     --
     +ringColor : String
     +label : String
+    +isOrganization() : boolean
+    +isAutomated() : boolean
+  }
+  enum StaffSpecialty {
+    TREINADOR | AUXILIAR | TREINADOR_GOLEIROS
+    PREPARADOR_FISICO | FISIOLOGISTA
+    ANALISTA_DESEMPENHO | GESTAO | OUTRO
+  }
+  enum HealthSpecialty {
+    MEDICO | FISIOTERAPEUTA | NUTRICIONISTA
+    PSICOLOGO | MASSAGISTA
+  }
+  enum VerificationLevel {
+    COMUNIDADE
+    VERIFICADO
+    HOMOLOGADO
+    --
+    +countsForRarity() : boolean
   }
   enum PostContentType {
     TREINO           : borda Verde    → GEMEO
@@ -131,30 +155,66 @@ package "domain.identity" <<Rectangle>> {
     -weightKg : int
     -currentClubId : UUID
   }
-  class TechnicalStaff <<@Entity>> {
-    -specialty : String
-    -licenseCode : String
+  class Staff <<@Entity>> {
+    -specialty : StaffSpecialty
+    -cbfLicense : String
+    -currentClubId : UUID
+  }
+  class HealthStaff <<@Entity · Art.11>> {
+    -specialty : HealthSpecialty
+    -professionalRegistry : String <<encrypted>>
+    -verificationLevel : VerificationLevel
+    --
+    +canOriginateInjuryRecord() : boolean
   }
   class Club <<@Entity>> {
     -legalName : String
     -federationCode : String
-    -city : String
+    -clubeTipo : ClubeTipo
+    -division : String
+    -lat : Double
+    -lng : Double
   }
   class Scout <<@Entity>> {
     -agency : String
     -regionsOfInterest : String
+    -verificationLevel : VerificationLevel
+  }
+  class Agent <<@Entity>> {
+    -fifaLicenseId : String
+    -licenseStatus : String
+    -representations : List<Representation>
   }
   class Brand <<@Entity>> {
     -tradeName : String
+    -categoria : MarcaCategoria
     -segment : String
   }
   class Press <<@Entity>> {
     -outlet : String
+    -midiaTipo : MidiaTipo
     -pressCardId : String
   }
   class LeagueOfficial <<@Entity>> {
     -entityName : String
-    -officialRole : String
+    -entidadeTipo : EntidadeTipo
+  }
+  class Supporter <<@Entity>> {
+    -favoriteClubId : UUID
+    -memberSince : LocalDate
+  }
+  class AiAgent <<@Entity · AI Act art.50>> {
+    -operatedBy : UUID
+    -modelId : String
+    -purpose : String
+    -disclosureVersion : String
+  }
+  class OrgMembership <<@Entity>> {
+    -userId : UUID
+    -orgId : UUID
+    -roleInOrg : String
+    -since : LocalDate
+    -until : LocalDate
   }
   class TermsVersion <<@Entity>> {
     -id : UUID
@@ -178,12 +238,22 @@ package "domain.identity" <<Rectangle>> {
 }
 
 User <|-- Athlete
-User <|-- TechnicalStaff
+User <|-- Staff
+User <|-- HealthStaff
 User <|-- Club
 User <|-- Scout
+User <|-- Agent
 User <|-- Brand
 User <|-- Press
 User <|-- LeagueOfficial
+User <|-- Supporter
+User <|-- AiAgent
+User "1" --> "0..*" OrgMembership
+OrgMembership --> Club
+AiAgent --> User : operatedBy
+Staff --> StaffSpecialty
+HealthStaff --> HealthSpecialty
+Scout --> VerificationLevel
 User "1" *-- "0..*" TermsAcceptance
 TermsAcceptance ..> TermsVersion : references version
 User --> UserRole

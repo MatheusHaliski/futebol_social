@@ -66,17 +66,27 @@ Métodos de domínio: `ringColor()`, `activate()`, `requestDeletion(now)`, `canc
 
 ### 1.2 Subclasses por papel (uma tabela por subclasse, FK = `users.id`)
 
-| Entidade / tabela | Atributos específicos | LGPD |
-|---|---|---|
-| `Athlete` · `user_athletes` | `position` (GOLEIRO, ZAGUEIRO, LATERAL, VOLANTE, MEIA, PONTA, ATACANTE) · `dominantFoot` (D/E/AMBOS) · `heightCm` · `weightKg` · `currentClubId` (FK opcional) · `contractStatus` (`AGENTE_LIVRE` \| `CONTRATADO`) · `contractUntil` · `shirtNumber` · `isCaptain` | P (altura/peso = dado de saúde → tratar como **S**) |
-| `TechnicalStaff` · `user_technical_staff` | `specialty` (TREINADOR, AUXILIAR, PREP_FISICO, ANALISTA, …) · `licenseCode` · `licenseLevel` (CBF A/B/C, UEFA Pro…) · `currentClubId` | P |
-| `Club` · `user_clubs` | `legalName` · `federationCode` · `division` · `foundedYear` · `stadium` · `crestKey` · `verifiedBy` (FK `OFICIAL_LIGA`) · `lat`/`lng` (para o globo Explorar) | N (pessoa jurídica) |
-| `Scout` · `user_scouts` | `agency` · `regionsOfInterest` (JSON) · `accredited` (homologado por clube/liga) · `accreditedBy` | P |
-| `Brand` · `user_brands` | `tradeName` · `segment` · `website` · `cnpj` | N |
-| `Press` · `user_press` | `outlet` · `pressCardId` · `beat` (clube/liga que cobre) | P |
-| `LeagueOfficial` · `user_league_officials` | `entityName` (CBF, FPF, CONMEBOL…) · `officialRole` (ORGANIZADOR, ARBITRO, DELEGADO) · `jurisdiction` | P |
+| Entidade / tabela | Papel | Atributos específicos | LGPD |
+|---|---|---|---|
+| `Athlete` · `user_athletes` | `ATLETA` | `position` (GOLEIRO, ZAGUEIRO, LATERAL, VOLANTE, MEIA, PONTA, ATACANTE) · `dominantFoot` (D/E/AMBOS) · `heightCm` · `weightKg` · `currentClubId` (FK opcional) · `contractStatus` (`AGENTE_LIVRE` \| `CONTRATADO`) · `contractUntil` · `shirtNumber` · `isCaptain` · `categoria` (SUB15…PROFISSIONAL) · `guardianConsentAt` (menores, Art. 14) | P (altura/peso = dado de saúde → **S**) |
+| `Staff` · `user_staff` (ex-`TechnicalStaff`) | `STAFF` | `specialty` (`StaffSpecialty`) · `cbfLicense` · `licenseLevel` (CBF A/B/C, UEFA Pro…) · `currentClubId` · `isHeadCoach` | P |
+| `HealthStaff` · `user_health_staff` | `STAFF_SAUDE` | `specialty` (`HealthSpecialty`) · `professionalRegistry` (CRM/CREFITO/CRN/CRP, cifrado) · `registryUf` · `currentClubId` · `verificationLevel` | P — único papel com `canOriginateInjuryRecord()` |
+| `Club` · `user_clubs` | `CLUBE` | `legalName` · `federationCode` · `clubeTipo` (`ClubeTipo`) · `division` · `foundedYear` · `stadium` · `crestKey` · `verifiedBy` (FK `OFICIAL_LIGA`) · `ccfValidUntil` · `lat`/`lng` (globo Explorar) · `countryCode` | N (pessoa jurídica) |
+| `Scout` · `user_scouts` | `SCOUT` | `agency` · `regionsOfInterest` (JSON) · `verificationLevel` (`VerificationLevel`) · `affiliationId` (clube ou agente) | P |
+| `Agent` · `user_agents` | `AGENTE` | `fifaLicenseId` · `licenseStatus` (PENDENTE \| ATIVA \| SUSPENSA) · `agencyName` · `representations` → `representations(agent_id, athlete_id, consented_at, valid_until ≤ 2 anos)` | P |
+| `Brand` · `user_brands` | `MARCA` | `tradeName` · `categoria` (`MarcaCategoria`) · `segment` · `website` · `cnpj` · `fazendaAuthorizationId` (só APOSTAS) | N |
+| `Press` · `user_press` | `IMPRENSA` | `outlet` · `midiaTipo` (`MidiaTipo`) · `pressCardId` · `credentialIssuer` · `credentialValidUntil` · `beat` | P |
+| `LeagueOfficial` · `user_league_officials` | `OFICIAL_LIGA` | `entityName` (CBF, FPF, CONMEBOL…) · `entidadeTipo` (`EntidadeTipo`) · `jurisdiction` | P |
+| `Supporter` · `user_supporters` | `TORCEDOR` | `favoriteClubId` · `memberSince` — **sem `DigitalTwin`** | P |
+| `AiAgent` · `user_ai_agents` | `AGENTE_IA` | `operatedBy` (FK `users`) · `modelId` · `purpose` · `disclosureVersion` · `delegatedCapabilities` (JSON) | N (identidade), operador = P |
+| `Referee` · `user_referees` *(registry)* | `ARBITRO` | `quadro` (ESTADUAL \| RENAF \| FIFA) · `funcao` (ARBITRO \| ASSISTENTE \| VAR \| ASSESSOR) · `federationId` | P |
+| `SupporterGroup` · `user_supporter_groups` *(registry)* | `TORCIDA_ORGANIZADA` | `cnpj` · `legalRepresentativeId` · `clubId` · `membersRegistryUrl` | N |
 
-> Novos papéis mapeados por agentes (ex.: `DIRETOR_ESPORTIVO`, `FISIOLOGISTA`, `AGENTE_FIFA`) entram como novas subclasses + `RoleCapability`, sem alterar `users`.
+> `ARBITRO` e `TORCIDA_ORGANIZADA` têm cor reservada no enum e comportamento registrado em `role_definitions(code, ring_hex, capabilities_json)` por agentes. Papéis futuros entram como nova subclasse + `RoleCapability`, sem alterar `users`.
+
+### 1.2.1 `OrgMembership` · `org_memberships`
+
+Vínculo pessoa ↔ organização (`Staff`/`HealthStaff`/`Athlete` ↔ `Club`; `LeagueOfficial` ↔ entidade): `id`, `userId`, `orgId`, `roleInOrg` (`STAFF_PRINCIPAL` \| `AUXILIAR` \| `ATLETA` \| `GESTAO`), `since`, `until`, `verifiedBy`. É o que autoriza `INSTITUCIONAL` em nome do clube e o acesso ao Mural/Gestão.
 
 ### 1.3 `TermsVersion` · `terms_versions`
 
@@ -303,7 +313,15 @@ Métricas derivadas (não persistidas): `acuteLoad7d`, `chronicLoad28d`, `acwr =
 
 | Enum | Valores | Atributos extras |
 |---|---|---|
-| `UserRole` | `ATLETA` · `TECNICO_STAFF` · `CLUBE` · `SCOUT` · `MARCA` · `IMPRENSA` · `OFICIAL_LIGA` | `ringColor` (#15805C · #5BA3E6 · #1E3A8A · #D4A017 · #7C3AED · #EA580C · #C9A227), `label` |
+| `UserRole` | core: `ATLETA` · `STAFF` · `STAFF_SAUDE` · `CLUBE` · `SCOUT` · `AGENTE` · `MARCA` · `IMPRENSA` · `OFICIAL_LIGA` · `TORCEDOR` · `AGENTE_IA` — reservados (registry): `ARBITRO` · `TORCIDA_ORGANIZADA` | `ringColor` (#15805C · #5BA3E6 · #E11D48 · #4C6EF5 · #D4A017 · #0EA5A4 · #7C3AED · #EA580C · #C9A227 · #F472B6 · #22D3EE · #94A3B8 · #EC4899), `label`, `isOrganization()`, `isHuman()`, `isAutomated()`; `@JsonAlias("TECNICO_STAFF")` em `STAFF` por 2 versões |
+| `StaffSpecialty` | `TREINADOR` · `AUXILIAR` · `TREINADOR_GOLEIROS` · `PREPARADOR_FISICO` · `FISIOLOGISTA` · `ANALISTA_DESEMPENHO` · `GESTAO` · `OUTRO` | — |
+| `HealthSpecialty` | `MEDICO` · `FISIOTERAPEUTA` · `NUTRICIONISTA` · `PSICOLOGO` · `MASSAGISTA` | `registryCouncil` (CRM/CREFITO/CRN/CRP) |
+| `VerificationLevel` | `COMUNIDADE` · `VERIFICADO` · `HOMOLOGADO` | `countsForRarity()` (≥ VERIFICADO) |
+| `ClubeTipo` | `PROFISSIONAL` · `FORMADOR_CCF` · `ESCOLINHA_ACADEMIA` · `AMADOR` | — |
+| `MarcaCategoria` | `PATROCINADOR` · `MATERIAL` · `AGENCIA` · `APOSTAS` | `audiencePolicy()` — APOSTAS: `minAge=18`, advertência, exclui ATLETA/STAFF/STAFF_SAUDE/ARBITRO/OFICIAL_LIGA, flag `betting.ads.enabled` |
+| `MidiaTipo` | `VEICULO_CREDENCIADO` · `JORNALISTA` · `CRIADOR_INDEPENDENTE` · `CANAL_PODCAST` | — |
+| `EntidadeTipo` | `CONFEDERACAO` · `FEDERACAO_ESTADUAL` · `LIGA` · `ORGANIZADOR_TORNEIO` | — |
+| `AnalysisKind` | `TECNICA` · `OPINATIVA` | `OPINATIVA` (SCOUT.COMUNIDADE, IMPRENSA) não entra nos 40 % do Rarity |
 | `AccountStatus` | `PENDING_VERIFICATION` · `ACTIVE` · `SUSPENDED` · `PENDING_DELETE` · `ANONYMIZED` | — |
 | `ProfileVisibility` | `SOMENTE_EU` (default) · `CONEXOES` · `PUBLICO` | — |
 | `ContractStatus` | `AGENTE_LIVRE` · `CONTRATADO` | — |
@@ -352,7 +370,47 @@ Métricas derivadas (não persistidas): `acuteLoad7d`, `chronicLoad28d`, `acwr =
 
 ---
 
-## 11. Regras de anonimização (job diário, após 30 dias)
+## 11. Contexto `twin` — sub-abas do Gêmeo (novas entidades)
+
+| Entidade · tabela | Atributos | Sub-aba | LGPD |
+|---|---|---|---|
+| `TwinMilestone` · `twin_milestones` | `twinId`, `isoWeek`, `type` (`TIER_UP` \| `TIER_DOWN` \| `BADGE` \| `COACH_NOTE`), `refId`, `note` | Evolução | P |
+| `TrainingLoadDaily` · `training_load_daily` | `athleteId`, `date`, `loadAu`, `rpe`, `durationMin`, `sessions` | Carga & Recuperação | **S** |
+| `RecoveryDaily` · `recovery_daily` | `athleteId`, `date`, `sleepHours`, `hrv`?, `restingHr`?, `readiness` (1–100), `band` (PRIME ≥95 · HIGH 75–94 · MODERATE 50–74 · LOW 25–49 · POOR ≤24) | Carga & Recuperação | **S** — nunca em FLAIR/rankings |
+| `PlayDnaProfile` · `play_dna_profiles` | `userId`, `season`, `axes` JSON `{ataque, tecnica, tatica, defesa, criatividade}` 0–100, `styles[]` (FINALIZADOR, CONSTRUTOR, VELOCISTA, MURALHA, MOTOR, LIDER), `calculatedAt` | DNA de jogo | D |
+| `ComparisonSet` · `comparison_sets` | `ownerId`, `memberIds[≤3]`, `createdAt` | Comparador | P |
+| `PositionProfile` · `position_profiles` | `position`, `formation`, `requiredAxes` JSON | Provador tático (fit % calculado on-the-fly) | N |
+| `AvatarConfig` · `avatar_configs` | `userId`, `baseModel`, `skin`, `kitId`, `tierFxOverride`? | Avatar 3D | P |
+| `AutopilotDraft` · `autopilot_drafts` | `userId`, `source` (`WEARABLE` \| `SUMULA` \| `TELEMETRIA`), `suggestedType`, `text`, `status` (`DRAFT` \| `ACCEPTED` \| `DISCARDED`), `aiGenerated = true`, `reviewedAt` | Rascunhos Autopilot | P (sem saúde sem `shareMedicalData`) |
+
+## 12. Contexto `social` — Rankings, Mural do Clube e Explorar
+
+| Entidade · tabela | Atributos | Onde aparece | LGPD |
+|---|---|---|---|
+| `RankingEntry` · `ranking_entries` (view materializada semanal) | `isoWeek`, `scope` (`GLOBAL` \| `LIGA` \| `POSICAO` \| `IDADE` \| `CLUBE`), `scopeKey`, `subjectType` (`ATLETA` \| `CLUBE`), `subjectId`, `scoreTotal`, `rarityTier`, `rank`, `delta` | PERFIL → Ranking · Destaques | D (só perfis `PUBLICO`/`CONEXOES`) |
+| `ClubWallPost` (= `Post` com `clubId` + `INSTITUCIONAL`) | `clubId`, `pinned`, `audience` (`PUBLICO` \| `SOCIOS` \| `ELENCO`) | ALERTA → Mural do Clube · Gestão → Meu clube | N |
+| `ClubPoll` · `club_polls` | `clubId`, `question`, `options[]`, `closesAt`, `audience` | Mural do Clube | N |
+| `League` · `leagues` | `id`, `name`, `countryCode`, `tier` (divisão), `organizerId` (FK `OFICIAL_LIGA`), `wikidataId`, `season` | Explorar · Clubes & Ligas | N |
+| `ClubGeo` (projeção de `Club`) | `clubId`, `lat`, `lng`, `countryCode`, `leagueId`, `avgTier`, `crestKey` | Explorar (globo MapLibre; dados Wikidata CC0 + openfootball) | N |
+| `Follow` · `follows` | `followerId`, `targetId`, `targetType` (`USER` \| `CLUBE` \| `LIGA`), `since` | fan-out dos feeds | P |
+
+## 13. Contexto `flair` — jogo de cartas (RF6)
+
+| Entidade · tabela | Atributos | LGPD |
+|---|---|---|
+| `Card` · `flair_cards` | `id`, `subjectType` (`ATLETA` \| `CLUBE`), `subjectId`, `snapshotWeek`, `tier`, `power` Decimal(9,2), `axes` `{fisico, tecnico, partidas}`, `visualVariant` (`BASE` \| `GOLD`), `badgeBonusPct` | D — só stats consentidas; nunca `PhysicalStatus`/`InjuryRecord` |
+| `CardOwnership` · `flair_card_ownerships` | `userId`, `cardId`, `acquiredVia` (`PACK` \| `TRADE` \| `REWARD`), `acquiredAt`, `serial` | P |
+| `Deck` · `flair_decks` | `userId`, `season`, `cardIds[5]`, `captainCardId`, `tierCapRule` | P |
+| `Pack` · `flair_packs` | `type`, `source` (`TIMER_12H` \| `ACHIEVEMENT` \| `CHALLENGE`), `dropTable` JSON **visível** (probabilidades), `poolRules` — **nunca vendido** | N |
+| `Match` · `flair_matches` | `mode` (`DUEL` \| `LEAGUE8` \| `CHALLENGE`), `participantIds[]`, `rounds` JSON (eixo escolhido, valores, vencedor), `snapMultiplier`, `settledAtWeek`, `winnerId` | P |
+| `Reward` · `flair_rewards` | `userId`, `type` (`POINTS` \| `PACK` \| `COUPON` \| `MOMENT` \| `COSMETIC`), `value`, `partnerId`? (cupom só com `shareWithBrands`), `grantedAt` | P |
+| `Season` · `flair_seasons` | `startWeek`, `endWeek`, `ruleset` JSON, `resetPolicy` | N |
+| `Moment` · `flair_moments` | `postId` (`PARTIDA_MOMENTO`), `edition`, `serial`, `ownerId` | P |
+| `PointsLedger` · `points_ledger` (append-only) | `userId`, `delta`, `reason` (`TREINO_PUBLICADO` \| `AVALIACAO` \| `ASSIDUIDADE` \| `CONVITE` \| `FLAIR_REWARD` \| `RESGATE`), `at` | P |
+
+Regras: sem dinheiro real nem prêmio monetário (ECA Digital art. 20 · Lei 14.790/2023); sub-13 sem modo competitivo público; cards de atletas `INJURED`/`PENDING_DELETE` não pontuam; perfis `SOMENTE_EU` não geram carta para terceiros; limite diário de partidas e opt-out em 1 toque.
+
+## 14. Regras de anonimização (job diário, após 30 dias)
 
 | Entidade | Ação |
 |---|---|
@@ -365,3 +423,6 @@ Métricas derivadas (não persistidas): `acuteLoad7d`, `chronicLoad28d`, `acwr =
 | `WeeklyScoreSnapshot`, `AthleteBadge` | mantidos como agregados (`D`) ligados ao pseudônimo |
 | `ConsentAuditLog`, `TermsAcceptance` | mantidos (obrigação legal de accountability) com `userId` pseudonimizado |
 | `DataExportRequest` | objetos S3 apagados; registro marcado `EXPIRED` |
+| `Card`, `CardOwnership`, `Deck`, `Moment` | cards do titular como *sujeito* perdem nome/avatar (viram "Atleta #hash"); cards que o titular *possuía* são devolvidos ao pool; `PointsLedger` pseudonimizado |
+| `RankingEntry`, `PlayDnaProfile` | mantidos como agregados ligados ao pseudônimo |
+| `RecoveryDaily`, `TrainingLoadDaily`, `AutopilotDraft` | removidos fisicamente (dado de saúde) |

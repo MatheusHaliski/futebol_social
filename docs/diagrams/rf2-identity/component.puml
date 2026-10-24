@@ -20,7 +20,7 @@ node "Spring Boot Core" {
   component "RoleRegistry\n(Map<UserRole, RoleCapability>)" as RR
   package "RoleCapability (Strategy)" {
     component "AthleteCapability" as C1
-    component "TechnicalStaffCapability" as C2
+    component "StaffCapability" as C2
     component "ClubCapability" as C3
     component "ScoutCapability" as C4
     component "BrandCapability" as C5
@@ -38,7 +38,7 @@ node "Spring Boot Core" {
 
 database "MySQL 8" as DB {
   component "users (base)" as T1
-  component "user_athletes · user_clubs\nuser_scouts · user_brands\nuser_press · user_technical_staff\nuser_league_officials" as T2
+  component "user_athletes · user_staff · user_health_staff\nuser_clubs · user_scouts · user_agents · user_brands\nuser_press · user_league_officials\nuser_supporters · user_ai_agents" as T2
   component "terms_versions\nterms_acceptances" as T3
   component "user_lgpd_preferences" as T4
   component "digital_twins" as T5

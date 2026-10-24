@@ -46,6 +46,16 @@
 | ⑤ | `Ver Gêmeo` (abre janela GEMEO filtrada pelo atleta) · `Comparar` (adiciona ao side-by-side da janela SCOUTING) · `Seguir`. |
 | Estados | `INJURED`: badge 🚑 em 1º lugar com `injuryType` + retorno previsto; botão `Comparar` continua, `Convocar` (se existir) fica desabilitado. `PENDING_DELETE`: card não é renderizado. |
 
+## 3.1 Variações de anel para os demais papéis
+
+| Papel | Anel | Card próprio? |
+|---|---|---|
+| `STAFF_SAUDE` | `#E11D48` | Variante do card de Staff com badges de reabilitação; dados médicos só para o clube vinculado |
+| `AGENTE` | `#0EA5A4` | Card de representação: atletas representados (com consentimento) e oportunidades |
+| `TORCEDOR` | `#F472B6` | Card simplificado: clube do coração, coleção FLAIR, sem tier/score |
+| `AGENTE_IA` | `#22D3EE` | Sempre com rótulo "IA" e `operatedBy` visível no header |
+| `ARBITRO` / `TORCIDA_ORGANIZADA` | `#94A3B8` / `#EC4899` | Registrados por agente; herdam o layout base |
+
 ## 4. Card de **Técnico / Staff** (anel azul-claro `#5BA3E6`)
 
 | Zona | Especificidade |
@@ -56,7 +66,7 @@
 | ⑤ | `Pranchetas` (janela SCOUTING, origem = staff homologado) · `Elenco` · `Seguir`. |
 | Tier | Derivado do Gêmeo coletivo: média ponderada dos tiers dos atletas sob gestão + avaliações da comissão/clube. |
 
-## 5. Card de **Clube** (anel azul-escuro `#1E3A8A`)
+## 5. Card de **Clube** (anel azul `#4C6EF5` — corrigido de `#1E3A8A`, cujo contraste de 1,68:1 violava o mínimo 3:1)
 
 | Zona | Especificidade |
 |---|---|

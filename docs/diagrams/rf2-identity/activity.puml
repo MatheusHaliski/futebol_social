@@ -4,7 +4,7 @@ title RF2 — Cadastro polimórfico com aceite de Termos Velion · Diagrama de A
 |Usuário|
 start
 :Abre tela de cadastro;
-:Escolhe categoria (UserRole)\nATLETA · TECNICO_STAFF · CLUBE · SCOUT\nMARCA · IMPRENSA · OFICIAL_LIGA;
+:Escolhe categoria (UserRole)\nATLETA · STAFF · STAFF_SAUDE · CLUBE · SCOUT · AGENTE\nMARCA · IMPRENSA · OFICIAL_LIGA · TORCEDOR · AGENTE_IA;
 :Preenche dados comuns\n(e-mail, senha, nome, nascimento);
 :Preenche dados específicos do papel\n(posição / clube / agência / veículo…);
 
