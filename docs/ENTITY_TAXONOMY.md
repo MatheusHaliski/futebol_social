@@ -209,15 +209,24 @@ Access JWT (HS512) — claims: `sub` (userId), `role`, `sid`, `jti`, `iat`, `exp
 | `authorRole` | `UserRole` | denormalizado p/ bolinha | N |
 | `contentType` | `PostContentType` | borda; validado por `RoleCapability.allowedContentTypes()` | N |
 | `window` | `FeedWindow` | default `contentType.defaultWindow` | N |
-| `text` | String(2000) | — | P |
-| `mediaKeys` | JSON array | chaves S3 | P |
+| `title` | String(90) | **obrigatório**, 5–12 palavras, ≤ 2 linhas no card | P |
+| `subtitle` | String(160) | *teaser* opcional (≤ 2 linhas, 70 %); nulo quando há mídia | P |
+| `content` | String(5000) | texto completo — **só em `PostView`**, nunca no feed | P |
+| `mediaKeys` | JSON array | chaves S3 (mídia 136 px no card) | P |
+| `ageRating` | `AgeRating` | default `SAFE`; `SENSITIVE` forçado quando `contentType.sensitive` | N |
+| `vslGlyph` | `VslGlyph` | derivado de `contentType` (não persistido) | N |
+| `aiGenerated` | boolean | `true` obrigatório para `AGENTE_IA`/Autopilot | N |
+| `badgeLabel` | String(24) | rótulo curto da pill do tipo (`TREINO`, `LESÃO`, `SCOUTING`…) | N |
 | `status` | `PostStatus` | default `PUBLISHED` | N |
 | `severity` | `AlertSeverity` | só para janela ALERTA | N |
 | `alertType` | `AlertType` | só para janela ALERTA | N |
 | `clubId` | UUID | opcional (mural do clube) | N |
 | `drillId` | UUID | FK opcional → `TacticalDrill` | — |
 | `publishedAt` | Instant | — | — |
-| `likeCount` / `commentCount` / `shareCount` / `saveCount` | int | contadores denormalizados | D |
+| `likeCount` / `commentCount` / `shareCount` / `saveCount` | int | contadores denormalizados (Curtir · Comentar · Compartilhar · Salvar) | D |
+| `viewCount` | long | visualizações (Orange Social: *trending by views*) | D |
+| `trendingScore` | Decimal(8,3) | janela de 24 h (views, likes, shares, decaimento) | D |
+| `trend` | `TrendDirection` | projeção de `trendingScore` Δ24h: `HOT` · `UP` · `FLAT` · `DOWN` | D |
 
 ### 5.2 `TacticalDrill` · `tactical_drills`
 
@@ -233,6 +242,8 @@ Access JWT (HS512) — claims: `sub` (userId), `role`, `sid`, `jti`, `iat`, `exp
 | `post_id`, `author_id` | uuid | — |
 | `author_role`, `content_type` | text | filtros no cliente/servidor |
 | `severity`, `alert_type`, `source_role` | text | filtros da janela ALERTA |
+| `title`, `subtitle`, `age_rating` | text | render do card sem *fan-in* no MySQL |
+| `trending_score` | double | ordenação da aba *Trending* |
 
 ### 5.4 Filtros por janela (RF3) — parâmetros aceitos por `GET /v1/feeds/{window}`
 
@@ -242,7 +253,7 @@ Access JWT (HS512) — claims: `sub` (userId), `role`, `sid`, `jti`, `iat`, `exp
 | **GEMEO** | `period` (`WEEK` \| `MONTH` \| `SEASON`), `metricType` (`FISICA` \| `TECNICA` \| `TATICA`), `eventType` (`TREINO` \| `PARTIDA`), `athleteId` | `TelemetryData`, `WeeklyScoreSnapshot` |
 | **SCOUTING** | `attr[velocidade]=gt:80`, `attr[passe]=gt:85` (repetível), `compare=idA,idB`, `source` (`HOMOLOGADO` \| `COMUNIDADE`) | `ScoutingAttribute`, `TacticalDrill.sourceKind`, `Scout.accredited` |
 | **ALERTA** | `severity` (`BAIXA` \| `MEDIA` \| `ALTA` \| `CRITICA`), `alertType` (`TRANSFERENCIA` \| `LESAO` \| `PUNICAO` \| `INSTITUCIONAL`), `source` (`IMPRENSA` \| `CLUBE` \| `OFICIAL_LIGA`) | `Post.severity`, `Post.alertType`, `Post.authorRole` |
-| todas | `cursor`, `size` (≤ 50) | `FeedEntry.published_at` |
+| todas | `sort` (`FOR_YOU` \| `TRENDING` \| `RECENT` \| `FOLLOWING`), `role` (lista `UserRole`), `state` (UF), `clubId`, `q` (nome/handle), `cursor`, `size` (≤ 50) | `FeedEntry.*`, `Post.authorRole`, `Athlete.state` |
 
 ### 5.5 `ScoutingAttribute` · `scouting_attributes` (view materializada semanal)
 
@@ -313,7 +324,7 @@ Métricas derivadas (não persistidas): `acuteLoad7d`, `chronicLoad28d`, `acwr =
 
 | Enum | Valores | Atributos extras |
 |---|---|---|
-| `UserRole` | core: `ATLETA` · `STAFF` · `STAFF_SAUDE` · `CLUBE` · `SCOUT` · `AGENTE` · `MARCA` · `IMPRENSA` · `OFICIAL_LIGA` · `TORCEDOR` · `AGENTE_IA` — reservados (registry): `ARBITRO` · `TORCIDA_ORGANIZADA` | `ringColor` (#15805C · #5BA3E6 · #E11D48 · #4C6EF5 · #D4A017 · #0EA5A4 · #7C3AED · #EA580C · #C9A227 · #F472B6 · #22D3EE · #94A3B8 · #EC4899), `label`, `isOrganization()`, `isHuman()`, `isAutomated()`; `@JsonAlias("TECNICO_STAFF")` em `STAFF` por 2 versões |
+| `UserRole` | core: `ATLETA` · `STAFF` · `STAFF_SAUDE` · `CLUBE` · `SCOUT` · `AGENTE` · `MARCA` · `IMPRENSA` · `OFICIAL_LIGA` · `TORCEDOR` · `AGENTE_IA` — reservados (registry): `ARBITRO` · `TORCIDA_ORGANIZADA` | `ringColor` — tokens do modelo visual (#00d47a · #7fb6ff · #e11d48 · #3b82f6 · #f7c948 · #2dd4bf · #a06bff · #ff9f43 · #f5c542 · #f472b6 · #22d3ee · #95a89d · #ec4899), `dotClass` (`dc-atleta`…), `label`, `isOrganization()`, `isHuman()`, `isAutomated()`; `@JsonAlias("TECNICO_STAFF")` em `STAFF` por 2 versões |
 | `StaffSpecialty` | `TREINADOR` · `AUXILIAR` · `TREINADOR_GOLEIROS` · `PREPARADOR_FISICO` · `FISIOLOGISTA` · `ANALISTA_DESEMPENHO` · `GESTAO` · `OUTRO` | — |
 | `HealthSpecialty` | `MEDICO` · `FISIOTERAPEUTA` · `NUTRICIONISTA` · `PSICOLOGO` · `MASSAGISTA` | `registryCouncil` (CRM/CREFITO/CRN/CRP) |
 | `VerificationLevel` | `COMUNIDADE` · `VERIFICADO` · `HOMOLOGADO` | `countsForRarity()` (≥ VERIFICADO) |
@@ -327,7 +338,11 @@ Métricas derivadas (não persistidas): `acuteLoad7d`, `chronicLoad28d`, `acwr =
 | `ContractStatus` | `AGENTE_LIVRE` · `CONTRATADO` | — |
 | `Position` | `GOLEIRO` · `ZAGUEIRO` · `LATERAL` · `VOLANTE` · `MEIA` · `PONTA` · `ATACANTE` | — |
 | `FeedWindow` | `PERFIL`(1) · `GEMEO`(2) · `SCOUTING`(3) · `ALERTA`(4) | `order`, `icon`, `route`, `label` |
-| `PostContentType` | `TREINO` · `PARTIDA_MOMENTO` · `RELATORIO_TATICO` · `INSTITUCIONAL` · `LESAO_ALERTA` | `borderColor` (#15805C · #2B5CB8 · #D4A017 · #6B7280 · #C0376B), `defaultWindow`, `sensitive` |
+| `PostContentType` | `TREINO` · `PARTIDA_MOMENTO` · `RELATORIO_TATICO` · `LIGA` · `INSTITUCIONAL` · `LESAO_ALERTA` · `ESPECIAL` | `borderColor` (#00d47a · #3b82f6 · #ff9f43 · #a06bff · #ff5d5d · #ff5d5d+hazard · #f5c542), `cssClass` (`cc-treino` · `cc-partida` · `cc-scouting` · `cc-liga` · `cc-institucional` · `cc-institucional` · `cc-especial`), `vslGlyph`, `defaultWindow` (GEMEO · PERFIL · SCOUTING · PERFIL · ALERTA · ALERTA · PERFIL), `badgeLabel`, `sensitive` (só `LESAO_ALERTA`) |
+| `AgeRating` | `SAFE` · `KIDS` · `AGE_12` · `AGE_16` · `AGE_18` · `SENSITIVE` | `label` (`SAFE` · `KIDS` · `12+` · `16+` · `18+` · `SENSÍVEL`), `cssClass` (`age-safe`…`age-sens`), `minAge` |
+| `VslGlyph` | `IDENTIDADE` · `VALOR` · `COMUNIDADE` · `INSTITUICAO` | `glyph` (◇ · ✦ · ⬢ · ▭) — Velion Symbol Language |
+| `TrendDirection` | `HOT` · `UP` · `FLAT` · `DOWN` | `emoji` (🔥 · 📈 · ➖ · 📉), `fromDelta()` |
+| `FeedSort` | `FOR_YOU` · `TRENDING` · `RECENT` · `FOLLOWING` | abas de relevância (Para você · Trending · Recentes · Seguindo) |
 | `PostStatus` | `DRAFT` · `PUBLISHED` · `HIDDEN` · `REMOVED` | — |
 | `AlertSeverity` | `BAIXA` · `MEDIA` · `ALTA` · `CRITICA` | — |
 | `AlertType` | `TRANSFERENCIA` · `LESAO` · `PUNICAO` · `INSTITUCIONAL` | — |
@@ -335,10 +350,10 @@ Métricas derivadas (não persistidas): `acuteLoad7d`, `chronicLoad28d`, `acwr =
 | `EventType` | `TREINO` · `PARTIDA` | — |
 | `Period` | `WEEK` · `MONTH` · `SEASON` | — |
 | `ReportSource` | `HOMOLOGADO` · `COMUNIDADE` | — |
-| `RarityTier` | `COMMON`(0–400) · `RARE`(401–900) · `EPIC`(901–1600) · `LEGENDARY`(1601–2400) · `MYTHIC`(2401+) | `minScore`, `maxScore`, `visualEffect`, `fromScore()` |
+| `RarityTier` | `COMMON`(0–400) · `RARE`(401–900) · `EPIC`(901–1600) · `LEGENDARY`(1601–2400) · `MYTHIC`(2401+) | `minScore`, `maxScore`, `visualEffect`, `color` (#5c6b62 · #3b82f6 · #a06bff · #f5c542 · #f5c542), `crestIcon` (`ic-tier-common`…`ic-tier-mythic` — brasão único; o nome do tier nunca é renderizado em texto), `flairMultiplier` (1 · 1,05 · 1,1 · 1,2 · 1,3), `fromScore()` |
 | `RewardTier` | `BRONZE` · `SILVER` · `GOLD` · `PLATINUM` | — |
 | `TwinStatus` | `DRAFT` · `ACTIVE` · `SUSPENDED` · `PENDING_DELETE` · `ANONYMIZED` · `DELETED` | `allowedNext()` |
-| `PhysicalStatus` | `READY` · `FATIGUE_RISK` · `INJURED` | `badge()`, `blocksCallUp()` |
+| `PhysicalStatus` | `READY` · `FATIGUE_RISK` · `INJURED` | `badge()`, `blocksCallUp()`, `label` (`PRONTO PRA JOGO` · `RISCO DE FADIGA` · `DEPARTAMENTO MÉDICO`), `emoji` (⚡ · ⚠️ · 🩹) |
 | `BadgeCategory` | `SEASON_STATS` · `PHYSICAL_STATUS` · `SOCIAL_TACTICAL` | — |
 | `BadgeType` | `ARTILHEIRO` · `GARCOM` · `PAREDAO` · `XERIFAO` · `MOTORZINHO` · `PRONTO_PRA_JOGO` · `DEPARTAMENTO_MEDICO` · `RISCO_FADIGA` · `MVP` · `MESTRE_TATICO` · `EM_CHAMAS` · `LIDER_CAPITAO` · `FAIR_PLAY` | `category`, `emoji`, `color`, `priority`, `quantitative` |
 | `ExportStatus` | `REQUESTED` · `PROCESSING` · `READY` · `EXPIRED` · `FAILED` | — |
@@ -417,7 +432,7 @@ Regras: sem dinheiro real nem prêmio monetário (ECA Digital art. 20 · Lei 14.
 | `User` | `email_enc`, `username`, `displayName`, `bio`, `city`, `avatarKey` → hash/`anon_{shortId}`; `status = ANONYMIZED` |
 | Subclasses | campos identificadores (licença, CNPJ, press card) → nulos |
 | `Session`, `rt:*`, `stepup:*` | removidos do Redis |
-| `Post` | `text` → `[conteúdo removido]`, `mediaKeys` apagados do S3, autor → pseudônimo |
+| `Post` | `title` → `[conteúdo removido]`, `subtitle`/`content` → nulos, `mediaKeys` apagados do S3, autor → pseudônimo |
 | `TelemetryData` | `gps_track` apagado; métricas agregadas mantidas sem vínculo nominal |
 | `InjuryRecord` | removido fisicamente |
 | `WeeklyScoreSnapshot`, `AthleteBadge` | mantidos como agregados (`D`) ligados ao pseudônimo |
@@ -426,3 +441,37 @@ Regras: sem dinheiro real nem prêmio monetário (ECA Digital art. 20 · Lei 14.
 | `Card`, `CardOwnership`, `Deck`, `Moment` | cards do titular como *sujeito* perdem nome/avatar (viram "Atleta #hash"); cards que o titular *possuía* são devolvidos ao pool; `PointsLedger` pseudonimizado |
 | `RankingEntry`, `PlayDnaProfile` | mantidos como agregados ligados ao pseudônimo |
 | `RecoveryDaily`, `TrainingLoadDaily`, `AutopilotDraft` | removidos fisicamente (dado de saúde) |
+
+---
+
+## 15. DTOs de card (contrato REST ↔ SPA)
+
+Records Java em `controller/dto`; o front renderiza **apenas** a partir deles (nenhuma regra visual é recalculada no cliente).
+
+### 15.1 `PostCardDTO` — `.pcard`
+
+| Campo | Tipo | Origem | Camada visual |
+|---|---|---|---|
+| `id`, `publishedAt`, `timeLabel` | UUID, Instant, String (`2h`, `ontem`) | `Post` | `p-top` |
+| `author` → `{ handle, role, dotClass, verified, aiGenerated }` | `AuthorDTO` | `User`, `UserRole` | bolinha + `@handle · papel` |
+| `contentType`, `borderClass`, `badgeLabel`, `vslGlyph` | `PostContentType` | enum | borda + badge + VSL |
+| `ageRating` → `{ value, label, cssClass }` | `AgeRating` | `Post.ageRating` | `age-chip` |
+| `title`, `subtitle` | String | `Post` | `p-title` (≤ 2 linhas) · `p-sub` (teaser) |
+| `media` → `{ key, url, kind }` | opcional | S3 | `p-media` 136 px (sem subtítulo) |
+| `meta` | `List<String>` | regras da janela | tags de contexto |
+| `social` → `{ likes, comments, shares, saves, likedByMe, savedByMe }` | `SocialCountersDTO` | contadores | `actbar` |
+| `trend` → `{ direction, emoji }` | `TrendDirection` | `trendingScore` | `.trend` |
+| `window`, `severity`, `alertType` | enums | `Post` | listra `hazard` quando ALERTA/`LESAO_ALERTA` |
+
+### 15.2 `AthleteCardDTO` — `.vcard`
+
+| Campo | Tipo | Origem | Camada visual |
+|---|---|---|---|
+| `athleteId`, `handle`, `name`, `position`, `age`, `state`, `club`, `contractStatus` | — | `Athlete` | `author` · `vtitle` (`Nome — Posição`) · `vsub` |
+| `rarity` → `{ tier, crestIcon, color, visualEffect, score, pp, rp, mp }` | `RarityDTO` | `DigitalTwin`, `WeeklyScoreSnapshot` | `ctop` (brasão) · borda · `statrow` |
+| `season` → `{ games, goals, assists, minutes, yellow, red, cleanSheets?, tackles?, avgRating }` | `SeasonStatsDTO` | `MatchPerformance` | `sgrid` |
+| `physical` → `{ readiness, acwr, status, statusLabel, emoji, injury?: { type, expectedReturn } }` | `PhysicalDTO` · **omitido** para terceiros sem `shareMedicalData` | `TelemetryData`, `InjuryRecord` | `phys` |
+| `topBadges` (≤ 3) → `{ type, label, emoji, color, counter }` | `List<BadgeDTO>` | `AthleteBadge` | `bdgrow` (área inferior, nunca sobre o hero) |
+| `classification` → `{ ageRating, sensitive }` | `AgeRating` | derivado de `physical` | `age-chip` (`SENSÍVEL` quando expõe dado médico) |
+| `social` → `{ likes, comments, shares }` | `SocialCountersDTO` | contadores do perfil | `actbar` + `Gêmeo →` |
+| `heroImage` → `{ url }` | opcional | S3 | `imgblock` — **só a imagem**, sem overlays |
