@@ -21,7 +21,7 @@ No VS Code, a extensão *PlantUML* (jebbs) renderiza com `Alt+D`. No GitHub, use
 
 | Pasta | RF | class | activity | state | sequence | component |
 |---|---|---|---|---|---|---|
-| `global/` | Visão geral | [`class_diagram.puml`](global/class_diagram.puml) | — | [`twin_state_machine.puml`](global/twin_state_machine.puml) | — | [`component_diagram.puml`](global/component_diagram.puml) |
+| `global/` | Visão geral | [`class_diagram.puml`](global/class_diagram.puml) | [`activity_lgpd_export_delete.puml`](activity_lgpd_export_delete.puml) (RF5: exportar · excluir) | [`twin_state_machine.puml`](global/twin_state_machine.puml) | — | [`component_diagram.puml`](global/component_diagram.puml) |
 | `rf1-auth/` | **RF1** Autenticação JWT, sessão Redis, rate limit | [class](rf1-auth/class.puml) | [activity](rf1-auth/activity.puml) | [state](rf1-auth/state.puml) | [sequence](rf1-auth/sequence.puml) | [component](rf1-auth/component.puml) |
 | `rf2-identity/` | **RF2** Cadastro polimórfico, termos Velion, anel por papel | [class](rf2-identity/class.puml) | [activity](rf2-identity/activity.puml) | [state](rf2-identity/state.puml) | [sequence](rf2-identity/sequence.puml) | [component](rf2-identity/component.puml) |
 | `rf3-feeds-ui/` | **RF3** SPA, bottom nav 4 abas, classificação de cards | [class](rf3-feeds-ui/class.puml) | [activity](rf3-feeds-ui/activity.puml) | [state](rf3-feeds-ui/state.puml) | [sequence](rf3-feeds-ui/sequence.puml) | [component](rf3-feeds-ui/component.puml) |

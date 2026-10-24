@@ -1,0 +1,123 @@
+package com.footballai.social.service;
+
+import com.datastax.oss.driver.api.core.uuid.Uuids;
+import com.footballai.social.config.AuthPrincipal;
+import com.footballai.social.controller.dto.CardDtos.PostCardDTO;
+import com.footballai.social.controller.dto.CardDtos.PostViewDTO;
+import com.footballai.social.controller.dto.PostDtos.CreatePostRequest;
+import com.footballai.social.controller.dto.PostDtos.ReactionDTO;
+import com.footballai.social.model.cassandra.FeedEntry;
+import com.footballai.social.model.entity.Brand;
+import com.footballai.social.model.entity.Post;
+import com.footballai.social.model.entity.PostReaction;
+import com.footballai.social.model.entity.User;
+import com.footballai.social.model.enums.AgeRating;
+import com.footballai.social.model.enums.FeedWindow;
+import com.footballai.social.model.enums.PostStatus;
+import com.footballai.social.model.enums.UserRole;
+import com.footballai.social.repository.PostReactionRepository;
+import com.footballai.social.repository.PostRepository;
+import com.footballai.social.repository.cassandra.FeedEntryRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+
+/** Publicação via FAB/Copilot com classificação estrita (bolinha + borda), regras do título e fan-out para o feed. */
+@Service
+public class PostService {
+    private static final Logger log = LoggerFactory.getLogger(PostService.class);
+    public static final int TITLE_MIN_WORDS = 5, TITLE_MAX_WORDS = 12;
+
+    private final PostRepository posts;
+    private final PostReactionRepository reactions;
+    private final UserService users;
+    private final CardAssembler assembler;
+    private final ObjectProvider<FeedEntryRepository> feedEntries;
+    private final Clock clock = Clock.systemUTC();
+
+    public PostService(PostRepository posts, PostReactionRepository reactions, UserService users, CardAssembler assembler, ObjectProvider<FeedEntryRepository> feedEntries) {
+        this.posts = posts; this.reactions = reactions; this.users = users; this.assembler = assembler; this.feedEntries = feedEntries;
+    }
+
+    public static int wordCount(String title) { return title == null ? 0 : (int) java.util.Arrays.stream(title.trim().split("\\s+")).filter(w -> !w.isBlank()).count(); }
+
+    @Transactional
+    public PostCardDTO create(AuthPrincipal p, CreatePostRequest r) {
+        User author = users.require(p.userId());
+        UserRole role = author.getRole();
+        if (!role.canPublish(r.contentType(), UserService.verificationLevelOf(author)))
+            throw ApiException.forbidden("CONTENT_TYPE_NOT_ALLOWED", "O papel " + role.label() + " não publica " + r.contentType());
+        int words = wordCount(r.title());
+        if (words < TITLE_MIN_WORDS || words > TITLE_MAX_WORDS)
+            throw ApiException.badRequest("TITLE_WORDS", "Título deve ter entre " + TITLE_MIN_WORDS + " e " + TITLE_MAX_WORDS + " palavras (o feed não mostra texto corrido)");
+        Post post = new Post();
+        post.setAuthorId(author.getId()); post.setAuthorRole(role); post.setContentType(r.contentType());
+        post.setWindow(r.window() != null ? r.window() : r.contentType().defaultWindow());
+        post.setTitle(r.title().trim()); post.setSubtitle(r.subtitle()); post.setContent(r.content());
+        if (r.mediaKeys() != null && !r.mediaKeys().isEmpty()) post.setMediaKeys("[" + r.mediaKeys().stream().map(k -> "\"" + k.replace("\"", "") + "\"").reduce((a, b) -> a + "," + b).orElse("") + "]");
+        AgeRating rating = r.ageRating() == null ? AgeRating.SAFE : r.ageRating();
+        if (author instanceof Brand b && b.isBettingBrand()) rating = AgeRating.AGE_18; // Lei 14.790/2023 — publicidade de apostas 18+
+        post.setAgeRating(rating);
+        post.setAiGenerated(role.isAutomated());
+        post.setSeverity(r.severity()); post.setAlertType(r.alertType()); post.setClubId(r.clubId());
+        post.setStateCode(r.stateCode() == null ? author.getStateCode() : r.stateCode().toUpperCase());
+        post.setPublishedAt(clock.instant());
+        post = posts.save(post);
+        fanOut(post, author);
+        return assembler.postCard(post, author, false, false, clock.instant());
+    }
+
+    private void fanOut(Post post, User author) {
+        FeedEntryRepository repo = feedEntries.getIfAvailable();
+        if (repo == null) return;
+        try {
+            for (UUID target : List.of(FeedWindowService.GLOBAL_FEED_USER, author.getId())) {
+                FeedEntry e = new FeedEntry();
+                e.setKey(new FeedEntry.Key(target, post.getWindow().name(), Uuids.timeBased()));
+                e.setPostId(post.getId()); e.setAuthorId(author.getId()); e.setAuthorRole(author.getRole().name());
+                e.setContentType(post.getContentType().name()); e.setSourceRole(author.getRole().name());
+                e.setSeverity(post.getSeverity() == null ? null : post.getSeverity().name()); e.setAlertType(post.getAlertType() == null ? null : post.getAlertType().name());
+                e.setTitle(post.getTitle()); e.setSubtitle(post.getSubtitle()); e.setAgeRating(post.getAgeRating().name()); e.setTrendingScore(0d);
+                repo.save(e);
+            }
+        } catch (RuntimeException ex) { log.warn("Fan-out Cassandra falhou para post {}: {}", post.getId(), ex.getMessage()); }
+    }
+
+    @Transactional
+    public PostViewDTO view(AuthPrincipal p, UUID id) {
+        Post post = posts.findById(id).filter(x -> x.getStatus() == PostStatus.PUBLISHED).orElseThrow(() -> ApiException.notFound("Post"));
+        post.view(); posts.save(post);
+        return new PostViewDTO(assembler.postCards(List.of(post), p).get(0), post.getContent());
+    }
+
+    @Transactional
+    public ReactionDTO toggle(AuthPrincipal p, UUID id, PostReaction.Kind kind) {
+        Post post = posts.findById(id).orElseThrow(() -> ApiException.notFound("Post"));
+        var existing = reactions.findByPostIdAndUserIdAndKind(id, p.userId(), kind);
+        boolean on;
+        if (existing.isPresent()) { reactions.delete(existing.get()); on = false; }
+        else { reactions.save(new PostReaction(id, p.userId(), kind, Instant.now(clock))); on = true; }
+        if (kind == PostReaction.Kind.LIKE) post.like(on ? 1 : -1); else post.save(on ? 1 : -1);
+        posts.save(post);
+        boolean liked = kind == PostReaction.Kind.LIKE ? on : reactions.findByPostIdAndUserIdAndKind(id, p.userId(), PostReaction.Kind.LIKE).isPresent();
+        boolean saved = kind == PostReaction.Kind.SAVE ? on : reactions.findByPostIdAndUserIdAndKind(id, p.userId(), PostReaction.Kind.SAVE).isPresent();
+        return new ReactionDTO(id, liked, saved, post.getLikeCount(), post.getSaveCount(), post.getShareCount());
+    }
+
+    @Transactional
+    public ReactionDTO share(AuthPrincipal p, UUID id) {
+        Post post = posts.findById(id).orElseThrow(() -> ApiException.notFound("Post"));
+        post.share(); posts.save(post);
+        return new ReactionDTO(id, reactions.findByPostIdAndUserIdAndKind(id, p.userId(), PostReaction.Kind.LIKE).isPresent(),
+                reactions.findByPostIdAndUserIdAndKind(id, p.userId(), PostReaction.Kind.SAVE).isPresent(), post.getLikeCount(), post.getSaveCount(), post.getShareCount());
+    }
+
+    public FeedWindow defaultWindow(CreatePostRequest r) { return r.window() != null ? r.window() : r.contentType().defaultWindow(); }
+}

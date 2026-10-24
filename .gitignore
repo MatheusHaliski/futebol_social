@@ -1,0 +1,23 @@
+# build
+target/
+*.class
+*.log
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+# ambiente / segredos — nunca versionar
+.env
+.env.*
+*.pem
+*.key
+# python
+__pycache__/
+*.pyc
+.venv/
+# SO
+.DS_Store
+Thumbs.db
