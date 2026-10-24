@@ -89,10 +89,12 @@
 ││ │              hero limpo — sem stats nem badges sobrepostos    │   │ │
 ││ └──────────────────────────────────────────────────────────────┘   │ │
 ││ ● @handle · atleta ✦                                               │ │ ← author
-││ Nome — Posição                                                     │ │ ← vtitle
-││ 22 anos · Clube · Contratado · Referência estadual…  (≤ 2 linhas)  │ │ ← vsub
-││ ┌JOGOS 22┐┌GOLS 14┐┌ASSIST. 7┐┌MINUTOS 1.980┐┌CARTÕES 3 0┐┌NOTA 8.4┐│ │ ← sgrid (temporada)
-││ ┌ CONDICIONAMENTO ▬▬▬▬▬▬▬▬▬░░ prontidão 78% · ACWR 1,21  ⚡ PRONTO ┐│ │ ← phys
+││ Nome                                                               │ │ ← vtitle (só o nome)
+││ ( TEMPORADA )( ATRIBUTOS )                                         │ │ ← vtabs (janela segmentada)
+││ ┌JOGOS 22┐┌GOLS 14┐┌ASSIST. 7┐┌MINUTOS 1.980┐┌CARTÕES 3 0┐┌NOTA 8.4┐│ │ ← sgrid (aba Temporada)
+││ ┌ CONDICIONAMENTO ▬▬▬▬▬▬▬▬▬░░ prontidão 78% · ACWR 1,21  ⚡ PRONTO ┐│ │ ← phys (aba Temporada)
+││ (◎ Meia)(22 anos)(⬢ Clube)(Contratado)(PR)(Pé D)(176 cm)           │ │ ← attrs (aba Atributos)
+││ (✦ Referência estadual)(✦ Top 10% do ranking por posição)          │ │   lista de badges, nunca texto corrido
 ││ BADGES (⚡ PRONTO) (⚽ 14) (🏆 3)                 ← Athletic Persona ≤ 3  │ │ ← bdgrow
 ││ ─ ─ PP 1.240 · RP 780 · MP 76 · SCORE 1.650 ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│ │ ← statrow
 ││ (♡ Curtir 241) (💬 Comentar 18) (↗ Compartilhar 9)     (Gêmeo →)   │ │ ← actbar
@@ -106,9 +108,11 @@
 | `imgblock` | 108 px, gradiente da cor de contexto; **hero limpo** (foto/avatar apenas) | nada sobreposto à imagem: nem stats, nem títulos, nem badges — evita repetir gols/títulos que já estão no `sgrid`. |
 | **`bdgrow` (badges)** | rótulo `BADGES` + até 3 pills *Athletic Persona* (status físico → `priority` → contador), na área inferior de dados, logo abaixo de `phys` | toque abre o histórico (*tap to expand*); nunca sobre a imagem. |
 | `author` | bolinha 13 px + `@handle · papel`; ✦ dourado = verificado | |
-| `vtitle` / `vsub` | Nome — Posição · metadados + leitura do tier (≤ 2 linhas) | |
-| **`sgrid` (temporada)** | Jogos · Gols (goleiro: Clean sheets) · Assistências (defensor: Desarmes) · Minutos · Cartões (🟨 🟥) · Nota média | tiles mono .5 rem + Space Grotesk 1.05 rem. |
-| **`phys` (condicionamento)** | barra de prontidão 1–100 · ACWR 7:28 · status `⚡ PRONTO PRA JOGO` / `⚠️ RISCO DE FADIGA` / `🩹 DEPARTAMENTO MÉDICO` + tipo da lesão e retorno previsto | **privado por padrão**: só aparece para terceiros com `shareMedicalData = true`; a variante lesão pinta o bloco de vermelho. |
+| `vtitle` | **só o nome** do atleta (a posição é um badge da lista de atributos) | |
+| **`vtabs` (janela segmentada)** | `Temporada` · `Atributos` — segment control dentro do card | evita excesso de informação: uma aba por vez; default `Temporada`. |
+| **`attrs` (aba Atributos)** | lista de itens/badges: `◎ posição` · `idade` · `⬢ clube` · `Contratado`/`Agente livre` · UF · pé dominante · altura · `✦ referência` · `✦ ranking` | **atributos nunca em texto corrido**: cada atributo é um pill (`.attrs li`), com cor por semântica (verde contratado, azul agente livre, dourado referência). |
+| **`sgrid` (aba Temporada)** | Jogos · Gols (goleiro: Clean sheets) · Assistências (defensor: Desarmes) · Minutos · Cartões (🟨 🟥) · Nota média | tiles mono .5 rem + Space Grotesk 1.05 rem. |
+| **`phys` (aba Temporada)** | barra de prontidão 1–100 · ACWR 7:28 · status `⚡ PRONTO PRA JOGO` / `⚠️ RISCO DE FADIGA` / `🩹 DEPARTAMENTO MÉDICO` + tipo da lesão e retorno previsto | **privado por padrão**: só aparece para terceiros com `shareMedicalData = true`; a variante lesão pinta o bloco de vermelho. |
 | `statrow` | `PP` (verde) · `RP` (azul) · `MP` (amarelo) · `SCORE` (dourado) | fórmula do Rarity Engine; tiers de recompensa (Bronze→Diamante) correm em paralelo. |
 | `actbar` | Curtir · Comentar · Compartilhar · **Gêmeo →** | Staff: `Pranchetas →` · Clube: `Plantel →`. |
 

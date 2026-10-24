@@ -31,11 +31,11 @@
 
   /* ---------- dados mock (pessoais como <PREENCHER_*>) ---------- */
   const athletes = [
-    { id:'ath-1', name:'<PREENCHER_ATLETA_1>', handle:'@<preencher_1>', ini:'A1', role:'ATLETA', pos:'Meia', age:22, state:'PR', club:'<PREENCHER_CLUBE_1>', status:'CONTRATADO', tier:'LEGENDARY', score:1650, pp:1240, rp:780, s:[82,88,76], sub:'Referência estadual · Top 10% do ranking por posição', badges:[['⚡ PRONTO','green'],['⚽ 14','' ],['🏆 3','']], season:{games:22,goals:14,assists:7,minutes:1980,yellow:3,red:0}, phys:{readiness:78,acwr:1.21,status:'READY'}, likes:241, comments:18, shares:9 },
-    { id:'ath-2', name:'<PREENCHER_ATLETA_2>', handle:'@<preencher_2>', ini:'A2', role:'ATLETA', pos:'Atacante', age:19, state:'SP', club:'<PREENCHER_CLUBE_2>', status:'AGENTE_LIVRE', tier:'MYTHIC', score:2480, pp:1480, rp:912, s:[91,93,89], sub:'Referência nacional · Top 1%, candidato à Seleção Football AI', badges:[['🏆 7',''],['⚽ 21',''],['🔥 6','']], momentum:1.6, season:{games:24,goals:21,assists:9,minutes:2110,yellow:2,red:0}, phys:{readiness:91,acwr:1.08,status:'READY'}, likes:1240, comments:96, shares:58 },
-    { id:'ath-3', name:'<PREENCHER_ATLETA_3>', handle:'@<preencher_3>', ini:'A3', role:'ATLETA', pos:'Zagueiro', age:27, state:'PR', club:'<PREENCHER_CLUBE_1>', status:'CONTRATADO', tier:'EPIC', score:1120, pp:980, rp:520, s:[78,80,70], sub:'Sequência de atuações de destaque · Momentum 1,4×', badges:[['⚠️ FADIGA','yellow'],['🧱 9',''],['🛡️ FAIR','']], season:{games:20,goals:2,assists:1,minutes:1750,yellow:5,red:0,tackles:9}, phys:{readiness:52,acwr:1.62,status:'FATIGUE'}, likes:88, comments:7, shares:2 },
-    { id:'ath-4', name:'<PREENCHER_ATLETA_4>', handle:'@<preencher_4>', ini:'A4', role:'ATLETA', pos:'Goleiro', age:31, state:'RS', club:'<PREENCHER_CLUBE_3>', status:'CONTRATADO', tier:'RARE', score:640, pp:520, rp:210, s:[60,72,55], sub:'Boa consistência ao longo de várias semanas de treino', badges:[['🧱 5',''],['⏱️ 1.980',''],['👑 CAP','']], season:{games:23,goals:0,assists:0,minutes:1980,yellow:1,red:0,cleanSheets:5}, phys:{readiness:66,acwr:1.15,status:'INJURED',injury:{type:'Lesão grau 2 · coxa',ret:'3 sem'}}, likes:54, comments:4, shares:1 },
-    { id:'ath-5', name:'<PREENCHER_ATLETA_5>', handle:'@<preencher_5>', ini:'A5', role:'ATLETA', pos:'Lateral', age:17, state:'SP', club:'<PREENCHER_CLUBE_2>', status:'AGENTE_LIVRE', tier:'COMMON', score:310, pp:180, rp:60, s:[52,44,38], sub:'Gêmeo iniciante — poucos dados registrados ainda', badges:[['⚡ PRONTO','green'],['⏱️ 420','']], season:{games:6,goals:1,assists:0,minutes:420,yellow:0,red:0}, phys:{readiness:84,acwr:0.95,status:'READY'}, likes:12, comments:1, shares:0 },
+    { id:'ath-1', name:'<PREENCHER_ATLETA_1>', handle:'@<preencher_1>', ini:'A1', role:'ATLETA', pos:'Meia', age:22, foot:'D', height:176, state:'PR', club:'<PREENCHER_CLUBE_1>', status:'CONTRATADO', tier:'LEGENDARY', score:1650, pp:1240, rp:780, s:[82,88,76], sub:'Referência estadual · Top 10% do ranking por posição', badges:[['⚡ PRONTO','green'],['⚽ 14','' ],['🏆 3','']], season:{games:22,goals:14,assists:7,minutes:1980,yellow:3,red:0}, phys:{readiness:78,acwr:1.21,status:'READY'}, likes:241, comments:18, shares:9 },
+    { id:'ath-2', name:'<PREENCHER_ATLETA_2>', handle:'@<preencher_2>', ini:'A2', role:'ATLETA', pos:'Atacante', age:19, foot:'E', height:181, state:'SP', club:'<PREENCHER_CLUBE_2>', status:'AGENTE_LIVRE', tier:'MYTHIC', score:2480, pp:1480, rp:912, s:[91,93,89], sub:'Referência nacional · Top 1%, candidato à Seleção Football AI', badges:[['🏆 7',''],['⚽ 21',''],['🔥 6','']], momentum:1.6, season:{games:24,goals:21,assists:9,minutes:2110,yellow:2,red:0}, phys:{readiness:91,acwr:1.08,status:'READY'}, likes:1240, comments:96, shares:58 },
+    { id:'ath-3', name:'<PREENCHER_ATLETA_3>', handle:'@<preencher_3>', ini:'A3', role:'ATLETA', pos:'Zagueiro', age:27, foot:'D', height:189, state:'PR', club:'<PREENCHER_CLUBE_1>', status:'CONTRATADO', tier:'EPIC', score:1120, pp:980, rp:520, s:[78,80,70], sub:'Sequência de atuações de destaque · Momentum 1,4×', badges:[['⚠️ FADIGA','yellow'],['🧱 9',''],['🛡️ FAIR','']], season:{games:20,goals:2,assists:1,minutes:1750,yellow:5,red:0,tackles:9}, phys:{readiness:52,acwr:1.62,status:'FATIGUE'}, likes:88, comments:7, shares:2 },
+    { id:'ath-4', name:'<PREENCHER_ATLETA_4>', handle:'@<preencher_4>', ini:'A4', role:'ATLETA', pos:'Goleiro', age:31, foot:'D', height:192, state:'RS', club:'<PREENCHER_CLUBE_3>', status:'CONTRATADO', tier:'RARE', score:640, pp:520, rp:210, s:[60,72,55], sub:'Boa consistência ao longo de várias semanas de treino', badges:[['🧱 5',''],['⏱️ 1.980',''],['👑 CAP','']], season:{games:23,goals:0,assists:0,minutes:1980,yellow:1,red:0,cleanSheets:5}, phys:{readiness:66,acwr:1.15,status:'INJURED',injury:{type:'Lesão grau 2 · coxa',ret:'3 sem'}}, likes:54, comments:4, shares:1 },
+    { id:'ath-5', name:'<PREENCHER_ATLETA_5>', handle:'@<preencher_5>', ini:'A5', role:'ATLETA', pos:'Lateral', age:17, foot:'E', height:172, state:'SP', club:'<PREENCHER_CLUBE_2>', status:'AGENTE_LIVRE', tier:'COMMON', score:310, pp:180, rp:60, s:[52,44,38], sub:'Gêmeo iniciante — poucos dados registrados ainda', badges:[['⚡ PRONTO','green'],['⏱️ 420','']], season:{games:6,goals:1,assists:0,minutes:420,yellow:0,red:0}, phys:{readiness:84,acwr:0.95,status:'READY'}, likes:12, comments:1, shares:0 },
   ];
   const orgs = [
     { id:'club-1', name:'<PREENCHER_CLUBE_1>', handle:'@<preencher_clube>', ini:'CL', role:'CLUBE', tier:'EPIC', score:1210, sub:'Clube formador · Série A · 31 atletas · 3 vagas abertas', meta:'CLUBE FORMADOR', stats:[['PLANTEL','31'],['PRONTOS','27'],['VAGAS','3']], verified:true },
@@ -137,13 +137,22 @@
     const cc = a.tier === 'COMMON' || !a.tier ? '#5c6b62' : TIER_COLOR[a.tier];
     // badges Athletic Persona ficam na área inferior de dados (hero limpo, sem stats repetidas)
     const bdg = a.badges ? `<div class="bdgrow"><small>BADGES</small>${a.badges.slice(0, 3).map(b => `<b class="${b[1]}" data-badge="${esc(b[0])}">${esc(b[0])}</b>`).join('')}</div>` : '';
-    const title = a.pos ? `${esc(a.name)} — ${a.pos}` : esc(a.name);
-    const sub = a.pos ? `${a.age} anos · ${a.club} · ${a.status === 'AGENTE_LIVRE' ? 'Agente livre' : 'Contratado'} · ${a.sub}` : a.sub;
+    const title = esc(a.name); // posição NÃO vai no título: é um badge da lista de atributos
+    // atributos NUNCA em texto corrido: lista de itens/badges (posição, idade, clube, contrato, referência, ranking…)
+    const refs = String(a.sub || '').split(' · ').map(t => t.trim()).filter(Boolean);
+    const attrItems = a.pos ? [
+      ['◎', a.pos, 'pos'], ['', `${a.age} anos`, ''], ['⬢', a.club, 'club'],
+      ['', a.status === 'AGENTE_LIVRE' ? 'Agente livre' : 'Contratado', a.status === 'AGENTE_LIVRE' ? 'free' : 'signed'],
+      a.state ? ['', a.state, ''] : null, a.foot ? ['', `Pé ${a.foot}`, ''] : null, a.height ? ['', `${a.height} cm`, ''] : null,
+      ...refs.map(t => ['✦', t, 'ref']),
+    ].filter(Boolean) : refs.map(t => ['', t, '']);
+    const attrs = `<ul class="attrs">${attrItems.map(([i, t, c]) => `<li class="${c}">${i ? `<span class="i">${i}</span>` : ''}${esc(t)}</li>`).join('')}</ul>`;
     let data = '';
     if (a.season) {
       const sz = a.season, ph = a.phys || {}, st = PHYS[ph.status] || PHYS.READY;
       const gk = sz.cleanSheets !== undefined, df = sz.tackles !== undefined;
-      data += `<div class="sgrid">
+      data += `<div class="vtabs" role="tablist"><button type="button" class="vt on" role="tab" data-vt="temporada">Temporada</button><button type="button" class="vt" role="tab" data-vt="atributos">Atributos</button></div>
+      <div class="vpane" data-vt="temporada"><div class="sgrid">
         <div class="stile"><small>JOGOS</small><b>${sz.games}</b></div>
         <div class="stile"><small>${gk ? 'CLEAN SHEETS' : 'GOLS'}</small><b>${gk ? sz.cleanSheets : sz.goals}</b></div>
         <div class="stile"><small>${df ? 'DESARMES' : 'ASSIST.'}</small><b>${df ? sz.tackles : sz.assists}</b></div>
@@ -154,7 +163,10 @@
       <div class="phys ${st[2]}">
         <div class="pl"><small>CONDICIONAMENTO</small><div class="rd"><i style="--w:${ph.readiness || 0}%"></i></div><span>prontidão <b>${ph.readiness ?? '—'}%</b> · ACWR <b>${(ph.acwr ?? 0).toLocaleString('pt-BR')}</b></span></div>
         <div class="pst"><span class="i">${st[0]}</span><b>${st[1]}</b>${ph.injury ? `<small>${esc(ph.injury.type)} · retorno ${esc(ph.injury.ret)}</small>` : ''}</div>
-      </div>`;
+      </div></div>
+      <div class="vpane" data-vt="atributos" hidden>${attrs}</div>`;
+    } else {
+      data = attrs;
     }
     const stats = a.pp !== undefined
       ? `<span class="pp">PP <b>${a.pp.toLocaleString('pt-BR')}</b></span><span class="rp">RP <b>${a.rp.toLocaleString('pt-BR')}</b></span><span class="mp">MP <b>${a.s ? a.s[2] : '—'}</b></span><span class="st">SCORE <b>${a.score.toLocaleString('pt-BR')}</b></span>`
@@ -171,7 +183,6 @@
         <div class="imgblock"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></div>
         <div class="author"><span class="dot dc-${r.dc}"></span><span class="handle"><b>${esc(a.handle)}</b> <span>· ${r.label}</span>${a.verified ? '<span class="verified">✦</span>' : ''}</span></div>
         <div class="vtitle">${title}</div>
-        <div class="vsub">${esc(sub)}</div>
         ${data}
         ${bdg}
         <div class="statrow">${stats}</div>
@@ -409,6 +420,7 @@
       else if (kind === 'save') { act.classList.toggle('on'); toast(act.classList.contains('on') ? 'SALVO' : 'REMOVIDO DOS SALVOS'); }
       return;
     }
+    const vt = e.target.closest('.vtabs .vt'); if (vt) { const card = vt.closest('.vcard'); card.querySelectorAll('.vtabs .vt').forEach(x => x.classList.toggle('on', x === vt)); card.querySelectorAll('.vpane').forEach(pn => pn.hidden = pn.dataset.vt !== vt.dataset.vt); return; }
     const b = e.target.closest('.bdgrow b[data-badge]'); if (b) toast(`TAP TO EXPAND · ${b.dataset.badge} · GET /v1/athletes/{id}/badges/{type}/history`); });
 
   $$('.sorttabs').forEach(st => st.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; $$('button', st).forEach(x => x.classList.toggle('on', x === b)); toast(`ORDENAR · ${b.textContent.toUpperCase()}`); }));
