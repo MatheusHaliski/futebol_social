@@ -4,179 +4,318 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Football AI · Social</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body data-role="ATLETA" data-tier="LEGENDARY">
+<!-- sprite de ícones derivado do logo (fonte: icons.svg) -->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true" focusable="false">
+  <!--
+    Football AI · Social — sistema de ícones derivado do logo oficial (docs/brand/logo-official.jpg)
+    Construção de cada ícone (viewBox 64×64):
+      1. #shield   — silhueta do brasão: arco no topo, laterais retas, base angulada
+      2. #mosaic   — vitral em facetas (verde · menta · amarelo · azul · laranja) com juntas grafite
+      3. aro       — grafite #1E1E1D com filete de luz interno
+      4. glifo     — pictograma em grafite (#15151A) com filete dourado por baixo, como o lettering do logo
+    Uso: <svg class="ic"><use href="#ic-feed"/></svg>
+  -->
+  <defs>
+    <path id="shield" d="M7 26 A25 25 0 0 1 57 26 V40 L35 60 H29 L7 40 Z"/>
+    <clipPath id="shieldClip"><use href="#shield"/></clipPath>
 
-<!-- ===================== TOPBAR ===================== -->
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F8EDA8"/><stop offset=".38" stop-color="#EDD16A"/>
+      <stop offset=".68" stop-color="#C79A41"/><stop offset="1" stop-color="#8A6A2F"/>
+    </linearGradient>
+    <linearGradient id="goldFlat" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F5E69C"/><stop offset="1" stop-color="#C79A41"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5A5A55"/><stop offset="1" stop-color="#15151A"/>
+    </linearGradient>
+    <radialGradient id="gloss" cx=".3" cy=".2" r=".9">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity=".38"/><stop offset=".5" stop-color="#FFFFFF" stop-opacity=".06"/>
+      <stop offset="1" stop-color="#000000" stop-opacity=".22"/>
+    </radialGradient>
+    <filter id="emboss" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="1.2" stdDeviation=".8" flood-color="#000" flood-opacity=".55"/>
+    </filter>
+
+    <!-- vitral: facetas diagonais no sentido do logo, juntas grafite -->
+    <g id="mosaic" stroke="#1E1E1D" stroke-width="1.1" stroke-linejoin="round">
+      <path d="M0 0H24L0 28Z" fill="#22A05E"/>
+      <path d="M24 0H40L0 46V28Z" fill="#96D6C3"/>
+      <path d="M40 0H64V10L10 64H0V46Z" fill="#F2D23A"/>
+      <path d="M64 10V30L30 64H10Z" fill="#2B4FB0"/>
+      <path d="M64 30V50L50 64H30Z" fill="#F28C28"/>
+      <path d="M64 50V64H50Z" fill="#1E7A4A"/>
+      <path d="M8 8H20L8 22Z" fill="#CCD59F"/>
+      <path d="M52 14H62L44 36Z" fill="#1E3F8F"/>
+      <path d="M40 40L52 32L46 50Z" fill="#F7B733"/>
+      <path d="M14 36L24 30L16 50Z" fill="#2E8B57"/>
+    </g>
+
+    <!-- moldura completa: mosaico recortado + gloss + aro -->
+    <symbol id="frame" viewBox="0 0 64 64">
+      <g clip-path="url(#shieldClip)">
+        <use href="#mosaic"/>
+        <use href="#shield" fill="url(#gloss)"/>
+      </g>
+      <use href="#shield" fill="none" stroke="url(#rim)" stroke-width="3.2" stroke-linejoin="round"/>
+      <use href="#shield" fill="none" stroke="#FFFFFF" stroke-opacity=".22" stroke-width=".9" stroke-linejoin="round" transform="translate(32 32) scale(.93) translate(-32 -32)"/>
+    </symbol>
+
+    <!-- glifos (traço) — centro ≈ (32,33) -->
+    <g id="g-feed"><path d="M18 34 L32 21 L46 34 M22 31 V46 H42 V31 M29 46 V38 H35 V46"/></g>
+    <g id="g-buscar"><circle cx="29" cy="30" r="9"/><path d="M36 37 L46 47"/></g>
+    <g id="g-explorar"><circle cx="32" cy="33" r="12"/><path d="M20 33 H44 M32 21 C26 27 26 39 32 45 M32 21 C38 27 38 39 32 45"/></g>
+    <g id="g-clubes"><path d="M32 19 L44 24 V34 C44 41 38 46 32 48 C26 46 20 41 20 34 V24 Z"/></g>
+    <g id="g-lens"><path d="M20 26 V21 H25 M39 21 H44 V26 M44 40 V45 H39 M25 45 H20 V40"/><circle cx="32" cy="33" r="6"/></g>
+    <g id="g-telemetria"><path d="M18 34 H26 L30 24 L35 44 L39 30 L42 34 H46"/></g>
+    <g id="g-evolucao"><circle cx="32" cy="33" r="12"/><path d="M32 25 V33 L38 37"/></g>
+    <g id="g-carga"><path d="M32 46 C32 46 18 37 18 28 C18 23 22 20 26 20 C29 20 31 22 32 24 C33 22 35 20 38 20 C42 20 46 23 46 28 C46 37 32 46 32 46 Z"/></g>
+    <g id="g-dna"><path d="M24 19 C24 33 40 33 40 47 M40 19 C40 33 24 33 24 47 M26 24 H38 M26 42 H38"/></g>
+    <g id="g-comparador"><path d="M20 27 H42 M36 21 L42 27 L36 33 M44 39 H22 M28 33 L22 39 L28 45"/></g>
+    <g id="g-provador"><path d="M27 19 H37 M29 19 V29 L19 44 C18 46 19 47 21 47 H43 C45 47 46 46 45 44 L35 29 V19 M24 39 H40"/></g>
+    <g id="g-avatar"><circle cx="32" cy="23" r="5"/><path d="M24 47 V38 C24 32 40 32 40 38 V47 M32 35 V47"/></g>
+    <g id="g-cards"><path d="M20 25 H38 V47 H20 Z M26 21 H44 V43"/></g>
+    <g id="g-criar"><path d="M32 18 L46 32 L32 46 L18 32 Z M32 26 V38 M26 32 H38"/></g>
+    <g id="g-copilot"><path d="M31 18 L34 29 L45 32 L34 35 L31 46 L28 35 L17 32 L28 29 Z M44 18 L45 22 L49 23 L45 24 L44 28 L43 24 L39 23 L43 22 Z"/></g>
+    <g id="g-autopilot"><path d="M44 30 A12 12 0 0 0 23 25 M20 36 A12 12 0 0 0 41 41 M44 22 V30 H36 M20 44 V36 H28"/></g>
+    <g id="g-perfil"><circle cx="32" cy="26" r="7"/><path d="M19 47 C19 38 45 38 45 47"/></g>
+    <g id="g-historico"><path d="M22 20 H42 C44 20 45 21 45 23 V43 C45 45 44 46 42 46 H22 C20 46 19 45 19 43 V23 C19 21 20 20 22 20 Z M26 28 H38 M26 34 H38 M26 40 H34"/></g>
+    <g id="g-privacidade"><path d="M32 19 L44 24 V34 C44 41 38 46 32 48 C26 46 20 41 20 34 V24 Z M26 33 L30 37 L38 29"/></g>
+    <g id="g-momentos"><path d="M20 21 H44 V45 H20 Z M29 28 L38 33 L29 38 Z"/></g>
+    <g id="g-flair"><path d="M26 24 H38 V46 H26 Z M22 28 L18 44 L28 47 M42 28 L46 44 L36 47"/></g>
+    <g id="g-rankings"><path d="M24 20 H40 V28 C40 34 36 37 32 37 C28 37 24 34 24 28 Z M24 23 H19 C19 29 21 31 24 31 M40 23 H45 C45 29 43 31 40 31 M32 37 V42 M26 46 H38 M28 42 H36 V46"/></g>
+    <g id="g-cupons"><path d="M19 26 H45 V32 C42 32 42 36 45 36 V42 H19 V36 C22 36 22 32 19 32 Z M29 27 V30 M29 33 V36 M29 39 V41"/></g>
+    <g id="g-pontos"><circle cx="32" cy="33" r="13"/><path d="M26 27 L32 40 L38 27"/></g>
+    <g id="g-clube"><path d="M18 30 C18 24 46 24 46 30 V40 C46 46 18 46 18 40 Z M18 30 C18 36 46 36 46 30 M26 33 V43 M32 34 V44 M38 33 V43"/></g>
+    <g id="g-liga"><circle cx="32" cy="37" r="9"/><path d="M27 29 L23 18 H31 L32 21 M37 29 L41 18 H33 L32 21 M32 32 L33.5 35.5 L37 36 L34.5 38.5 L35 42 L32 40.2 L29 42 L29.5 38.5 L27 36 L30.5 35.5 Z"/></g>
+    <g id="g-admin"><circle cx="32" cy="33" r="5"/><path d="M32 18 V23 M32 43 V48 M17 33 H22 M42 33 H47 M21.4 22.4 L25 26 M39 40 L42.6 43.6 M42.6 22.4 L39 26 M25 40 L21.4 43.6"/></g>
+    <g id="g-scouting"><path d="M24 22 H40 V46 H24 Z M28 22 V19 H36 V22 M28 30 H36 M28 36 H36 M28 42 H33"/></g>
+    <g id="g-alerta"><path d="M24 38 C24 32 24 26 32 24 C40 26 40 32 40 38 L43 42 H21 Z M29 45 C29 47 35 47 35 45 M32 20 V24"/></g>
+    <g id="g-plus"><path d="M32 20 V46 M19 33 H45"/></g>
+    <g id="g-mais"><path d="M20 25 H44 M20 33 H44 M20 41 H44"/></g>
+    <g id="g-ball"><circle cx="32" cy="33" r="12"/><path d="M32 25 L38 29 L36 36 H28 L26 29 Z M32 21 V25 M38 29 L43 27 M36 36 L39 42 M28 36 L25 42 M26 29 L21 27"/></g>
+  </defs>
+
+  <!-- ===== marca (logo simplificado para topbar/favicon) ===== -->
+  <symbol id="brand-mark" viewBox="0 0 64 64">
+    <use href="#frame"/>
+    <path d="M13 24 A21 21 0 0 1 51 24" fill="none" stroke="url(#goldFlat)" stroke-width="5" stroke-linecap="round" filter="url(#emboss)"/>
+    <path d="M19 50 H45" fill="none" stroke="url(#goldFlat)" stroke-width="5" stroke-linecap="round" filter="url(#emboss)"/>
+    <path d="M32 19 L46 33 L32 47 L18 33 Z" fill="url(#gold)" stroke="#5A4420" stroke-width="1.2" stroke-linejoin="round" filter="url(#emboss)"/>
+    <path d="M26 28 L32 40 L38 28" fill="none" stroke="#3A2A10" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+
+  <!-- ===== ícones: moldura + glifo (bisel escuro + ouro) ===== -->
+  <symbol id="ic-feed" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-feed" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-feed" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-buscar" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-buscar" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-buscar" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-explorar" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-explorar" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-explorar" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-clubes" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-clubes" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-clubes" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-lens" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-lens" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-lens" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-telemetria" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-telemetria" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-telemetria" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-evolucao" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-evolucao" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-evolucao" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-carga" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-carga" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-carga" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-dna" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-dna" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-dna" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-comparador" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-comparador" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-comparador" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-provador" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-provador" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-provador" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-avatar" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-avatar" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-avatar" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-cards" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-cards" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-cards" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-criar" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-criar" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-criar" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-copilot" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-copilot" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-copilot" fill="#15151A" stroke="#15151A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-autopilot" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-autopilot" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-autopilot" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-perfil" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-perfil" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-perfil" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-historico" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-historico" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-historico" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-privacidade" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-privacidade" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-privacidade" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-momentos" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-momentos" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-momentos" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-flair" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-flair" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-flair" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-rankings" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-rankings" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-rankings" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-cupons" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-cupons" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-cupons" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-pontos" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-pontos" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-pontos" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-clube" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-clube" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-clube" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-liga" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-liga" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-liga" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-admin" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-admin" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-admin" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-scouting" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-scouting" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-scouting" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-alerta" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-alerta" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-alerta" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-plus" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-plus" fill="none" stroke="#F5E69C" stroke-width="9.5" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-plus" fill="none" stroke="#15151A" stroke-width="5.4" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-mais" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-mais" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-mais" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-ball" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-ball" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-ball" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+</svg>
+
+<!-- ===================== TOPBAR · logo oficial + brandmark + segmented switcher ===================== -->
 <header class="topbar">
-  <button class="icon-btn" id="btnMore" aria-label="Mais">☰</button>
-  <a class="brand" href="#/perfil"><span class="brand-ball">⚽</span> Football AI · Social</a>
-  <form class="search" id="searchForm" role="search">
-    <input type="search" id="searchInput" placeholder="Buscar atletas, clubes, ligas…" aria-label="Buscar">
-  </form>
-  <a class="icon-btn" href="#/perfil/explorar" aria-label="Explorar">🌐</a>
-  <button class="icon-btn" id="btnLgpd" aria-label="Privacidade LGPD">🛡️</button>
-  <!-- Bolinha do usuário logado: cor do anel = UserRole -->
-  <button class="me" id="meBtn" aria-label="Meu perfil">
-    <span class="avatar ring ring-atleta" data-initials="MA"></span>
-    <span class="me-meta"><b>&lt;PREENCHER_NOME&gt;</b><small><i class="dot dot-atleta"></i> ATLETA · <span class="tier-pill tier-legendary-pill">LEGENDARY</span></small></span>
-  </button>
+  <div class="brandwrap">
+    <button class="icon-btn" id="btnMore" aria-label="Mais"><svg class="ic"><use href="#ic-mais"/></svg></button>
+    <a href="#/perfil" class="brandmark"><img src="brand/logo.png" alt="Football AI · Social"><span class="bn">FOOTBALL AI · SOCIAL<small>identity · feed · rarity system</small></span></a>
+  </div>
+  <nav class="switcher" aria-label="Feeds">
+    <a href="#/perfil" data-win="perfil" class="on"><svg class="ic"><use href="#ic-perfil"/></svg>Perfil</a>
+    <a href="#/gemeo" data-win="gemeo"><svg class="ic"><use href="#ic-telemetria"/></svg>Gêmeo</a>
+    <a href="#/scouting" data-win="scouting"><svg class="ic"><use href="#ic-scouting"/></svg>Scouting</a>
+    <a href="#/alerta" data-win="alerta"><svg class="ic"><use href="#ic-alerta"/></svg>Alerta</a>
+  </nav>
+  <div class="top-actions">
+    <form class="search" id="searchForm" role="search"><input type="search" id="searchInput" placeholder="Buscar atletas, clubes, ligas…" aria-label="Buscar"></form>
+    <a class="icon-btn" href="#/perfil/explorar" aria-label="Explorar"><svg class="ic"><use href="#ic-explorar"/></svg></a>
+    <button class="icon-btn" id="btnLgpd" aria-label="Privacidade LGPD"><svg class="ic"><use href="#ic-privacidade"/></svg></button>
+    <button class="me" id="meBtn" aria-label="Meu perfil">
+      <span class="avatar" data-initials="MA"><i class="dot dc-atleta"></i></span>
+      <span class="me-meta"><b>&lt;PREENCHER_NOME&gt;</b><small>@&lt;preencher_user&gt; · atleta · <span class="rarity-chip rc-legendary">LEGENDARY</span></small></span>
+    </button>
+  </div>
 </header>
 
 <div class="shell">
 
-<!-- ===================== SIDEBAR (desktop · 7 seções) ===================== -->
+<!-- ===================== SIDEBAR (desktop · 7 seções · ícones-brasão) ===================== -->
 <nav class="sidebar" id="sidebar" aria-label="Navegação principal">
   <section><h4>Descobrir</h4>
-    <a href="#/perfil" data-nav="perfil/feed"><i>🏠</i>Feed</a>
-    <a href="#/buscar" data-nav="buscar"><i>🔍</i>Buscar</a>
-    <a href="#/perfil/explorar" data-nav="perfil/explorar"><i>🌐</i>Explorar (globo)</a>
-    <a href="#/perfil/explorar?view=ligas" data-nav="perfil/explorar"><i>🛡️</i>Clubes &amp; Ligas</a>
-    <a href="#/scouting/lens" data-nav="scouting/lens" data-roles="ATLETA,STAFF,SCOUT,CLUBE"><i>🎯</i>Lens</a>
+    <a href="#/perfil" data-nav="perfil/feed"><svg class="ic"><use href="#ic-feed"/></svg>Feed</a>
+    <a href="#/buscar" data-nav="buscar"><svg class="ic"><use href="#ic-buscar"/></svg>Buscar</a>
+    <a href="#/perfil/explorar" data-nav="perfil/explorar"><svg class="ic"><use href="#ic-explorar"/></svg>Explorar (globo)</a>
+    <a href="#/perfil/explorar?view=ligas" data-nav="perfil/explorar"><svg class="ic"><use href="#ic-clubes"/></svg>Clubes &amp; Ligas</a>
+    <a href="#/scouting/lens" data-nav="scouting/lens" data-roles="ATLETA,STAFF,SCOUT,CLUBE"><svg class="ic"><use href="#ic-lens"/></svg>Lens</a>
   </section>
   <section><h4>Meu Gêmeo</h4>
-    <a href="#/gemeo" data-nav="gemeo/telemetria"><i>📈</i>Telemetria</a>
-    <a href="#/gemeo/evolucao" data-nav="gemeo/evolucao"><i>🕒</i>Evolução</a>
-    <a href="#/gemeo/carga" data-nav="gemeo/carga"><i>❤️</i>Carga &amp; Recuperação</a>
-    <a href="#/gemeo/dna" data-nav="gemeo/dna"><i>🧬</i>DNA de jogo</a>
-    <a href="#/gemeo/comparador" data-nav="gemeo/comparador"><i>⇄</i>Comparador</a>
-    <a href="#/gemeo/provador" data-nav="gemeo/provador"><i>🧪</i>Provador tático</a>
-    <a href="#/gemeo/avatar" data-nav="gemeo/avatar"><i>🧍</i>Meu Avatar 3D</a>
+    <a href="#/gemeo" data-nav="gemeo/telemetria"><svg class="ic"><use href="#ic-telemetria"/></svg>Telemetria</a>
+    <a href="#/gemeo/evolucao" data-nav="gemeo/evolucao"><svg class="ic"><use href="#ic-evolucao"/></svg>Evolução</a>
+    <a href="#/gemeo/carga" data-nav="gemeo/carga"><svg class="ic"><use href="#ic-carga"/></svg>Carga &amp; Recuperação</a>
+    <a href="#/gemeo/dna" data-nav="gemeo/dna"><svg class="ic"><use href="#ic-dna"/></svg>DNA de jogo</a>
+    <a href="#/gemeo/comparador" data-nav="gemeo/comparador"><svg class="ic"><use href="#ic-comparador"/></svg>Comparador</a>
+    <a href="#/gemeo/provador" data-nav="gemeo/provador"><svg class="ic"><use href="#ic-provador"/></svg>Provador tático</a>
+    <a href="#/gemeo/avatar" data-nav="gemeo/avatar"><svg class="ic"><use href="#ic-avatar"/></svg>Meu Avatar 3D</a>
   </section>
   <section><h4>Cards</h4>
-    <a href="#/cards" data-nav="cards"><i>🃏</i>Meus cards</a>
-    <a href="#/novo" data-nav="novo" class="fab-link"><i>＋</i>Criar card</a>
-    <a href="#/novo?copilot=1" data-nav="novo"><i>✨</i>Copilot</a>
-    <a href="#/gemeo/autopilot" data-nav="gemeo/autopilot"><i>🔁</i>Autopiloto</a>
+    <a href="#/cards" data-nav="cards"><svg class="ic"><use href="#ic-cards"/></svg>Meus cards</a>
+    <a href="#/novo" data-nav="novo"><svg class="ic"><use href="#ic-criar"/></svg>Criar card</a>
+    <a href="#/novo?copilot=1" data-nav="novo"><svg class="ic"><use href="#ic-copilot"/></svg>Copilot</a>
+    <a href="#/gemeo/autopilot" data-nav="gemeo/autopilot"><svg class="ic"><use href="#ic-autopilot"/></svg>Autopiloto</a>
   </section>
   <section><h4>Perfil</h4>
-    <a href="#/me" data-nav="me"><i>👤</i>Meu perfil</a>
-    <a href="#/me/historico" data-nav="me/historico"><i>📜</i>Histórico</a>
-    <a href="#/configuracoes/privacidade" data-nav="lgpd" id="navLgpd"><i>🛡️</i>Privacidade (LGPD)</a>
+    <a href="#/me" data-nav="me"><svg class="ic"><use href="#ic-perfil"/></svg>Meu perfil</a>
+    <a href="#/me/historico" data-nav="me/historico"><svg class="ic"><use href="#ic-historico"/></svg>Histórico</a>
+    <a href="#/configuracoes/privacidade" data-nav="lgpd" id="navLgpd"><svg class="ic"><use href="#ic-privacidade"/></svg>Privacidade (LGPD)</a>
   </section>
   <section><h4>Jogar e Ganhar</h4>
-    <a href="#/perfil/momentos" data-nav="perfil/momentos"><i>🎬</i>Momentos</a>
-    <a href="#/flair" data-nav="flair"><i>🃏</i>FLAIR</a>
-    <a href="#/perfil/ranking" data-nav="perfil/ranking"><i>🏆</i>Destaques / Rankings</a>
-    <a href="#/cupons" data-nav="cupons"><i>🎟️</i>Cupons</a>
+    <a href="#/perfil/momentos" data-nav="perfil/momentos"><svg class="ic"><use href="#ic-momentos"/></svg>Momentos</a>
+    <a href="#/flair" data-nav="flair"><svg class="ic"><use href="#ic-flair"/></svg>FLAIR</a>
+    <a href="#/perfil/ranking" data-nav="perfil/ranking"><svg class="ic"><use href="#ic-rankings"/></svg>Destaques / Rankings</a>
+    <a href="#/cupons" data-nav="cupons"><svg class="ic"><use href="#ic-cupons"/></svg>Cupons</a>
   </section>
   <section><h4>Loja</h4>
-    <a href="#/pontos" data-nav="pontos"><i>🪙</i>Pontos</a>
+    <a href="#/pontos" data-nav="pontos"><svg class="ic"><use href="#ic-pontos"/></svg>Pontos</a>
   </section>
   <section><h4>Gestão</h4>
-    <a href="#/alerta/mural" data-nav="alerta/mural" data-roles="CLUBE,STAFF"><i>🏟️</i>Meu clube</a>
-    <a href="#/gestao/liga" data-nav="gestao/liga" data-roles="OFICIAL_LIGA"><i>🏅</i>Minha liga</a>
-    <a href="#/admin" data-nav="admin" data-roles="ADMIN"><i>⚙️</i>Administração</a>
+    <a href="#/alerta/mural" data-nav="alerta/mural" data-roles="CLUBE,STAFF"><svg class="ic"><use href="#ic-clube"/></svg>Meu clube</a>
+    <a href="#/gestao/liga" data-nav="gestao/liga" data-roles="OFICIAL_LIGA"><svg class="ic"><use href="#ic-liga"/></svg>Minha liga</a>
+    <a href="#/admin" data-nav="admin" data-roles="ADMIN"><svg class="ic"><use href="#ic-admin"/></svg>Administração</a>
   </section>
   <div class="legend">
-    <h4>Anéis de identidade</h4>
-    <span><i class="dot dot-atleta"></i>Atleta</span><span><i class="dot dot-staff"></i>Staff</span>
-    <span><i class="dot dot-saude"></i>Saúde</span><span><i class="dot dot-clube"></i>Clube</span>
-    <span><i class="dot dot-scout"></i>Scout</span><span><i class="dot dot-agente"></i>Agente</span>
-    <span><i class="dot dot-marca"></i>Marca</span><span><i class="dot dot-imprensa"></i>Imprensa</span>
-    <span><i class="dot dot-liga"></i>Liga</span><span><i class="dot dot-torcedor"></i>Torcedor</span>
-    <span><i class="dot dot-ia"></i>IA</span>
+    <h4>Uma bolinha, seis papéis</h4>
+    <span><i class="dot xs dc-atleta"></i>Atleta</span><span><i class="dot xs dc-clube"></i>Clube / Instituição</span>
+    <span><i class="dot xs dc-scout"></i>Scout</span><span><i class="dot xs dc-marca"></i>Marca</span>
+    <span><i class="dot xs dc-imprensa"></i>Imprensa</span><span><i class="dot xs dc-oficial"></i>Conta oficial</span>
+    <h4>Extensões</h4>
+    <span><i class="dot xs dc-staff"></i>Staff</span><span><i class="dot xs dc-saude"></i>Saúde</span>
+    <span><i class="dot xs dc-agente"></i>Agente</span><span><i class="dot xs dc-torcedor"></i>Torcedor</span><span><i class="dot xs dc-ia"></i>IA</span>
+    <h4>Bordas · VSL</h4>
+    <span>◇ identidade</span><span>⬢ comunidade</span><span>▭ instituição</span><span>✦ especial</span>
   </div>
 </nav>
 
 <!-- ===================== MAIN ===================== -->
 <main class="main" id="main">
 
-  <!-- ========== JANELA 1 · PERFIL (Descoberta) ========== -->
+  <!-- ========== 01 · PERFIL (Descoberta) ========== -->
   <section class="window" data-window="perfil" id="win-perfil">
     <header class="win-head">
-      <h2><span class="win-n">1</span> Perfil <small>Descoberta &amp; Social</small></h2>
+      <h2><span class="secnum">01</span> Perfil <small>atletas · clubes · scouts · marcas</small></h2>
       <nav class="segments" data-for="perfil">
         <a href="#/perfil" data-sub="feed" class="active">Feed</a>
         <a href="#/perfil/ranking" data-sub="ranking">Ranking</a>
         <a href="#/perfil/explorar" data-sub="explorar">Explorar</a>
         <a href="#/perfil/momentos" data-sub="momentos">Momentos</a>
       </nav>
-      <button class="filters-toggle" data-toggle="perfil" aria-expanded="true">Filtros</button>
+      <button class="filters-toggle" data-toggle="perfil" aria-expanded="true">◧ filtros</button>
     </header>
-
     <div class="win-body">
-      <!-- FILTROS ESPECÍFICOS DA JANELA PERFIL -->
+      <!-- FILTROS ESPECÍFICOS · PERFIL -->
       <aside class="filters-panel" id="filters-perfil" data-window="perfil">
         <h3>Filtros · Perfil</h3>
         <form id="form-perfil" class="filter-form">
-          <fieldset>
-            <legend>Nível de raridade</legend>
+          <fieldset><legend>Tier do Gêmeo</legend>
             <label class="chip tier-common"><input type="checkbox" name="tier" value="COMMON"> Common</label>
             <label class="chip tier-rare"><input type="checkbox" name="tier" value="RARE"> Rare</label>
             <label class="chip tier-epic"><input type="checkbox" name="tier" value="EPIC"> Epic</label>
             <label class="chip tier-legendary"><input type="checkbox" name="tier" value="LEGENDARY"> Legendary</label>
             <label class="chip tier-mythic"><input type="checkbox" name="tier" value="MYTHIC"> Mythic</label>
           </fieldset>
+          <fieldset><legend>Papel</legend>
+            <label class="chip"><input type="checkbox" name="role" value="ATLETA"> <i class="dot xs dc-atleta"></i>Atleta</label>
+            <label class="chip"><input type="checkbox" name="role" value="CLUBE"> <i class="dot xs dc-clube"></i>Clube</label>
+            <label class="chip"><input type="checkbox" name="role" value="SCOUT"> <i class="dot xs dc-scout"></i>Scout</label>
+            <label class="chip"><input type="checkbox" name="role" value="MARCA"> <i class="dot xs dc-marca"></i>Marca</label>
+          </fieldset>
           <label>Posição em campo
-            <select name="position">
-              <option value="">Todas</option>
-              <option>GOLEIRO</option><option>ZAGUEIRO</option><option>LATERAL</option><option>VOLANTE</option>
-              <option>MEIA</option><option>PONTA</option><option>ATACANTE</option>
-            </select>
+            <select name="position"><option value="">Todas</option><option>GOLEIRO</option><option>ZAGUEIRO</option><option>LATERAL</option><option>VOLANTE</option><option>MEIA</option><option>PONTA</option><option>ATACANTE</option></select>
           </label>
           <div class="row2">
             <label>Idade mín. <input type="number" name="ageMin" min="13" max="45" placeholder="16"></label>
             <label>Idade máx. <input type="number" name="ageMax" min="13" max="45" placeholder="23"></label>
           </div>
-          <label>Clube atual
-            <select name="clubId">
-              <option value="">Todos</option>
-              <option value="club-1">&lt;PREENCHER_CLUBE_1&gt;</option>
-              <option value="club-2">&lt;PREENCHER_CLUBE_2&gt;</option>
-            </select>
-          </label>
-          <fieldset>
-            <legend>Status</legend>
+          <label>Estado <select name="state"><option value="">Todos</option><option>PR</option><option>SP</option><option>RJ</option><option>MG</option><option>RS</option></select></label>
+          <label>Clube atual <select name="clubId"><option value="">Todos</option><option value="club-1">&lt;PREENCHER_CLUBE_1&gt;</option><option value="club-2">&lt;PREENCHER_CLUBE_2&gt;</option></select></label>
+          <fieldset><legend>Status</legend>
             <label class="radio"><input type="radio" name="contractStatus" value="" checked> Todos</label>
             <label class="radio"><input type="radio" name="contractStatus" value="AGENTE_LIVRE"> Agente livre</label>
             <label class="radio"><input type="radio" name="contractStatus" value="CONTRATADO"> Contratado</label>
           </fieldset>
-          <div class="filter-actions">
-            <button type="submit" class="btn primary">Aplicar</button>
-            <button type="reset" class="btn ghost">Limpar</button>
-          </div>
+          <div class="filter-actions"><button type="submit" class="btn primary">Aplicar</button><button type="reset" class="btn ghost">Limpar</button></div>
           <code class="query-preview" data-preview="perfil">GET /v1/feeds/PERFIL</code>
         </form>
       </aside>
 
       <div class="content">
-        <div class="subview" data-sub="feed"><div class="feed" id="feed-perfil"></div></div>
-        <div class="subview" data-sub="ranking" hidden>
-          <div class="panel">
-            <div class="panel-head"><h3>Ranking semanal</h3>
-              <div class="seg-mini"><button class="active" data-rank="atletas">Jogadores</button><button data-rank="clubes">Clubes</button></div>
-            </div>
-            <table class="ranking" id="rankingTable"></table>
+        <div class="subview" data-sub="feed">
+          <div class="feed-panel">
+            <p class="fp-desc">Descubra <b>atletas, clubes, scouts e marcas</b> por posição, categoria, estado e clube — o bloco de descoberta da rede.</p>
+            <div class="sorttabs" data-sort="perfil"><button class="on">Para você</button><button>Trending</button><button>Recentes</button><button>Seguindo</button></div>
+            <div class="filterbar" data-bar="perfil"></div>
+            <div class="cards-grid" id="feed-perfil"></div>
+            <div class="samples" id="feed-perfil-posts" style="margin-top:14px"></div>
           </div>
+        </div>
+        <div class="subview" data-sub="ranking" hidden>
+          <div class="panel"><div class="panel-head"><h3>Ranking semanal · Score_Total</h3><div class="seg-mini"><button class="active" data-rank="atletas">Jogadores</button><button data-rank="clubes">Clubes</button></div></div><table class="ranking" id="rankingTable"></table></div>
         </div>
         <div class="subview" data-sub="explorar" hidden>
           <div class="explore">
-            <div class="globe-wrap panel">
-              <div class="panel-head"><h3>Explorar · clubes ao redor do mundo</h3>
-                <label class="inline">Rotação <input type="range" id="globeRot" min="-180" max="180" value="45"></label></div>
+            <div class="panel"><div class="panel-head"><h3>Explorar · clubes ao redor do mundo</h3><label class="inline">rotação <input type="range" id="globeRot" min="-180" max="180" value="45"></label></div>
               <svg id="globe" viewBox="0 0 420 420" role="img" aria-label="Globo com clubes"></svg>
-              <p class="hint">Dados: Wikidata (CC0) + openfootball · render MapLibre GL (projeção globe) na versão final; aqui, projeção ortográfica SVG.</p>
-            </div>
-            <aside class="panel explore-side">
+              <p class="hint">Dados: Wikidata (CC0) + openfootball · render MapLibre GL (projeção globe) na versão final.</p></div>
+            <aside class="panel">
               <h3>Ligas &amp; clubes</h3>
-              <label>País <select id="exCountry"><option value="">Todos</option><option>BR</option><option>AR</option><option>ES</option><option>EN</option><option>DE</option><option>SA</option><option>US</option></select></label>
-              <label>Divisão <select id="exDiv"><option value="">Todas</option><option>1</option><option>2</option><option>3</option></select></label>
-              <label>Tier médio do plantel <select id="exTier"><option value="">Qualquer</option><option>RARE+</option><option>EPIC+</option><option>LEGENDARY+</option></select></label>
+              <label class="filter-form">País <select id="exCountry"><option value="">Todos</option><option>BR</option><option>AR</option><option>ES</option><option>EN</option><option>DE</option><option>SA</option><option>US</option></select></label>
+              <label class="filter-form">Divisão <select id="exDiv"><option value="">Todas</option><option>1</option><option>2</option><option>3</option></select></label>
+              <label class="filter-form">Tier médio do plantel <select id="exTier"><option value="">Qualquer</option><option>RARE+</option><option>EPIC+</option><option>LEGENDARY+</option></select></label>
               <ul class="club-list" id="clubList"></ul>
             </aside>
           </div>
         </div>
-        <div class="subview" data-sub="momentos" hidden><div class="feed" id="feed-momentos"></div></div>
+        <div class="subview" data-sub="momentos" hidden><div class="feed-panel"><p class="fp-desc">Momentos <b>especiais</b> — borda dourada, colecionáveis no FLAIR.</p><div class="samples" id="feed-momentos"></div></div></div>
       </div>
     </div>
   </section>
 
-  <!-- ========== JANELA 2 · GÊMEO (Telemetria) ========== -->
+  <!-- ========== 02 · GÊMEO (Telemetria) ========== -->
   <section class="window" data-window="gemeo" id="win-gemeo" hidden>
     <header class="win-head">
-      <h2><span class="win-n">2</span> Gêmeo <small>Telemetria &amp; Performance</small></h2>
+      <h2><span class="secnum">02</span> Gêmeo <small>treinos · partidas · momentos</small></h2>
       <nav class="segments" data-for="gemeo">
         <a href="#/gemeo" data-sub="telemetria" class="active">Telemetria</a>
         <a href="#/gemeo/evolucao" data-sub="evolucao">Evolução</a>
@@ -187,10 +326,10 @@
         <a href="#/gemeo/avatar" data-sub="avatar">Avatar 3D</a>
         <a href="#/gemeo/autopilot" data-sub="autopilot">Rascunhos <b class="count">2</b></a>
       </nav>
-      <button class="filters-toggle" data-toggle="gemeo" aria-expanded="true">Filtros</button>
+      <button class="filters-toggle" data-toggle="gemeo" aria-expanded="true">◧ filtros</button>
     </header>
     <div class="win-body">
-      <!-- FILTROS ESPECÍFICOS DA JANELA GÊMEO -->
+      <!-- FILTROS ESPECÍFICOS · GÊMEO -->
       <aside class="filters-panel" id="filters-gemeo" data-window="gemeo">
         <h3>Filtros · Gêmeo</h3>
         <form id="form-gemeo" class="filter-form">
@@ -209,6 +348,11 @@
             <label class="radio"><input type="radio" name="eventType" value="TREINO"> Treino</label>
             <label class="radio"><input type="radio" name="eventType" value="PARTIDA"> Partida</label>
           </fieldset>
+          <fieldset><legend>Tipo de post (borda)</legend>
+            <label class="chip cc-treino"><input type="checkbox" name="contentType" value="TREINO"> Treino</label>
+            <label class="chip cc-partida"><input type="checkbox" name="contentType" value="PARTIDA_MOMENTO"> Partida</label>
+            <label class="chip cc-especial"><input type="checkbox" name="contentType" value="ESPECIAL"> Especial</label>
+          </fieldset>
           <label>Atleta <select name="athleteId"><option value="me">Eu (&lt;PREENCHER_NOME&gt;)</option><option value="ath-2">&lt;PREENCHER_ATLETA_2&gt;</option></select></label>
           <div class="filter-actions"><button type="submit" class="btn primary">Aplicar</button><button type="reset" class="btn ghost">Limpar</button></div>
           <code class="query-preview" data-preview="gemeo">GET /v1/feeds/GEMEO</code>
@@ -217,54 +361,53 @@
       <div class="content">
         <div class="subview" data-sub="telemetria">
           <div class="kpis">
-            <div class="kpi"><small>Score semanal</small><b>1.650</b><span class="tier-pill tier-legendary-pill">LEGENDARY</span></div>
-            <div class="kpi"><small>Físico · 30%</small><b>82</b><i style="--w:82%"></i></div>
-            <div class="kpi"><small>Técnico · 40%</small><b>88</b><i style="--w:88%"></i></div>
-            <div class="kpi"><small>Partidas · 30%</small><b>76</b><i style="--w:76%"></i></div>
+            <div class="kpi"><small>Score_Total · semana</small><b>1.650</b><span class="rarity-chip rc-legendary">LEGENDARY</span></div>
+            <div class="kpi"><small>PP · físico 30%</small><b>82</b><i style="--w:82%"></i></div>
+            <div class="kpi"><small>RP · técnico 40%</small><b>88</b><i style="--w:88%"></i></div>
+            <div class="kpi"><small>MP · partidas 30%</small><b>76</b><i style="--w:76%"></i></div>
           </div>
-          <div class="feed" id="feed-gemeo"></div>
+          <div class="feed-panel"><p class="fp-desc">Atualizações do <b>Gêmeo Digital</b>: treinos, partidas e momentos que alimentam PP e RP em tempo real.</p><div class="sorttabs" data-sort="gemeo"><button class="on">Recentes</button><button>Trending</button><button>Seguindo</button></div><div class="filterbar" data-bar="gemeo"></div><div class="samples" id="feed-gemeo"></div></div>
         </div>
-        <div class="subview" data-sub="evolucao" hidden><div class="panel"><h3>Evolução do Score_Total (12 semanas)</h3><svg id="evoChart" viewBox="0 0 640 220" class="chart"></svg><ul class="milestones" id="milestones"></ul></div></div>
+        <div class="subview" data-sub="evolucao" hidden><div class="panel"><h3>Evolução do Score_Total · 12 semanas</h3><svg id="evoChart" viewBox="0 0 640 220" class="chart"></svg><ul class="milestones" id="milestones"></ul></div></div>
         <div class="subview" data-sub="carga" hidden>
-          <div class="panel private"><span class="lock">🔒 Privado por padrão · só você vê (Art. 11)</span>
+          <div class="panel private"><span class="lock">🔒 PRIVADO POR PADRÃO · SÓ VOCÊ VÊ (ART. 11)</span>
             <div class="carga-grid">
-              <div class="gauge"><svg viewBox="0 0 120 70" id="readiness"></svg><b>78</b><small>Prontidão · HIGH</small></div>
-              <div class="acwr"><h4>ACWR 7:28</h4><b>1,21</b><small>zona segura (0,8–1,3)</small><div class="bar"><i style="--w:60%"></i></div></div>
+              <div class="gauge"><svg viewBox="0 0 120 70" id="readiness"></svg><b>78</b><small class="mono">PRONTIDÃO · HIGH</small></div>
+              <div class="acwr"><small class="mono">ACWR 7:28</small><b>1,21</b><small>zona segura (0,8–1,3)</small><div class="bar" style="--w:60%"></div></div>
               <div class="status-badge ready">⚡ PRONTO PRA JOGO</div>
             </div>
             <svg id="loadChart" viewBox="0 0 640 160" class="chart"></svg>
           </div>
         </div>
-        <div class="subview" data-sub="dna" hidden><div class="panel dna"><svg id="radar" viewBox="0 0 320 320"></svg><div><h3>DNA de jogo</h3><p class="styles"><span>⚽ Finalizador</span><span>🔥 Motor</span><span>👑 Líder</span></p><p class="hint">Eixos derivados de badges + avaliações verificadas (determinístico, semanal).</p></div></div></div>
+        <div class="subview" data-sub="dna" hidden><div class="panel dna"><svg id="radar" viewBox="0 0 320 320"></svg><div><h3>DNA de jogo</h3><p class="styles"><span>⚽ FINALIZADOR</span><span>🔥 MOTOR</span><span>👑 LÍDER</span></p><p class="hint">Eixos derivados de badges + avaliações verificadas (determinístico, semanal).</p></div></div></div>
         <div class="subview" data-sub="comparador" hidden><div class="compare" id="compareTwin"></div></div>
         <div class="subview" data-sub="provador" hidden>
           <div class="panel"><h3>Provador tático</h3>
-            <div class="row2"><label>Posição <select id="provPos"><option>MEIA</option><option>PONTA</option><option>VOLANTE</option><option>ATACANTE</option></select></label>
-            <label>Esquema <select id="provForm"><option>4-3-3</option><option>4-2-3-1</option><option>3-5-2</option></select></label></div>
+            <div class="row2 filter-form"><label>Posição <select id="provPos"><option>MEIA</option><option>PONTA</option><option>VOLANTE</option><option>ATACANTE</option></select></label><label>Esquema <select id="provForm"><option>4-3-3</option><option>4-2-3-1</option><option>3-5-2</option></select></label></div>
             <div class="fit"><b id="fitPct">87%</b><small>fit para MEIA no 4-3-3</small></div>
             <ul class="gaps" id="gaps"></ul>
           </div>
         </div>
-        <div class="subview" data-sub="avatar" hidden><div class="panel avatar3d"><div class="avatar-stage tier-legendary"><div class="avatar-fig">🧍</div></div><div><h3>Meu Avatar 3D</h3><p>Moldura e aura seguem o <code>RarityTier</code>. Uniforme do clube e badges 3D. Animação respeita <code>prefers-reduced-motion</code>.</p></div></div></div>
-        <div class="subview" data-sub="autopilot" hidden><div class="feed" id="feed-autopilot"></div></div>
+        <div class="subview" data-sub="avatar" hidden><div class="panel avatar3d"><div class="avatar-stage"><div class="avatar-fig">🧍</div></div><div><h3>Meu Avatar 3D</h3><p class="hint">Moldura e aura seguem o <code>RarityTier</code>. Uniforme do clube e badges 3D. Animação respeita <code>prefers-reduced-motion</code>.</p></div></div></div>
+        <div class="subview" data-sub="autopilot" hidden><div class="feed-panel"><p class="fp-desc"><b>Rascunhos privados</b> gerados pelo Autopilot — você revisa antes de publicar (LGPD art. 20).</p><div class="samples" id="feed-autopilot"></div></div></div>
       </div>
     </div>
   </section>
 
-  <!-- ========== JANELA 3 · SCOUTING (Análise) ========== -->
+  <!-- ========== 03 · SCOUTING (Análise) ========== -->
   <section class="window" data-window="scouting" id="win-scouting" hidden>
     <header class="win-head">
-      <h2><span class="win-n">3</span> Scouting <small>Análise Tática &amp; Técnica</small></h2>
+      <h2><span class="secnum">03</span> Scouting <small>relatórios · comparadores</small></h2>
       <nav class="segments" data-for="scouting">
-        <a href="#/scouting" data-sub="pranchetas" class="active">Pranchetas</a>
+        <a href="#/scouting" data-sub="pranchetas" class="active">Relatórios</a>
         <a href="#/scouting/comparar" data-sub="comparar">Comparar</a>
-        <a href="#/scouting/relatorios" data-sub="relatorios">Relatórios</a>
+        <a href="#/scouting/relatorios" data-sub="relatorios">Pranchetas</a>
         <a href="#/scouting/lens" data-sub="lens">Lens</a>
       </nav>
-      <button class="filters-toggle" data-toggle="scouting" aria-expanded="true">Filtros</button>
+      <button class="filters-toggle" data-toggle="scouting" aria-expanded="true">◧ filtros</button>
     </header>
     <div class="win-body">
-      <!-- FILTROS ESPECÍFICOS DA JANELA SCOUTING -->
+      <!-- FILTROS ESPECÍFICOS · SCOUTING -->
       <aside class="filters-panel" id="filters-scouting" data-window="scouting">
         <h3>Filtros · Scouting</h3>
         <form id="form-scouting" class="filter-form">
@@ -275,9 +418,10 @@
             <div class="attr-row"><span>Desarme</span><select name="op-desarme"><option value="gt">&gt;</option><option value="lt">&lt;</option></select><input type="number" name="attr-desarme" min="0" max="100"></div>
           </fieldset>
           <fieldset><legend>Comparador side-by-side</legend>
-            <label>Atleta A <select name="compareA"><option value="">—</option><option value="ath-1">&lt;PREENCHER_ATLETA_A&gt;</option><option value="ath-2">&lt;PREENCHER_ATLETA_B&gt;</option></select></label>
-            <label>Atleta B <select name="compareB"><option value="">—</option><option value="ath-1">&lt;PREENCHER_ATLETA_A&gt;</option><option value="ath-2">&lt;PREENCHER_ATLETA_B&gt;</option></select></label>
+            <label>Atleta A <select name="compareA"><option value="">—</option><option value="ath-1">&lt;PREENCHER_ATLETA_1&gt;</option><option value="ath-2">&lt;PREENCHER_ATLETA_2&gt;</option><option value="ath-3">&lt;PREENCHER_ATLETA_3&gt;</option></select></label>
+            <label>Atleta B <select name="compareB"><option value="">—</option><option value="ath-1">&lt;PREENCHER_ATLETA_1&gt;</option><option value="ath-2">&lt;PREENCHER_ATLETA_2&gt;</option><option value="ath-3">&lt;PREENCHER_ATLETA_3&gt;</option></select></label>
           </fieldset>
+          <div class="row2"><label>Posição <select name="position"><option value="">Todas</option><option>MEIA</option><option>ATACANTE</option><option>ZAGUEIRO</option><option>LATERAL</option></select></label><label>Idade máx. <input type="number" name="ageMax" placeholder="23"></label></div>
           <fieldset><legend>Origem do relatório</legend>
             <label class="radio"><input type="radio" name="source" value="" checked> Todas</label>
             <label class="radio"><input type="radio" name="source" value="HOMOLOGADO"> Scouts homologados</label>
@@ -288,32 +432,33 @@
         </form>
       </aside>
       <div class="content">
-        <div class="subview" data-sub="pranchetas"><div class="feed" id="feed-scouting"></div></div>
+        <div class="subview" data-sub="pranchetas"><div class="feed-panel"><p class="fp-desc"><b>Relatórios verificados</b> de performance, comparadores entre atletas e dados abertos para scouts, clubes e patrocinadores.</p><div class="sorttabs" data-sort="scouting"><button class="on">Para você</button><button>Trending</button><button>Recentes</button></div><div class="filterbar" data-bar="scouting"></div><div class="samples" id="feed-scouting"></div></div></div>
         <div class="subview" data-sub="comparar" hidden><div class="compare" id="compareScout"></div></div>
-        <div class="subview" data-sub="relatorios" hidden><div class="feed" id="feed-relatorios"></div></div>
-        <div class="subview" data-sub="lens" hidden><div class="panel lens"><div class="cam">📷</div><div><h3>Lens · scouting por vídeo</h3><p>Aponte a câmera ou envie um vídeo: a IA extrai eventos (passes, sprints, finalizações). Reconhecimento de rostos só com <code>shareBiometricData</code>.</p><button class="btn primary">Enviar vídeo</button></div></div></div>
+        <div class="subview" data-sub="relatorios" hidden><div class="feed-panel"><p class="fp-desc">Pranchetas táticas da <b>comissão</b> — drills, esquemas e execução.</p><div class="samples" id="feed-relatorios"></div></div></div>
+        <div class="subview" data-sub="lens" hidden><div class="panel lens"><div class="cam">📷</div><div><h3>Lens · scouting por vídeo</h3><p class="hint">Aponte a câmera ou envie um vídeo: a IA extrai eventos (passes, sprints, finalizações). Reconhecimento de rostos só com <code>shareBiometricData</code>.</p><button class="btn primary">Enviar vídeo</button></div></div></div>
       </div>
     </div>
   </section>
 
-  <!-- ========== JANELA 4 · ALERTA (Comunicados) ========== -->
+  <!-- ========== 04 · ALERTA (Comunicados) ========== -->
   <section class="window" data-window="alerta" id="win-alerta" hidden>
     <header class="win-head">
-      <h2><span class="win-n">4</span> Alerta <small>Comunicados, Saúde &amp; DM</small></h2>
+      <h2><span class="secnum">04</span> Alerta <small>institucional · liga · lesões</small></h2>
       <nav class="segments" data-for="alerta">
         <a href="#/alerta" data-sub="tudo" class="active">Tudo</a>
         <a href="#/alerta/mural" data-sub="mural">Mural do Clube</a>
         <a href="#/alerta/saude" data-sub="saude">Saúde</a>
         <a href="#/alerta/dm" data-sub="dm">DM <b class="count">3</b></a>
       </nav>
-      <button class="filters-toggle" data-toggle="alerta" aria-expanded="true">Filtros</button>
+      <button class="filters-toggle" data-toggle="alerta" aria-expanded="true">◧ filtros</button>
     </header>
+    <div class="hazard" aria-hidden="true"></div>
     <div class="win-body">
-      <!-- FILTROS ESPECÍFICOS DA JANELA ALERTA -->
+      <!-- FILTROS ESPECÍFICOS · ALERTA -->
       <aside class="filters-panel" id="filters-alerta" data-window="alerta">
         <h3>Filtros · Alerta</h3>
         <form id="form-alerta" class="filter-form">
-          <fieldset><legend>Severidade / urgência</legend>
+          <fieldset><legend>Urgência</legend>
             <label class="chip sev-baixa"><input type="checkbox" name="severity" value="BAIXA"> Baixa</label>
             <label class="chip sev-media"><input type="checkbox" name="severity" value="MEDIA"> Média</label>
             <label class="chip sev-alta"><input type="checkbox" name="severity" value="ALTA"> Alta</label>
@@ -323,77 +468,81 @@
             <label class="chip"><input type="checkbox" name="alertType" value="TRANSFERENCIA"> Transferência</label>
             <label class="chip"><input type="checkbox" name="alertType" value="LESAO"> Lesão</label>
             <label class="chip"><input type="checkbox" name="alertType" value="PUNICAO"> Punição</label>
+            <label class="chip"><input type="checkbox" name="alertType" value="CONVOCACAO"> Convocação</label>
             <label class="chip"><input type="checkbox" name="alertType" value="INSTITUCIONAL"> Institucional</label>
           </fieldset>
-          <fieldset><legend>Fonte</legend>
-            <label class="chip"><input type="checkbox" name="source" value="IMPRENSA"> <i class="dot dot-imprensa"></i>Imprensa</label>
-            <label class="chip"><input type="checkbox" name="source" value="CLUBE"> <i class="dot dot-clube"></i>Clube</label>
-            <label class="chip"><input type="checkbox" name="source" value="OFICIAL_LIGA"> <i class="dot dot-liga"></i>Liga</label>
+          <fieldset><legend>Fonte (papel)</legend>
+            <label class="chip"><input type="checkbox" name="source" value="IMPRENSA"> <i class="dot xs dc-imprensa"></i>Imprensa</label>
+            <label class="chip"><input type="checkbox" name="source" value="CLUBE"> <i class="dot xs dc-clube"></i>Clube</label>
+            <label class="chip"><input type="checkbox" name="source" value="OFICIAL_LIGA"> <i class="dot xs dc-oficial"></i>Oficial</label>
           </fieldset>
+          <label>Estado <select name="state"><option value="">Todos</option><option>PR</option><option>SP</option><option>RJ</option></select></label>
           <div class="filter-actions"><button type="submit" class="btn primary">Aplicar</button><button type="reset" class="btn ghost">Limpar</button></div>
           <code class="query-preview" data-preview="alerta">GET /v1/feeds/ALERTA</code>
         </form>
       </aside>
       <div class="content">
-        <div class="subview" data-sub="tudo"><div class="feed" id="feed-alerta"></div></div>
+        <div class="subview" data-sub="tudo"><div class="feed-panel"><p class="fp-desc">Feed institucional para <b>convocações, contratações, lesões</b> e comunicados oficiais — só entidades verificadas (whitelist); denúncias vão para fluxo separado com moderação.</p><div class="sorttabs" data-sort="alerta"><button class="on">Recentes</button><button>Urgentes</button><button>Seguindo</button></div><div class="filterbar" data-bar="alerta"></div><div class="samples" id="feed-alerta"></div></div></div>
         <div class="subview" data-sub="mural" hidden>
-          <div class="mural-head panel"><span class="avatar ring ring-clube" data-initials="CL"></span><div><h3>&lt;PREENCHER_CLUBE&gt; · Mural oficial</h3><small><i class="dot dot-clube"></i> CLUBE · Série A · 31 atletas · 3 vagas abertas</small></div><button class="btn ghost">Seguir</button></div>
-          <div class="feed" id="feed-mural"></div>
+          <div class="mural-head panel"><span class="avatar" data-initials="CL"><i class="dot dc-clube"></i></span><div><h3>&lt;PREENCHER_CLUBE&gt; · Mural oficial</h3><small class="mono">@&lt;preencher_clube&gt; · clube formador · 31 atletas · 3 vagas</small></div><button class="btn ghost">Seguir</button></div>
+          <div class="samples" id="feed-mural"></div>
         </div>
-        <div class="subview" data-sub="saude" hidden><div class="feed" id="feed-saude"></div></div>
+        <div class="subview" data-sub="saude" hidden><div class="samples one" id="feed-saude"></div></div>
         <div class="subview" data-sub="dm" hidden><div class="panel"><h3>Mensagens diretas</h3><ul class="dm" id="dmList"></ul></div></div>
       </div>
     </div>
   </section>
 
-  <!-- ========== FLAIR (Jogar e Ganhar) ========== -->
+  <!-- ========== FLAIR ========== -->
   <section class="window" data-window="flair" id="win-flair" hidden>
-    <header class="win-head"><h2>🃏 FLAIR <small>Duelo semanal com os seus cards</small></h2>
+    <header class="win-head"><h2><span class="secnum">JOGAR</span> FLAIR <small>duelo semanal com os seus cards</small></h2>
       <nav class="segments"><a class="active" href="#/flair">Duelo 1×1</a><a href="#/flair?mode=liga">Liga de 8</a><a href="#/flair?mode=colecao">Coleção</a><a href="#/flair?mode=pacotes">Pacotes</a></nav>
-      <span class="points">🪙 1.240 pontos</span>
+      <span class="points">🪙 1.240 PONTOS</span>
     </header>
     <div class="flair">
       <div class="duel">
         <div class="deck-side"><h4>Sua escalação</h4><div class="deck" id="deckMe"></div></div>
-        <div class="versus"><div class="vs">VS</div><div class="round"><small>Lance 2 de 3 · você escolhe o eixo</small><div class="axes"><button class="btn ghost" data-axis="fisico">Físico 30</button><button class="btn primary" data-axis="tecnico">Técnico 40</button><button class="btn ghost" data-axis="partidas">Partidas 30</button></div><button class="btn snap" id="snapBtn">⚡ Snap (dobra)</button></div><div class="score-line">1 × 0</div></div>
+        <div class="versus"><div class="vs">VS</div><div class="round"><small>LANCE 2 DE 3 · VOCÊ ESCOLHE O EIXO</small><div class="axes"><button class="btn ghost" data-axis="fisico">PP · Físico 30</button><button class="btn primary" data-axis="tecnico">RP · Técnico 40</button><button class="btn ghost" data-axis="partidas">MP · Partidas 30</button></div><button class="btn snap" id="snapBtn">⚡ Snap (dobra)</button></div><div class="score-line">1 × 0</div></div>
         <div class="deck-side"><h4>&lt;PREENCHER_OPONENTE&gt;</h4><div class="deck" id="deckOp"></div></div>
       </div>
       <p class="hint legal">Sem dinheiro real · pacotes gratuitos com probabilidades visíveis (ECA Digital art. 20) · cards usam só stats consentidas; status médico nunca aparece (LGPD art. 11) · limite diário de partidas.</p>
     </div>
   </section>
 
-  <!-- ========== PÁGINAS SIMPLES (Mais) ========== -->
   <section class="window simple" data-window="misc" id="win-misc" hidden><div class="panel" id="miscPanel"></div></section>
 </main>
 </div>
 
-<!-- ===================== BOTTOM NAV (mobile · 4 abas + FAB) ===================== -->
-<nav class="bottom-nav" id="bottomNav" aria-label="Janelas">
-  <a href="#/perfil" data-win="perfil" class="active"><i>👤</i><span>Perfil</span></a>
-  <a href="#/gemeo" data-win="gemeo"><i>📈</i><span>Gêmeo</span></a>
-  <button class="fab" id="fabBtn" aria-label="Criar card">＋</button>
-  <a href="#/scouting" data-win="scouting"><i>📋</i><span>Scouting</span></a>
-  <a href="#/alerta" data-win="alerta"><i>🔔</i><span>Alerta</span><b class="count">3</b></a>
+<!-- ===================== BOTTOM NAV (mobile · 4 feeds + FAB) ===================== -->
+<nav class="bottom-nav" id="bottomNav" aria-label="Feeds">
+  <a href="#/perfil" data-win="perfil" class="active"><svg class="ic"><use href="#ic-perfil"/></svg><span>Perfil</span></a>
+  <a href="#/gemeo" data-win="gemeo"><svg class="ic"><use href="#ic-telemetria"/></svg><span>Gêmeo</span></a>
+  <button class="fab" id="fabBtn" aria-label="Criar card"><svg class="ic"><use href="#ic-plus"/></svg></button>
+  <a href="#/scouting" data-win="scouting"><svg class="ic"><use href="#ic-scouting"/></svg><span>Scouting</span></a>
+  <a href="#/alerta" data-win="alerta"><svg class="ic"><use href="#ic-alerta"/></svg><span>Alerta</span><b class="count">3</b></a>
 </nav>
 
-<!-- ===================== COMPOSER + COPILOT ===================== -->
+<!-- ===================== COMPOSER + COPILOT (título obrigatório · subtítulo teaser) ===================== -->
 <div class="sheet" id="composer" hidden>
   <div class="sheet-card">
     <header><h3>Criar card</h3><button class="icon-btn" data-close="composer">✕</button></header>
     <div class="types">
-      <label class="type-opt border-treino"><input type="radio" name="ct" value="TREINO" checked> Treino</label>
-      <label class="type-opt border-partida"><input type="radio" name="ct" value="PARTIDA_MOMENTO"> Partida / Momento</label>
-      <label class="type-opt border-tatico" data-roles="STAFF,SCOUT"><input type="radio" name="ct" value="RELATORIO_TATICO"> Relatório tático</label>
-      <label class="type-opt border-inst" data-roles="CLUBE,MARCA,OFICIAL_LIGA"><input type="radio" name="ct" value="INSTITUCIONAL"> Institucional</label>
-      <label class="type-opt border-lesao" data-roles="ATLETA,STAFF_SAUDE"><input type="radio" name="ct" value="LESAO_ALERTA"> Lesão / Alerta</label>
+      <label class="type-opt cc-treino"><input type="radio" name="ct" value="TREINO" checked> ◇ TREINO</label>
+      <label class="type-opt cc-partida"><input type="radio" name="ct" value="PARTIDA_MOMENTO"> ◇ PARTIDA / MOMENTO</label>
+      <label class="type-opt cc-scouting" data-roles="STAFF,SCOUT,CLUBE"><input type="radio" name="ct" value="RELATORIO_TATICO"> ▭ SCOUTING REPORT</label>
+      <label class="type-opt cc-liga" data-roles="OFICIAL_LIGA,CLUBE,TORCIDA_ORGANIZADA"><input type="radio" name="ct" value="LIGA"> ⬢ LIGA / COMUNIDADE</label>
+      <label class="type-opt cc-institucional" data-roles="CLUBE,MARCA,OFICIAL_LIGA,STAFF_SAUDE,ATLETA"><input type="radio" name="ct" value="INSTITUCIONAL"> ▭ INSTITUCIONAL / LESÃO</label>
+      <label class="type-opt cc-especial" data-roles="OFICIAL_LIGA,ADMIN"><input type="radio" name="ct" value="ESPECIAL"> ✦ ESPECIAL / PRÊMIO</label>
     </div>
-    <textarea id="composerText" placeholder="O que aconteceu hoje?"></textarea>
+    <label class="t">Título · obrigatório · 5 a 12 palavras <input type="text" id="composerTitle" maxlength="90" placeholder="A headline que cria a lacuna de curiosidade"></label>
+    <label class="t">Subtítulo · teaser opcional (só em posts de texto) <input type="text" id="composerSub" maxlength="120" placeholder="Sugere, não entrega"></label>
+    <label class="t">Texto completo · aparece só ao abrir o card <textarea id="composerText" placeholder="O feed nunca exibe texto corrido."></textarea></label>
     <div class="copilot" id="copilot">
-      <div class="cp-head">✨ Copilot <small>sugere · você aceita</small></div>
+      <div class="cp-head">✨ Copilot <small>SUGERE · VOCÊ ACEITA</small></div>
       <div class="cp-body" id="copilotBody"></div>
       <div class="cp-actions"><button class="btn primary" id="cpAccept">Aceitar</button><button class="btn ghost" id="cpEdit">Editar</button><button class="btn ghost" id="cpDismiss">✕</button></div>
     </div>
-    <footer><small>Autor: <i class="dot dot-atleta"></i> ATLETA · borda pelo tipo escolhido</small><button class="btn primary" id="publishBtn">Publicar</button></footer>
+    <footer><small><i class="dot xs dc-atleta"></i> AUTOR · ATLETA · BORDA PELO TIPO · <span class="age-chip age-safe">SAFE</span></small><button class="btn primary" id="publishBtn">Publicar</button></footer>
   </div>
 </div>
 
@@ -408,7 +557,7 @@
       <div class="lgpd-panel" data-lgpd="conta">
         <h4>Conta <span class="art">Art. 18, III · Correção</span></h4>
         <label>Nome de exibição <input type="text" value="<PREENCHER_NOME>"></label>
-        <label>E-mail <span class="verified">✓ verificado</span> <input type="email" value="<PREENCHER_EMAIL>"><span class="art">Art. 7º, V · Execução de contrato</span></label>
+        <label>E-mail <span class="verified-tag">✓ VERIFICADO</span> <input type="email" value="<PREENCHER_EMAIL>"><span class="art">Art. 7º, V · Execução de contrato</span></label>
         <label>Data de nascimento <input type="date" value="2003-05-12"><small>Usada só para verificar idade — necessidade (Art. 6º, III)</small></label>
         <label>Posição / clube <input type="text" value="Meia · <PREENCHER_CLUBE>"></label>
         <div class="filter-actions"><button class="btn primary">Salvar alterações</button><button class="btn ghost">Cancelar</button></div>
@@ -416,7 +565,7 @@
       <div class="lgpd-panel" data-lgpd="privacidade" hidden>
         <h4>Quem pode ver seu perfil <span class="art">Art. 18, VII</span></h4>
         <div class="radio-cards">
-          <label class="radio-card sel"><input type="radio" name="vis" value="SOMENTE_EU" checked><b>Somente eu</b><small>padrão mais protetivo (Privacy by Default)</small></label>
+          <label class="radio-card"><input type="radio" name="vis" value="SOMENTE_EU" checked><b>Somente eu</b><small>padrão mais protetivo (Privacy by Default)</small></label>
           <label class="radio-card"><input type="radio" name="vis" value="CONEXOES"><b>Conexões</b><small>clube, staff e scouts aprovados</small></label>
           <label class="radio-card"><input type="radio" name="vis" value="PUBLICO"><b>Público</b><small>qualquer pessoa, inclusive rankings</small></label>
         </div>

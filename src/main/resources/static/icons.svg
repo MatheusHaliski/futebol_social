@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true" focusable="false">
+  <!--
+    Football AI · Social — sistema de ícones derivado do logo oficial (docs/brand/logo-official.jpg)
+    Construção de cada ícone (viewBox 64×64):
+      1. #shield   — silhueta do brasão: arco no topo, laterais retas, base angulada
+      2. #mosaic   — vitral em facetas (verde · menta · amarelo · azul · laranja) com juntas grafite
+      3. aro       — grafite #1E1E1D com filete de luz interno
+      4. glifo     — pictograma em grafite (#15151A) com filete dourado por baixo, como o lettering do logo
+    Uso: <svg class="ic"><use href="#ic-feed"/></svg>
+  -->
+  <defs>
+    <path id="shield" d="M7 26 A25 25 0 0 1 57 26 V40 L35 60 H29 L7 40 Z"/>
+    <clipPath id="shieldClip"><use href="#shield"/></clipPath>
+
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F8EDA8"/><stop offset=".38" stop-color="#EDD16A"/>
+      <stop offset=".68" stop-color="#C79A41"/><stop offset="1" stop-color="#8A6A2F"/>
+    </linearGradient>
+    <linearGradient id="goldFlat" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F5E69C"/><stop offset="1" stop-color="#C79A41"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5A5A55"/><stop offset="1" stop-color="#15151A"/>
+    </linearGradient>
+    <radialGradient id="gloss" cx=".3" cy=".2" r=".9">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity=".38"/><stop offset=".5" stop-color="#FFFFFF" stop-opacity=".06"/>
+      <stop offset="1" stop-color="#000000" stop-opacity=".22"/>
+    </radialGradient>
+    <filter id="emboss" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="1.2" stdDeviation=".8" flood-color="#000" flood-opacity=".55"/>
+    </filter>
+
+    <!-- vitral: facetas diagonais no sentido do logo, juntas grafite -->
+    <g id="mosaic" stroke="#1E1E1D" stroke-width="1.1" stroke-linejoin="round">
+      <path d="M0 0H24L0 28Z" fill="#22A05E"/>
+      <path d="M24 0H40L0 46V28Z" fill="#96D6C3"/>
+      <path d="M40 0H64V10L10 64H0V46Z" fill="#F2D23A"/>
+      <path d="M64 10V30L30 64H10Z" fill="#2B4FB0"/>
+      <path d="M64 30V50L50 64H30Z" fill="#F28C28"/>
+      <path d="M64 50V64H50Z" fill="#1E7A4A"/>
+      <path d="M8 8H20L8 22Z" fill="#CCD59F"/>
+      <path d="M52 14H62L44 36Z" fill="#1E3F8F"/>
+      <path d="M40 40L52 32L46 50Z" fill="#F7B733"/>
+      <path d="M14 36L24 30L16 50Z" fill="#2E8B57"/>
+    </g>
+
+    <!-- moldura completa: mosaico recortado + gloss + aro -->
+    <symbol id="frame" viewBox="0 0 64 64">
+      <g clip-path="url(#shieldClip)">
+        <use href="#mosaic"/>
+        <use href="#shield" fill="url(#gloss)"/>
+      </g>
+      <use href="#shield" fill="none" stroke="url(#rim)" stroke-width="3.2" stroke-linejoin="round"/>
+      <use href="#shield" fill="none" stroke="#FFFFFF" stroke-opacity=".22" stroke-width=".9" stroke-linejoin="round" transform="translate(32 32) scale(.93) translate(-32 -32)"/>
+    </symbol>
+
+    <!-- glifos (traço) — centro ≈ (32,33) -->
+    <g id="g-feed"><path d="M18 34 L32 21 L46 34 M22 31 V46 H42 V31 M29 46 V38 H35 V46"/></g>
+    <g id="g-buscar"><circle cx="29" cy="30" r="9"/><path d="M36 37 L46 47"/></g>
+    <g id="g-explorar"><circle cx="32" cy="33" r="12"/><path d="M20 33 H44 M32 21 C26 27 26 39 32 45 M32 21 C38 27 38 39 32 45"/></g>
+    <g id="g-clubes"><path d="M32 19 L44 24 V34 C44 41 38 46 32 48 C26 46 20 41 20 34 V24 Z"/></g>
+    <g id="g-lens"><path d="M20 26 V21 H25 M39 21 H44 V26 M44 40 V45 H39 M25 45 H20 V40"/><circle cx="32" cy="33" r="6"/></g>
+    <g id="g-telemetria"><path d="M18 34 H26 L30 24 L35 44 L39 30 L42 34 H46"/></g>
+    <g id="g-evolucao"><circle cx="32" cy="33" r="12"/><path d="M32 25 V33 L38 37"/></g>
+    <g id="g-carga"><path d="M32 46 C32 46 18 37 18 28 C18 23 22 20 26 20 C29 20 31 22 32 24 C33 22 35 20 38 20 C42 20 46 23 46 28 C46 37 32 46 32 46 Z"/></g>
+    <g id="g-dna"><path d="M24 19 C24 33 40 33 40 47 M40 19 C40 33 24 33 24 47 M26 24 H38 M26 42 H38"/></g>
+    <g id="g-comparador"><path d="M20 27 H42 M36 21 L42 27 L36 33 M44 39 H22 M28 33 L22 39 L28 45"/></g>
+    <g id="g-provador"><path d="M27 19 H37 M29 19 V29 L19 44 C18 46 19 47 21 47 H43 C45 47 46 46 45 44 L35 29 V19 M24 39 H40"/></g>
+    <g id="g-avatar"><circle cx="32" cy="23" r="5"/><path d="M24 47 V38 C24 32 40 32 40 38 V47 M32 35 V47"/></g>
+    <g id="g-cards"><path d="M20 25 H38 V47 H20 Z M26 21 H44 V43"/></g>
+    <g id="g-criar"><path d="M32 18 L46 32 L32 46 L18 32 Z M32 26 V38 M26 32 H38"/></g>
+    <g id="g-copilot"><path d="M31 18 L34 29 L45 32 L34 35 L31 46 L28 35 L17 32 L28 29 Z M44 18 L45 22 L49 23 L45 24 L44 28 L43 24 L39 23 L43 22 Z"/></g>
+    <g id="g-autopilot"><path d="M44 30 A12 12 0 0 0 23 25 M20 36 A12 12 0 0 0 41 41 M44 22 V30 H36 M20 44 V36 H28"/></g>
+    <g id="g-perfil"><circle cx="32" cy="26" r="7"/><path d="M19 47 C19 38 45 38 45 47"/></g>
+    <g id="g-historico"><path d="M22 20 H42 C44 20 45 21 45 23 V43 C45 45 44 46 42 46 H22 C20 46 19 45 19 43 V23 C19 21 20 20 22 20 Z M26 28 H38 M26 34 H38 M26 40 H34"/></g>
+    <g id="g-privacidade"><path d="M32 19 L44 24 V34 C44 41 38 46 32 48 C26 46 20 41 20 34 V24 Z M26 33 L30 37 L38 29"/></g>
+    <g id="g-momentos"><path d="M20 21 H44 V45 H20 Z M29 28 L38 33 L29 38 Z"/></g>
+    <g id="g-flair"><path d="M26 24 H38 V46 H26 Z M22 28 L18 44 L28 47 M42 28 L46 44 L36 47"/></g>
+    <g id="g-rankings"><path d="M24 20 H40 V28 C40 34 36 37 32 37 C28 37 24 34 24 28 Z M24 23 H19 C19 29 21 31 24 31 M40 23 H45 C45 29 43 31 40 31 M32 37 V42 M26 46 H38 M28 42 H36 V46"/></g>
+    <g id="g-cupons"><path d="M19 26 H45 V32 C42 32 42 36 45 36 V42 H19 V36 C22 36 22 32 19 32 Z M29 27 V30 M29 33 V36 M29 39 V41"/></g>
+    <g id="g-pontos"><circle cx="32" cy="33" r="13"/><path d="M26 27 L32 40 L38 27"/></g>
+    <g id="g-clube"><path d="M18 30 C18 24 46 24 46 30 V40 C46 46 18 46 18 40 Z M18 30 C18 36 46 36 46 30 M26 33 V43 M32 34 V44 M38 33 V43"/></g>
+    <g id="g-liga"><circle cx="32" cy="37" r="9"/><path d="M27 29 L23 18 H31 L32 21 M37 29 L41 18 H33 L32 21 M32 32 L33.5 35.5 L37 36 L34.5 38.5 L35 42 L32 40.2 L29 42 L29.5 38.5 L27 36 L30.5 35.5 Z"/></g>
+    <g id="g-admin"><circle cx="32" cy="33" r="5"/><path d="M32 18 V23 M32 43 V48 M17 33 H22 M42 33 H47 M21.4 22.4 L25 26 M39 40 L42.6 43.6 M42.6 22.4 L39 26 M25 40 L21.4 43.6"/></g>
+    <g id="g-scouting"><path d="M24 22 H40 V46 H24 Z M28 22 V19 H36 V22 M28 30 H36 M28 36 H36 M28 42 H33"/></g>
+    <g id="g-alerta"><path d="M24 38 C24 32 24 26 32 24 C40 26 40 32 40 38 L43 42 H21 Z M29 45 C29 47 35 47 35 45 M32 20 V24"/></g>
+    <g id="g-plus"><path d="M32 20 V46 M19 33 H45"/></g>
+    <g id="g-mais"><path d="M20 25 H44 M20 33 H44 M20 41 H44"/></g>
+    <g id="g-ball"><circle cx="32" cy="33" r="12"/><path d="M32 25 L38 29 L36 36 H28 L26 29 Z M32 21 V25 M38 29 L43 27 M36 36 L39 42 M28 36 L25 42 M26 29 L21 27"/></g>
+  </defs>
+
+  <!-- ===== marca (logo simplificado para topbar/favicon) ===== -->
+  <symbol id="brand-mark" viewBox="0 0 64 64">
+    <use href="#frame"/>
+    <path d="M13 24 A21 21 0 0 1 51 24" fill="none" stroke="url(#goldFlat)" stroke-width="5" stroke-linecap="round" filter="url(#emboss)"/>
+    <path d="M19 50 H45" fill="none" stroke="url(#goldFlat)" stroke-width="5" stroke-linecap="round" filter="url(#emboss)"/>
+    <path d="M32 19 L46 33 L32 47 L18 33 Z" fill="url(#gold)" stroke="#5A4420" stroke-width="1.2" stroke-linejoin="round" filter="url(#emboss)"/>
+    <path d="M26 28 L32 40 L38 28" fill="none" stroke="#3A2A10" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+
+  <!-- ===== ícones: moldura + glifo (bisel escuro + ouro) ===== -->
+  <symbol id="ic-feed" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-feed" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-feed" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-buscar" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-buscar" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-buscar" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-explorar" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-explorar" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-explorar" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-clubes" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-clubes" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-clubes" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-lens" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-lens" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-lens" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-telemetria" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-telemetria" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-telemetria" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-evolucao" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-evolucao" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-evolucao" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-carga" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-carga" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-carga" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-dna" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-dna" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-dna" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-comparador" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-comparador" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-comparador" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-provador" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-provador" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-provador" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-avatar" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-avatar" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-avatar" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-cards" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-cards" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-cards" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-criar" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-criar" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-criar" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-copilot" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-copilot" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-copilot" fill="#15151A" stroke="#15151A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-autopilot" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-autopilot" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-autopilot" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-perfil" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-perfil" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-perfil" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-historico" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-historico" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-historico" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-privacidade" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-privacidade" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-privacidade" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-momentos" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-momentos" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-momentos" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-flair" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-flair" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-flair" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-rankings" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-rankings" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-rankings" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-cupons" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-cupons" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-cupons" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-pontos" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-pontos" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-pontos" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-clube" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-clube" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-clube" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-liga" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-liga" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-liga" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-admin" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-admin" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-admin" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-scouting" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-scouting" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-scouting" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-alerta" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-alerta" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-alerta" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-plus" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-plus" fill="none" stroke="#F5E69C" stroke-width="9.5" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-plus" fill="none" stroke="#15151A" stroke-width="5.4" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-mais" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-mais" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-mais" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-ball" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-ball" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-ball" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+</svg>
