@@ -1,26 +1,26 @@
 /* =====================================================================
-   Football AI · Social — SPA mock
-   Gramática herdada dos modelos de referência:
-     identidade (bolinha por papel) · conteúdo (borda por tipo) ·
-     feed (4 blocos segmentados) · raridade (tratamento do card de perfil)
-   - roteamento por hash: #/{feed}/{sub}?{filtros}
-   - painel de filtros por feed → query string de GET /v1/feeds/{FEED}
-   - filterbar de chips mostra os filtros ativos (chip.hot)
+   Football AI · Social — SPA
+   Camadas: identidade (bolinha por papel) · conteúdo (borda por tipo) ·
+   feed (4 janelas segmentadas) · raridade (brasão por tier, nunca texto)
+   - roteamento por hash: #/{janela}/{sub}?{filtros}
+   - painel de filtros por janela → GET /v1/feeds/{JANELA}?…
+   - fonte de dados: API real (JWT + refresh) com fallback DEMO (mock) quando offline
+   - criador de cards em 4 etapas: modo → conteúdo → arte → revisar
    ===================================================================== */
 (() => {
   'use strict';
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
-  /* ---------- camada 1 · identidade (6 papéis canônicos + extensões) ---------- */
-  const ROLE = document.body.dataset.role || 'ATLETA';
+  /* ---------- camada 1 · identidade ---------- */
+  let ROLE = document.body.dataset.role || 'ATLETA';
   const ROLES = {
     ATLETA:{ dc:'atleta', label:'atleta' }, CLUBE:{ dc:'clube', label:'clube formador' }, SCOUT:{ dc:'scout', label:'scout verificado' },
     MARCA:{ dc:'marca', label:'patrocinador' }, IMPRENSA:{ dc:'imprensa', label:'imprensa esportiva' }, OFICIAL_LIGA:{ dc:'oficial', label:'conta oficial' },
     STAFF:{ dc:'staff', label:'staff técnico' }, STAFF_SAUDE:{ dc:'saude', label:'dep. médico' }, AGENTE:{ dc:'agente', label:'agente' },
-    TORCEDOR:{ dc:'torcedor', label:'torcedor' }, AGENTE_IA:{ dc:'ia', label:'agente IA' },
+    TORCEDOR:{ dc:'torcedor', label:'torcedor' }, AGENTE_IA:{ dc:'ia', label:'agente IA' }, ARBITRO:{ dc:'arbitro', label:'árbitro' }, TORCIDA_ORGANIZADA:{ dc:'torcida', label:'torcida' },
   };
-  /* ---------- camada 2 · conteúdo (6 bordas) ---------- */
+  /* ---------- camada 2 · conteúdo (7 bordas) ---------- */
   const CT = {
     TREINO:{ cc:'treino', badge:'TREINO' }, PARTIDA_MOMENTO:{ cc:'partida', badge:'PARTIDA' }, RELATORIO_TATICO:{ cc:'scouting', badge:'SCOUTING' },
     LIGA:{ cc:'liga', badge:'LIGA' }, INSTITUCIONAL:{ cc:'institucional', badge:'INSTITUCIONAL' }, LESAO_ALERTA:{ cc:'institucional', badge:'LESÃO' }, ESPECIAL:{ cc:'especial', badge:'ESPECIAL' },
@@ -28,6 +28,44 @@
   /* ---------- camada 4 · raridade ---------- */
   const TIER_MULT = { COMMON:1, RARE:1.05, EPIC:1.1, LEGENDARY:1.2, MYTHIC:1.3 };
   const TIER_COLOR = { COMMON:'#5c6b62', RARE:'#3b82f6', EPIC:'#a06bff', LEGENDARY:'#f5c542', MYTHIC:'#f5c542' };
+  const TIER_LABEL = { COMMON:'Common', RARE:'Rare', EPIC:'Epic', LEGENDARY:'Legendary', MYTHIC:'Mythic' };
+
+  /* =====================================================================
+     API client — JWT access (15 min) + refresh (7 d) com rotação; fallback DEMO
+     ===================================================================== */
+  const API = {
+    base: location.protocol.startsWith('http') ? '' : 'http://localhost:8080',
+    online: false, user: null, terms: null,
+    get access() { return sessionStorage.getItem('fas.access'); },
+    get refresh() { return sessionStorage.getItem('fas.refresh'); },
+    setTokens(a, r) { sessionStorage.setItem('fas.access', a); if (r) sessionStorage.setItem('fas.refresh', r); },
+    clear() { sessionStorage.removeItem('fas.access'); sessionStorage.removeItem('fas.refresh'); this.user = null; },
+    async raw(path, { method = 'GET', headers = {}, body } = {}) {
+      const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 8000);
+      try { return await fetch(this.base + path, { method, headers, body, signal: ctl.signal }); } finally { clearTimeout(t); }
+    },
+    async call(path, { method = 'GET', body, headers = {}, auth = true, retry = true } = {}) {
+      const h = { Accept: 'application/json', ...headers };
+      if (body !== undefined) h['Content-Type'] = 'application/json';
+      if (auth && this.access) h.Authorization = 'Bearer ' + this.access;
+      const res = await this.raw(path, { method, headers: h, body: body === undefined ? undefined : JSON.stringify(body) });
+      if (res.status === 401 && auth && retry && this.refresh && (await this.refreshTokens())) return this.call(path, { method, body, headers, auth, retry: false });
+      if (res.status === 204) return null;
+      const text = await res.text(); let data = null;
+      try { data = text ? JSON.parse(text) : null; } catch { data = { detail: text }; }
+      if (!res.ok) { const e = new Error((data && (data.detail || data.title)) || ('HTTP ' + res.status)); e.status = res.status; e.code = data && data.code; e.data = data; throw e; }
+      return data;
+    },
+    async refreshTokens() {
+      try { const d = await this.call('/v1/auth/refresh', { method: 'POST', body: { refreshToken: this.refresh }, auth: false, retry: false }); this.setTokens(d.accessToken, d.refreshToken); return true; }
+      catch { this.clear(); return false; }
+    },
+    async probe() { try { const r = await this.raw('/v1/ui/navigation'); this.online = r.ok; } catch { this.online = false; } return this.online; },
+  };
+  const live = () => API.online && !!API.user;                 // dados reais?
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+  const fmt = n => (n ?? 0).toLocaleString('pt-BR');
+  const ini = n => String(n || '??').replace(/[<>_]/g, ' ').trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase() || '??';
 
   /* ---------- dados mock (pessoais como <PREENCHER_*>) ---------- */
   const athletes = [
@@ -97,89 +135,115 @@
     ['aiAgentProcessing','Processamento por agentes de IA','Copilot, Autopilot e resumos automáticos','Art. 7º, I · Art. 20 · revisão humana',false],
   ];
 
+
+  /* ---------- adaptadores DTO → forma usada pelos templates ---------- */
+  const TREND = { HOT:'🔥 em alta', UP:'📈 trending', FLAT:null, DOWN:'📉 em queda' };
+  const fromPost = d => {
+    const alert = !!d.hazard;
+    const alarm = d.contentType === 'LESAO_ALERTA' ? '🩹 LESÃO' : d.alertType === 'PUNICAO' ? '⚖️ PUNIÇÃO' : d.alertType === 'TRANSFERENCIA' ? '🔁 TRANSFERÊNCIA' : d.alertType === 'LESAO' ? '🩹 LESÃO' : '📣 ' + (d.badgeLabel || 'ALERTA');
+    return { id:d.id, role:d.author.role, name:d.author.handle, ai:d.author.aiGenerated, verified:d.author.verified, ct:d.contentType, top:d.timeLabel, title:d.title, snip:d.subtitle,
+      media:d.media ? (d.media.kind === 'video' ? 'VÍDEO' : 'IMAGEM') : null, meta:d.meta && d.meta.length ? d.meta : null, likes:d.social.likes, comments:d.social.comments, shares:d.social.shares,
+      liked:d.social.likedByMe, saved:d.social.savedByMe, trend:d.trend ? TREND[d.trend.direction] : null, alert, alarm: alert ? alarm : null, sev:d.severity, type:d.alertType,
+      age:[d.ageRating.cssClass, d.ageRating.label], art:d.art, gen:d.generationMode, window:d.window };
+  };
+  const PHYS_MAP = { READY:'READY', FATIGUE_RISK:'FATIGUE', INJURED:'INJURED' };
+  const fromAthlete = d => {
+    const r = d.rarity || {}, ph = d.physical, attrs = d.attributes || [];
+    const find = k => (attrs.find(a => a.kind === k) || {}).label;
+    return { id:d.athleteId, name:d.name, handle:d.handle, ini:ini(d.name), role:'ATLETA', pos:find('pos') || '—', age:parseInt(find('age')) || null, club:find('club') || '', state:find('state'),
+      status:attrs.some(a => a.kind === 'free') ? 'AGENTE_LIVRE' : 'CONTRATADO', tier:r.tier || 'COMMON', score:r.score || 0, pp:r.pp || 0, rp:r.rp || 0, s:[Math.round((r.pp || 0) / 15), Math.round((r.rp || 0) / 10), r.mp || 0],
+      attrs:attrs.map(a => [a.icon, a.label, a.kind]), badges:(d.topBadges || []).map(b => [b.label, b.type === 'PRONTO_PRA_JOGO' ? 'green' : b.type === 'DEPARTAMENTO_MEDICO' ? 'red' : b.type === 'RISCO_FADIGA' ? 'yellow' : '']),
+      season:d.season, avgRating:d.season && d.season.avgRating, phys: ph ? { readiness:ph.readiness, acwr:ph.acwr, status:PHYS_MAP[ph.status] || 'READY', injury: ph.injury ? { type:ph.injury.type, ret: ph.injury.expectedReturn || '—' } : null } : null,
+      physPrivate: !ph, verified:d.author && d.author.verified, likes:d.social.likes, comments:d.social.comments, shares:d.social.shares, sub:'' };
+  };
+  const fromFlairCard = c => ({ id:c.id, name:c.name, pos:c.position ? c.position[0] + c.position.slice(1).toLowerCase() : '—', ini:ini(c.name), tier:c.tier, score:c.scoreTotal, s:[c.pp, c.rp, c.mp], power:c.power, captain:c.captain });
+
   /* ---------- templates ---------- */
-  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
-  /* Badge de raridade — brasão único do Football Social por tier (sem texto; nome no tooltip/aria) */
-  const TIER_LABEL = { COMMON:'Common', RARE:'Rare', EPIC:'Epic', LEGENDARY:'Legendary', MYTHIC:'Mythic' };
   const chip = t => { const k = String(t || 'COMMON').toUpperCase(); return `<svg class="ic tier t-${k.toLowerCase()}" role="img" aria-label="Tier ${TIER_LABEL[k] || k}" data-tier="${k}"><title>Tier ${TIER_LABEL[k] || k}</title><use href="#ic-tier-${k.toLowerCase()}"/></svg>`; };
   const roleOf = r => ROLES[r] || ROLES.ATLETA;
+  const artBlock = (art, extra = '') => art && (art.color || art.material) ? `<div class="p-art" data-material="${esc(art.material || 'FOSCO')}" data-style="${esc(art.style || 'GRAFITE')}" data-layout="${esc(art.layout || 'CLASSICO')}" data-label="${esc([art.materialLabel || art.material, art.styleLabel || art.style].filter(Boolean).join(' · '))}" style="--ac:${esc(art.color || '#00d47a')}" ${extra}></div>` : '';
 
-  /* PostCard — borda esquerda = tipo · bolinha = papel · trend por views */
+  /* PostCard — borda esquerda = tipo · bolinha = papel · arte opcional · ações sociais sempre */
   const postCard = p => {
     const likes = p.likes ?? 0, comments = p.comments ?? 0, shares = p.shares ?? 0;
     const r = roleOf(p.role), c = CT[p.ct] || CT.TREINO;
     const VSL = { treino:'◇', partida:'◇', scouting:'▭', liga:'⬢', institucional:'▭', especial:'✦' };
     const age = p.lock || p.ct === 'LESAO_ALERTA' ? ['age-sens','SENSÍVEL'] : p.age || ['age-safe','SAFE'];
-    const topRight = p.alert ? `<span class="alarm">${p.alarm}</span>` : `<span class="badge cc">${c.badge}</span>`;
-    let body = `<div class="p-title">${esc(p.title)}</div>`;
-    if (p.media) body += `<div class="p-media">${esc(p.media)}</div>`;           // post com imagem: imagem + autor/título, sem subtítulo
-    else if (p.snip) body += `<div class="p-sub">${esc(p.snip)}</div>`;          // post de texto: subtítulo teaser (≤ 2 linhas, ~70%)
+    const topRight = p.alert ? `<span class="alarm">${esc(p.alarm || '📣 ALERTA')}</span>` : `<span class="badge cc">${c.badge}</span>`;
+    const layout = p.art && p.art.layout || 'CLASSICO';
+    let body = '';
+    if (p.art && layout === 'HERO' && !p.media) body += artBlock(p.art);
+    body += `<div class="p-title">${esc(p.title)}</div>`;
+    if (p.media) body += `<div class="p-media">${esc(p.media)}</div>`;
+    else { if (p.art && layout === 'CLASSICO') body += artBlock(p.art); if (p.snip) body += `<div class="p-sub">${esc(p.snip)}</div>`; }
     if (p.meta) body += `<div class="p-meta">${p.meta.map(m => `<span class="badge">${esc(m)}</span>`).join('')}</div>`;
+    if (p.gen === 'AI' || p.ai) body += `<div class="p-meta"><span class="badge">GERADO COM IA · REVISADO</span></div>`;
     if (p.lock) body += `<span class="lock">🔒 DADO SENSÍVEL · ART. 11</span>`;
-    return `<article class="pcard cc-${c.cc}${p.alert ? ' alertcard' : ''}">
-      <div class="p-top"><span class="time">${esc(p.top || '')}</span><span class="vsl" title="VSL">${VSL[c.cc]}</span>${topRight}<span class="age-chip ${age[0]}">${age[1]}</span></div>
-      <div class="p-author"><span class="dot sm dc-${r.dc}"></span><span class="p-name">${esc(p.name)} <span>· ${r.label}</span>${p.ai ? '<span class="ai">IA</span>' : ''}</span></div>
+    const top = `<div class="p-top"><span class="time">${esc(p.top || '')}</span><span class="vsl" title="VSL">${VSL[c.cc]}</span>${topRight}<span class="age-chip ${age[0]}">${age[1]}</span></div>` + (p.art && layout === 'MINIMAL' && !p.media ? artBlock(p.art) : '');
+    return `<article class="pcard cc-${c.cc}${p.alert ? ' alertcard' : ''}${p.art && layout === 'SPLIT' && !p.media ? ' layout-split' : ''}" data-id="${esc(p.id || '')}">
+      ${p.art && layout === 'SPLIT' && !p.media ? artBlock(p.art) : ''}
+      ${top}
+      <div class="p-author"><span class="dot sm dc-${r.dc}"></span><span class="p-name">${esc(p.name)} <span>· ${r.label}</span>${p.verified ? '<span class="verified">✦</span>' : ''}${p.ai ? '<span class="ai">IA</span>' : ''}</span></div>
       ${body}
       <div class="actbar">
-        <button class="act like" data-act="like"><span class="i">♡</span>Curtir<b>${likes.toLocaleString('pt-BR')}</b></button>
-        <button class="act" data-act="comment"><span class="i">💬</span>Comentar<b>${comments.toLocaleString('pt-BR')}</b></button>
-        <button class="act" data-act="share"><span class="i">↗</span>Compartilhar<b>${shares.toLocaleString('pt-BR')}</b></button>
-        <button class="act save" data-act="save" aria-label="salvar"><span class="i">🔖</span></button>
+        <button class="act like${p.liked ? ' on' : ''}" data-act="like"><span class="i">♡</span>Curtir<b>${fmt(likes)}</b></button>
+        <button class="act" data-act="comment"><span class="i">💬</span>Comentar<b>${fmt(comments)}</b></button>
+        <button class="act" data-act="share"><span class="i">↗</span>Compartilhar<b>${fmt(shares)}</b></button>
+        <button class="act save${p.saved ? ' on' : ''}" data-act="save" aria-label="salvar"><span class="i">🔖</span></button>
         ${p.trend ? `<span class="trend${/💠|✦/.test(p.trend) ? ' gold' : /📉|➖/.test(p.trend) ? ' down' : ''}">${esc(p.trend)}</span>` : ''}
       </div>
     </article>`;
   };
 
-  /* Card de perfil / atleta (.vcard) — Common Border dupla + raridade + dados completos */
+  /* Card de perfil / atleta (.vcard) — hero limpo · janela Temporada · Atributos · badges na área inferior */
   const PHYS = { READY:['⚡','PRONTO PRA JOGO','ok'], FATIGUE:['⚠️','RISCO DE FADIGA','warn'], INJURED:['🩹','DEPARTAMENTO MÉDICO','bad'] };
   const vcard = (a, opts = {}) => {
     const r = roleOf(a.role), t = (a.tier || 'COMMON').toLowerCase();
     const cc = a.tier === 'COMMON' || !a.tier ? '#5c6b62' : TIER_COLOR[a.tier];
-    // badges Athletic Persona ficam na área inferior de dados (hero limpo, sem stats repetidas)
-    const bdg = a.badges ? `<div class="bdgrow"><small>BADGES</small>${a.badges.slice(0, 3).map(b => `<b class="${b[1]}" data-badge="${esc(b[0])}">${esc(b[0])}</b>`).join('')}</div>` : '';
-    const title = esc(a.name); // posição NÃO vai no título: é um badge da lista de atributos
-    // atributos NUNCA em texto corrido: lista de itens/badges (posição, idade, clube, contrato, referência, ranking…)
-    const refs = String(a.sub || '').split(' · ').map(t => t.trim()).filter(Boolean);
-    const attrItems = a.pos ? [
+    const bdg = a.badges && a.badges.length ? `<div class="bdgrow"><small>BADGES</small>${a.badges.slice(0, 3).map(b => `<b class="${b[1]}" data-badge="${esc(b[0])}">${esc(b[0])}</b>`).join('')}</div>` : '';
+    const title = esc(a.name);
+    const refs = String(a.sub || '').split(' · ').map(x => x.trim()).filter(Boolean);
+    const attrItems = a.attrs ? a.attrs : a.pos ? [
       ['◎', a.pos, 'pos'], ['', `${a.age} anos`, ''], ['⬢', a.club, 'club'],
       ['', a.status === 'AGENTE_LIVRE' ? 'Agente livre' : 'Contratado', a.status === 'AGENTE_LIVRE' ? 'free' : 'signed'],
       a.state ? ['', a.state, ''] : null, a.foot ? ['', `Pé ${a.foot}`, ''] : null, a.height ? ['', `${a.height} cm`, ''] : null,
-      ...refs.map(t => ['✦', t, 'ref']),
-    ].filter(Boolean) : refs.map(t => ['', t, '']);
-    const attrs = `<ul class="attrs">${attrItems.map(([i, t, c]) => `<li class="${c}">${i ? `<span class="i">${i}</span>` : ''}${esc(t)}</li>`).join('')}</ul>`;
+      ...refs.map(x => ['✦', x, 'ref']),
+    ].filter(Boolean) : refs.map(x => ['', x, '']);
+    const attrs = `<ul class="attrs">${attrItems.map(([i, x, c]) => `<li class="${c || ''}">${i ? `<span class="i">${i}</span>` : ''}${esc(x)}</li>`).join('')}</ul>`;
     let data = '';
     if (a.season) {
       const sz = a.season, ph = a.phys || {}, st = PHYS[ph.status] || PHYS.READY;
-      const gk = sz.cleanSheets !== undefined, df = sz.tackles !== undefined;
+      const gk = sz.cleanSheets !== undefined && sz.cleanSheets !== null, df = sz.tackles !== undefined && sz.tackles !== null;
+      const nota = a.avgRating != null ? Number(a.avgRating).toFixed(1) : a.s ? (6.2 + (a.s[1] / 40)).toFixed(1) : '—';
+      const physBlock = a.physPrivate ? `<div class="phys priv"><div class="pl"><small>CONDICIONAMENTO</small><span>🔒 privado por padrão · visível só com <b>shareMedicalData</b> (Art. 11)</span></div></div>`
+        : `<div class="phys ${st[2]}">
+        <div class="pl"><small>CONDICIONAMENTO</small><div class="rd"><i style="--w:${ph.readiness || 0}%"></i></div><span>prontidão <b>${ph.readiness ?? '—'}%</b> · ACWR <b>${Number(ph.acwr ?? 0).toLocaleString('pt-BR')}</b></span></div>
+        <div class="pst"><span class="i">${st[0]}</span><b>${st[1]}</b>${ph.injury ? `<small>${esc(ph.injury.type)} · retorno ${esc(ph.injury.ret)}</small>` : ''}</div>
+      </div>`;
       data += `<div class="vtabs" role="tablist"><button type="button" class="vt on" role="tab" data-vt="temporada">Temporada</button><button type="button" class="vt" role="tab" data-vt="atributos">Atributos</button></div>
       <div class="vpane" data-vt="temporada"><div class="sgrid">
         <div class="stile"><small>JOGOS</small><b>${sz.games}</b></div>
         <div class="stile"><small>${gk ? 'CLEAN SHEETS' : 'GOLS'}</small><b>${gk ? sz.cleanSheets : sz.goals}</b></div>
         <div class="stile"><small>${df ? 'DESARMES' : 'ASSIST.'}</small><b>${df ? sz.tackles : sz.assists}</b></div>
-        <div class="stile"><small>MINUTOS</small><b>${sz.minutes.toLocaleString('pt-BR')}</b></div>
+        <div class="stile"><small>MINUTOS</small><b>${fmt(sz.minutes)}</b></div>
         <div class="stile"><small>CARTÕES</small><b><span class="yc">${sz.yellow}</span> <span class="rc">${sz.red}</span></b></div>
-        <div class="stile"><small>NOTA MÉDIA</small><b>${(6.2 + (a.s[1] / 40)).toFixed(1)}</b></div>
-      </div>
-      <div class="phys ${st[2]}">
-        <div class="pl"><small>CONDICIONAMENTO</small><div class="rd"><i style="--w:${ph.readiness || 0}%"></i></div><span>prontidão <b>${ph.readiness ?? '—'}%</b> · ACWR <b>${(ph.acwr ?? 0).toLocaleString('pt-BR')}</b></span></div>
-        <div class="pst"><span class="i">${st[0]}</span><b>${st[1]}</b>${ph.injury ? `<small>${esc(ph.injury.type)} · retorno ${esc(ph.injury.ret)}</small>` : ''}</div>
-      </div></div>
+        <div class="stile"><small>NOTA MÉDIA</small><b>${nota}</b></div>
+      </div>${physBlock}</div>
       <div class="vpane" data-vt="atributos" hidden>${attrs}</div>`;
-    } else {
-      data = attrs;
-    }
+    } else data = attrs;
     const stats = a.pp !== undefined
-      ? `<span class="pp">PP <b>${a.pp.toLocaleString('pt-BR')}</b></span><span class="rp">RP <b>${a.rp.toLocaleString('pt-BR')}</b></span><span class="mp">MP <b>${a.s ? a.s[2] : '—'}</b></span><span class="st">SCORE <b>${a.score.toLocaleString('pt-BR')}</b></span>`
+      ? `<span class="pp">PP <b>${fmt(a.pp)}</b></span><span class="rp">RP <b>${fmt(a.rp)}</b></span><span class="mp">MP <b>${a.s ? a.s[2] : '—'}</b></span><span class="st">SCORE <b>${fmt(a.score)}</b></span>`
       : (a.stats || []).map(([k, v]) => `<span class="mp">${k} <b>${v}</b></span>`).join('');
     const actions = opts.actions === false ? '' : `<div class="actbar">
-        <button class="act like" data-act="like"><span class="i">♡</span>Curtir<b>${(a.likes ?? 0).toLocaleString('pt-BR')}</b></button>
-        <button class="act" data-act="comment"><span class="i">💬</span>Comentar<b>${(a.comments ?? 0).toLocaleString('pt-BR')}</b></button>
-        <button class="act" data-act="share"><span class="i">↗</span>Compartilhar<b>${(a.shares ?? 0).toLocaleString('pt-BR')}</b></button>
-        <a class="act go" href="#/gemeo?athleteId=${a.id}">Gêmeo →</a>
+        <button class="act like" data-act="like"><span class="i">♡</span>Curtir<b>${fmt(a.likes)}</b></button>
+        <button class="act" data-act="comment"><span class="i">💬</span>Comentar<b>${fmt(a.comments)}</b></button>
+        <button class="act" data-act="share"><span class="i">↗</span>Compartilhar<b>${fmt(a.shares)}</b></button>
+        <a class="act go" href="#/gemeo/evolucao?athleteId=${esc(a.id)}">Gêmeo →</a>
       </div>`;
-    return `<article class="vcard rarity-${t}${opts.wide ? ' wide' : ''}" style="--cc:${cc}" data-id="${a.id}">
+    const sens = a.phys && a.phys.status === 'INJURED';
+    return `<article class="vcard rarity-${t}${opts.wide ? ' wide' : ''}" style="--cc:${cc}" data-id="${esc(a.id)}" data-athlete="1">
       <div class="outer"><div class="inner">
-        <div class="ctop"><span class="l"><span class="vsl">${a.pos ? '◇' : '⬢'}</span>${a.pos ? 'GÊMEO DIGITAL' : (a.meta || 'PERFIL')}</span>${a.phys && a.phys.status === 'INJURED' ? '<span class="age-chip age-sens">SENSÍVEL</span>' : '<span class="age-chip age-safe">SAFE</span>'}${chip(a.tier || 'COMMON')}</div>
+        <div class="ctop"><span class="l"><span class="vsl">${a.pos ? '◇' : '⬢'}</span>${a.pos ? 'GÊMEO DIGITAL' : (a.meta || 'PERFIL')}</span>${sens ? '<span class="age-chip age-sens">SENSÍVEL</span>' : '<span class="age-chip age-safe">SAFE</span>'}${chip(a.tier || 'COMMON')}</div>
         <div class="imgblock"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></div>
         <div class="author"><span class="dot dc-${r.dc}"></span><span class="handle"><b>${esc(a.handle)}</b> <span>· ${r.label}</span>${a.verified ? '<span class="verified">✦</span>' : ''}</span></div>
         <div class="vtitle">${title}</div>
@@ -195,6 +259,7 @@
   const DEFAULT_SUB = { perfil:'feed', gemeo:'telemetria', scouting:'pranchetas', alerta:'tudo' };
   const state = { win:'perfil', sub:{ ...DEFAULT_SUB }, params:{} };
   const FILTERED_SUBS = ['feed','telemetria','pranchetas','tudo'];
+  const toast = msg => { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(t._t); t._t = setTimeout(() => t.hidden = true, 3200); };
 
   function parseHash() {
     const h = location.hash.replace(/^#\/?/, '') || 'perfil';
@@ -211,7 +276,7 @@
       $$(`#win-${win} .subview`).forEach(v => v.hidden = v.dataset.sub !== state.sub[win]);
       $(`#win-${win} .win-body`).classList.toggle('no-filters', !FILTERED_SUBS.includes(state.sub[win]));
       applyParamsToForm(win, params); updatePreview(win); renderSub(win, state.sub[win]);
-    } else if (win === 'flair') { $('#win-flair').hidden = false; renderFlair(); }
+    } else if (win === 'flair') { $('#win-flair').hidden = false; renderFlair(params); }
     else if (win === 'novo') { openComposer(params.copilot === '1'); location.hash = '#/perfil'; return; }
     else if (win === 'configuracoes') { $('#win-perfil').hidden = false; openLgpd(); }
     else { $('#win-misc').hidden = false; renderMisc(win, sub, params); }
@@ -233,7 +298,7 @@
     Object.entries(multi).forEach(([k, vs]) => p.set(k, vs.join(',')));
     return p;
   }
-  const LABEL = { tier:'Tier', role:'Papel', position:'Posição', ageMin:'Idade ≥', ageMax:'Idade ≤', state:'Estado', clubId:'Clube', contractStatus:'Status', period:'Período', metricType:'Métrica', eventType:'Evento', contentType:'Tipo de post', athleteId:'Atleta', source:'Origem', compare:'Comparar', severity:'Urgência', alertType:'Tipo' };
+  const LABEL = { tier:'Tier', role:'Papel', position:'Posição', ageMin:'Idade ≥', ageMax:'Idade ≤', state:'Estado', clubId:'Clube', contractStatus:'Status', period:'Período', metricType:'Métrica', eventType:'Evento', contentType:'Tipo de post', athleteId:'Atleta', source:'Origem', compare:'Comparar', severity:'Urgência', alertType:'Tipo', sort:'Ordem', q:'Nome' };
   const AXES = { perfil:['Papel','Posição','Estado','Clube','Tier','Nome'], gemeo:['Papel','Tipo de post','Período','Métrica','Evento','Nome'], scouting:['Posição','Estado','Tier','Clube','Idade','Nome'], alerta:['Papel','Tipo','Estado','Clube','Urgência','Nome'] };
   function updatePreview(win) {
     const p = formToParams(win); const qs = p.toString();
@@ -265,47 +330,90 @@
   $$('.filters-toggle').forEach(b => b.addEventListener('click', () => setFilters(b.dataset.toggle, b.getAttribute('aria-expanded') !== 'true')));
   if (window.matchMedia('(max-width: 860px)').matches) WINDOWS.forEach(w => setFilters(w, false));
 
-  /* ---------- render por feed / sub-aba ---------- */
+  /* =====================================================================
+     fonte de dados — API (quando autenticado) com fallback DEMO (mock)
+     ===================================================================== */
+  const SORT = { 'Para você':'FOR_YOU', 'Trending':'TRENDING', 'Recentes':'RECENT', 'Seguindo':'FOLLOWING' };
+  let sortBy = 'FOR_YOU';
+  async function feed(win, params = {}, extra = {}) {
+    const p = new URLSearchParams(params); Object.entries(extra).forEach(([k, v]) => v != null && p.set(k, v)); p.set('sort', sortBy);
+    const d = await API.call(`/v1/feeds/${win.toUpperCase()}?${p}`);
+    return { posts: (d.posts || []).map(fromPost), athletes: (d.athletes || []).map(fromAthlete), next: d.nextCursor, source: d.source };
+  }
   const filteredAthletes = p => athletes.filter(a => (!p.tier || p.tier.split(',').includes(a.tier)) && (!p.position || a.pos.toUpperCase() === p.position)
     && (!p.ageMin || a.age >= +p.ageMin) && (!p.ageMax || a.age <= +p.ageMax) && (!p.state || a.state === p.state) && (!p.contractStatus || a.status === p.contractStatus) && (!p.role || p.role.split(',').includes(a.role)));
-  function renderSub(win, sub) {
+  const empty = (msg = 'Nada por aqui com esses filtros.') => `<p class="hint">${msg}</p>`;
+  const cards = (list, fn = postCard, msg) => list.length ? list.map(x => fn(x)).join('') : empty(msg);
+  async function tryApi(fn, fallback) {
+    if (!live()) return fallback();
+    try { return await fn(); } catch (e) { console.warn('API', e); toast(`API: ${e.message}`); return fallback(); }
+  }
+
+  async function renderSub(win, sub) {
     const p = state.params;
     if (win === 'perfil') {
-      if (sub === 'feed') { const roles = p.role ? p.role.split(',') : null; const list = [...filteredAthletes(p), ...orgs.filter(o => (!roles || roles.includes(o.role)) && !p.position && !p.tier)]; $('#feed-perfil').innerHTML = list.map(a => vcard(a)).join('') || '<p class="hint">Nenhum perfil com esses filtros.</p>'; $('#feed-perfil-posts').innerHTML = posts.perfil.map(postCard).join(''); }
+      if (sub === 'feed') {
+        const roles = p.role ? p.role.split(',') : null;
+        const { athletes: ath, posts: ps } = await tryApi(() => feed('perfil', p), () => ({ athletes: [...filteredAthletes(p), ...orgs.filter(o => (!roles || roles.includes(o.role)) && !p.position && !p.tier)], posts: posts.perfil }));
+        $('#feed-perfil').innerHTML = cards(ath, vcard, 'Nenhum perfil com esses filtros.'); $('#feed-perfil-posts').innerHTML = cards(ps);
+      }
       if (sub === 'ranking') renderRanking('atletas');
-      if (sub === 'explorar') { drawGlobe(+$('#globeRot').value); renderClubs(); }
-      if (sub === 'momentos') $('#feed-momentos').innerHTML = posts.momentos.map(postCard).join('');
+      if (sub === 'explorar') { await loadClubs(); drawGlobe(+$('#globeRot').value); renderClubs(); }
+      if (sub === 'momentos') { const { posts: ps } = await tryApi(() => feed('perfil', {}, { contentType: 'ESPECIAL,PARTIDA_MOMENTO' }), () => ({ posts: posts.momentos })); $('#feed-momentos').innerHTML = cards(ps); }
     }
     if (win === 'gemeo') {
-      if (sub === 'telemetria') { const ev = p.eventType, cts = p.contentType?.split(','); $('#feed-gemeo').innerHTML = posts.gemeo.filter(x => (!ev || (ev === 'TREINO' ? x.ct === 'TREINO' : x.ct === 'PARTIDA_MOMENTO')) && (!cts || cts.includes(x.ct))).map(postCard).join('') || '<p class="hint">Nada por aqui com esses filtros.</p>'; }
-      if (sub === 'evolucao') drawEvolution();
-      if (sub === 'carga') { drawGauge(78); drawLoad(); }
-      if (sub === 'dna') drawRadar([88, 84, 72, 55, 80]);
-      if (sub === 'comparador') $('#compareTwin').innerHTML = [athletes[0], athletes[1]].map(a => vcard(a, { wide:true })).join('');
+      if (sub === 'telemetria') {
+        const ev = p.eventType, cts = p.contentType?.split(',');
+        const { posts: ps } = await tryApi(() => feed('gemeo', p), () => ({ posts: posts.gemeo.filter(x => (!ev || (ev === 'TREINO' ? x.ct === 'TREINO' : x.ct === 'PARTIDA_MOMENTO')) && (!cts || cts.includes(x.ct))) }));
+        $('#feed-gemeo').innerHTML = cards(ps);
+      }
+      if (sub === 'evolucao') await drawEvolution(p.athleteId);
+      if (sub === 'carga') await drawLoadPanel(p.athleteId);
+      if (sub === 'dna') await drawDna(p.athleteId);
+      if (sub === 'comparador') { const list = await tryApi(async () => { const ids = await twoIds(p.compare); return (await API.call(`/v1/twins/compare?ids=${ids.join(',')}`)).map(fromAthlete); }, () => [athletes[0], athletes[1]]); $('#compareTwin').innerHTML = list.map(a => vcard(a, { wide:true })).join(''); }
       if (sub === 'provador') renderProvador();
-      if (sub === 'autopilot') $('#feed-autopilot').innerHTML = posts.autopilot.map(postCard).join('');
+      if (sub === 'autopilot') {
+        const list = await tryApi(async () => (await API.call('/v1/autopilot/drafts')).map(s => ({ role:'AGENTE_IA', ai:true, name:'Autopilot · rascunho', ct:s.contentType, top:'RASCUNHO', title:s.title, snip:s.subtitle, meta:['REVISAR', s.rationale ? s.rationale.slice(0, 40) : 'IA'], art:s.art, gen:'AI' })), () => posts.autopilot);
+        $('#feed-autopilot').innerHTML = cards(list, postCard, 'Ative "Processamento por agentes de IA" na Central de Privacidade para receber rascunhos.');
+      }
     }
     if (win === 'scouting') {
-      if (sub === 'pranchetas') { const src = p.source; $('#feed-scouting').innerHTML = posts.scouting.filter(x => !src || (src === 'HOMOLOGADO' ? x.role !== 'TORCEDOR' : x.role === 'TORCEDOR')).map(postCard).join(''); }
-      if (sub === 'comparar') { const ids = (p.compare || 'ath-1,ath-2').split(','); $('#compareScout').innerHTML = ids.map(id => athletes.find(a => a.id === id)).filter(Boolean).map(a => vcard(a, { wide:true })).join(''); }
-      if (sub === 'relatorios') $('#feed-relatorios').innerHTML = posts.pranchetas.map(postCard).join('');
+      if (sub === 'pranchetas') { const src = p.source; const { posts: ps } = await tryApi(() => feed('scouting', p), () => ({ posts: posts.scouting.filter(x => !src || (src === 'HOMOLOGADO' ? x.role !== 'TORCEDOR' : x.role === 'TORCEDOR')) })); $('#feed-scouting').innerHTML = cards(ps); }
+      if (sub === 'comparar') { const list = await tryApi(async () => { const ids = await twoIds(p.compare); return (await API.call(`/v1/twins/compare?ids=${ids.join(',')}`)).map(fromAthlete); }, () => (p.compare || 'ath-1,ath-2').split(',').map(id => athletes.find(a => a.id === id)).filter(Boolean)); $('#compareScout').innerHTML = list.map(a => vcard(a, { wide:true })).join(''); }
+      if (sub === 'relatorios') { const { posts: ps } = await tryApi(() => feed('scouting', {}, { role: 'SCOUT,CLUBE,IMPRENSA' }), () => ({ posts: posts.pranchetas })); $('#feed-relatorios').innerHTML = cards(ps); }
     }
     if (win === 'alerta') {
-      if (sub === 'tudo') { const sev = p.severity?.split(','), ty = p.alertType?.split(','), so = p.source?.split(','); $('#feed-alerta').innerHTML = posts.alerta.filter(x => (!sev || sev.includes(x.sev)) && (!ty || ty.includes(x.type)) && (!so || so.includes(x.role))).map(postCard).join('') || '<p class="hint">Nenhum alerta com esses filtros.</p>'; }
-      if (sub === 'mural') $('#feed-mural').innerHTML = posts.mural.map(postCard).join('');
-      if (sub === 'saude') $('#feed-saude').innerHTML = posts.saude.map(postCard).join('');
-      if (sub === 'dm') $('#dmList').innerHTML = ['@<preencher_tecnico>|Convocação confirmada para sábado?|staff', '@<preencher_scout>|Posso incluir você na shortlist sub-23?|scout', '@<preencher_clube>|Renovação: proposta enviada.|clube'].map(s => { const [n, t, r] = s.split('|'); return `<li><span class="avatar" data-initials="${n.replace(/[@<>_]/g,'').slice(0,2).toUpperCase()}"><i class="dot dc-${r}"></i></span><div><b>${esc(n)}</b><small>${esc(t)}</small></div><small class="mono">AGORA</small></li>`; }).join('');
+      if (sub === 'tudo') { const sev = p.severity?.split(','), ty = p.alertType?.split(','), so = p.source?.split(','); const { posts: ps } = await tryApi(() => feed('alerta', p), () => ({ posts: posts.alerta.filter(x => (!sev || sev.includes(x.sev)) && (!ty || ty.includes(x.type)) && (!so || so.includes(x.role))) })); $('#feed-alerta').innerHTML = cards(ps, postCard, 'Nenhum alerta com esses filtros.'); }
+      if (sub === 'mural') { const list = await tryApi(async () => { const [a, b] = await Promise.all([feed('alerta', {}, { source: 'CLUBE' }), feed('perfil', {}, { role: 'CLUBE,STAFF' })]); return [...a.posts, ...b.posts]; }, () => posts.mural); $('#feed-mural').innerHTML = cards(list, postCard, 'Seu clube ainda não publicou no mural.'); }
+      if (sub === 'saude') { const { posts: ps } = await tryApi(() => feed('alerta', {}, { alertType: 'LESAO' }), () => ({ posts: posts.saude })); $('#feed-saude').innerHTML = cards(ps.map(x => ({ ...x, lock: true })), postCard, 'Sem boletins de saúde.'); }
+      if (sub === 'dm') $('#dmList').innerHTML = ['@<preencher_tecnico>|Convocação confirmada para sábado?|staff', '@<preencher_scout>|Posso incluir você na shortlist sub-23?|scout', '@<preencher_clube>|Renovação: proposta enviada.|clube'].map(s => { const [n, t, r] = s.split('|'); return `<li><span class="avatar" data-initials="${n.replace(/[@<>_]/g,'').slice(0,2).toUpperCase()}"><i class="dot dc-${r}"></i></span><div><b>${esc(n)}</b><small>${esc(t)}</small></div><small class="mono">AGORA</small></li>`; }).join('') + '<li class="hint">Mensagens diretas: protótipo (sem backend de mensageria).</li>';
     }
   }
-  function renderRanking(kind) {
-    const rows = kind === 'atletas' ? [...athletes].sort((a, b) => b.score - a.score).map((a, i) => ({ i, n:a.handle, ini:a.ini, r:'atleta', meta:`${a.pos} · ${a.age} · ${a.club}`, score:a.score, tier:a.tier, d:[+2,0,-1,+1,0][i] }))
-      : clubs.slice(0, 6).map((c, i) => ({ i, n:c.n, ini:'C' + (i + 1), r:'clube', meta:`${c.c} · Divisão ${c.d}`, score:[2310,1980,1650,1210,880,420][i], tier:c.tier, d:[0,+1,-1,+2,0,-2][i] }));
-    $('#rankingTable').innerHTML = `<tr><th>#</th><th>${kind === 'atletas' ? 'Jogador' : 'Clube'}</th><th>Tier</th><th>Score_Total</th><th>Δ</th></tr>` + rows.map(r => `<tr><td class="pos">${r.i + 1}</td><td><div class="who"><span class="avatar" data-initials="${r.ini}"><i class="dot dc-${r.r}"></i></span><div><b>${esc(r.n)}</b><br><small>${esc(r.meta)}</small></div></div></td><td>${chip(r.tier)}</td><td><b class="mono">${r.score.toLocaleString('pt-BR')}</b></td><td class="delta ${r.d > 0 ? 'up' : r.d < 0 ? 'down' : ''}">${r.d > 0 ? '▲' + r.d : r.d < 0 ? '▼' + -r.d : '—'}</td></tr>`).join('');
-    $$('.seg-mini button').forEach(b => b.classList.toggle('active', b.dataset.rank === kind));
+  async function twoIds(compare) {
+    if (compare && compare.includes(',')) return compare.split(',').slice(0, 3);
+    const rows = await API.call('/v1/rankings/athletes?limit=3'); return rows.slice(0, 2).map(r => r.athleteId);
   }
-  $$('.seg-mini button').forEach(b => b.addEventListener('click', () => renderRanking(b.dataset.rank)));
+  async function myAthleteId(explicit) {
+    if (explicit) return explicit;
+    if (API.user && API.user.role === 'ATLETA') return API.user.id;
+    const rows = await API.call('/v1/rankings/athletes?limit=1'); return rows.length ? rows[0].athleteId : API.user.id;
+  }
+
+  /* ---------- ranking ---------- */
+  async function renderRanking(kind) {
+    const rows = await tryApi(async () => kind === 'atletas'
+        ? (await API.call('/v1/rankings/athletes?limit=20')).map((r, i) => ({ i, n:r.handle, ini:ini(r.name), r:'atleta', meta:`${r.positionLabel || '—'} · ${r.age ?? '—'} · ${r.club || '—'}`, score:r.scoreTotal, tier:r.tier, d:r.delta }))
+        : (await API.call('/v1/rankings/clubs')).map((c, i) => ({ i, n:c.name, ini:'C' + (i + 1), r:'clube', meta:`${c.country} · Divisão ${c.division ?? '—'} · ${c.athletes} atletas`, score:c.avgScore, tier:c.avgTier, d:0 })),
+      () => kind === 'atletas' ? [...athletes].sort((a, b) => b.score - a.score).map((a, i) => ({ i, n:a.handle, ini:a.ini, r:'atleta', meta:`${a.pos} · ${a.age} · ${a.club}`, score:a.score, tier:a.tier, d:[+2,0,-1,+1,0][i] }))
+        : clubs.slice(0, 6).map((c, i) => ({ i, n:c.n, ini:'C' + (i + 1), r:'clube', meta:`${c.c} · Divisão ${c.d}`, score:[2310,1980,1650,1210,880,420][i], tier:c.tier, d:[0,+1,-1,+2,0,-2][i] })));
+    $('#rankingTable').innerHTML = `<tr><th>#</th><th>${kind === 'atletas' ? 'Jogador' : 'Clube'}</th><th>Tier</th><th>Score_Total</th><th>Δ</th></tr>` + rows.map(r => `<tr><td class="pos">${r.i + 1}</td><td><div class="who"><span class="avatar" data-initials="${r.ini}"><i class="dot dc-${r.r}"></i></span><div><b>${esc(r.n)}</b><br><small>${esc(r.meta)}</small></div></div></td><td>${chip(r.tier)}</td><td><b class="mono">${fmt(r.score)}</b></td><td class="delta ${r.d > 0 ? 'up' : r.d < 0 ? 'down' : ''}">${r.d > 0 ? '▲' + r.d : r.d < 0 ? '▼' + -r.d : '—'}</td></tr>`).join('');
+    $$('.seg-mini button[data-rank]').forEach(b => b.classList.toggle('active', b.dataset.rank === kind));
+  }
+  $$('.seg-mini button[data-rank]').forEach(b => b.addEventListener('click', () => renderRanking(b.dataset.rank)));
 
   /* ---------- Explorar: globo ortográfico em SVG ---------- */
+  let clubData = clubs;
+  async function loadClubs() { clubData = await tryApi(async () => (await API.call('/v1/clubs')).filter(c => c.lat != null).map(c => ({ n:c.name, c:c.country, d:c.division || 1, lat:c.lat, lng:c.lng, tier:c.avgTier })), () => clubs); if (!clubData.length) clubData = clubs; }
   function project(lat, lng, rot, R = 190, cx = 210, cy = 210) {
     const φ = lat * Math.PI / 180, λ = (lng + rot) * Math.PI / 180, φ0 = -15 * Math.PI / 180;
     const cosc = Math.sin(φ0) * Math.sin(φ) + Math.cos(φ0) * Math.cos(φ) * Math.cos(λ); if (cosc < 0) return null;
@@ -315,32 +423,43 @@
     let g = `<defs><radialGradient id="gg" cx="35%" cy="30%"><stop offset="0" stop-color="#1b3a2c"/><stop offset="1" stop-color="#0a0f0c"/></radialGradient></defs><circle cx="210" cy="210" r="190" fill="url(#gg)" stroke="#26332b"/>`;
     for (let lat = -60; lat <= 60; lat += 30) { let d = ''; for (let lng = -180; lng <= 180; lng += 5) { const p = project(lat, lng, rot); if (p) d += (d ? 'L' : 'M') + p.x.toFixed(1) + ' ' + p.y.toFixed(1); } g += `<path d="${d}" fill="none" stroke="rgba(0,212,122,.12)"/>`; }
     for (let lng = -180; lng < 180; lng += 30) { let d = ''; for (let lat = -90; lat <= 90; lat += 5) { const p = project(lat, lng, rot); if (p) d += (d ? 'L' : 'M') + p.x.toFixed(1) + ' ' + p.y.toFixed(1); } g += `<path d="${d}" fill="none" stroke="rgba(0,212,122,.12)"/>`; }
-    clubs.forEach(c => { const p = project(c.lat, c.lng, rot); if (!p) return; const col = TIER_COLOR[c.tier]; g += `<g><circle cx="${p.x}" cy="${p.y}" r="9" fill="${col}" opacity=".25"/><circle cx="${p.x}" cy="${p.y}" r="4.5" fill="${col}" stroke="#eaf2ee" stroke-width="1"/><text x="${p.x + 8}" y="${p.y + 4}" font-size="9" font-family="JetBrains Mono,monospace" fill="#eaf2ee">${c.c}</text></g>`; });
+    clubData.forEach(c => { const p = project(c.lat, c.lng, rot); if (!p) return; const col = TIER_COLOR[c.tier] || '#5c6b62'; g += `<g><circle cx="${p.x}" cy="${p.y}" r="9" fill="${col}" opacity=".25"/><circle cx="${p.x}" cy="${p.y}" r="4.5" fill="${col}" stroke="#eaf2ee" stroke-width="1"/><text x="${p.x + 8}" y="${p.y + 4}" font-size="9" font-family="JetBrains Mono,monospace" fill="#eaf2ee">${esc(c.c)}</text></g>`; });
     $('#globe').innerHTML = g;
   }
   $('#globeRot').addEventListener('input', e => drawGlobe(+e.target.value));
   function renderClubs() {
     const co = $('#exCountry').value, dv = $('#exDiv').value, tm = $('#exTier').value; const order = ['COMMON','RARE','EPIC','LEGENDARY','MYTHIC'];
-    $('#clubList').innerHTML = clubs.filter(c => (!co || c.c === co) && (!dv || String(c.d) === dv) && (!tm || order.indexOf(c.tier) >= order.indexOf(tm.replace('+', '')))).map((c, i) => `<li><span class="avatar" data-initials="C${i + 1}"><i class="dot dc-clube"></i></span><div><b>${esc(c.n)}</b><small class="mono">${c.c} · DIV ${c.d} · </small>${chip(c.tier)}</div></li>`).join('') || '<li>Nenhum clube.</li>';
+    $('#clubList').innerHTML = clubData.filter(c => (!co || c.c === co) && (!dv || String(c.d) === dv) && (!tm || order.indexOf(c.tier) >= order.indexOf(tm.replace('+', '')))).map((c, i) => `<li><span class="avatar" data-initials="C${i + 1}"><i class="dot dc-clube"></i></span><div><b>${esc(c.n)}</b><small class="mono">${esc(c.c)} · DIV ${c.d} · </small>${chip(c.tier)}</div></li>`).join('') || '<li>Nenhum clube.</li>';
   }
   ['#exCountry', '#exDiv', '#exTier'].forEach(s => $(s).addEventListener('change', renderClubs));
 
   /* ---------- gráficos do Gêmeo ---------- */
   const line = (pts, color, w = 2.5) => `<polyline points="${pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linejoin="round"/>`;
-  function drawEvolution() {
-    const scores = [820, 900, 980, 1040, 1180, 1210, 1300, 1420, 1500, 1580, 1610, 1650]; const W = 640, H = 220, pad = 30;
-    const x = i => pad + i * (W - 2 * pad) / 11, y = v => H - pad - (v / 3000) * (H - 2 * pad); let s = '';
+  async function drawEvolution(athleteId) {
+    const data = await tryApi(async () => { const d = await API.call(`/v1/twins/${await myAthleteId(athleteId)}/evolution`); return { scores: d.points.map(x => x.scoreTotal), labels: d.points.map(x => x.isoWeek.split('-W')[1]), tiers: d.points.map(x => x.tier), milestones: d.milestones }; },
+      () => ({ scores:[820, 900, 980, 1040, 1180, 1210, 1300, 1420, 1500, 1580, 1610, 1650], labels:[...Array(12)].map((_, i) => String(32 + i)), tiers:[], milestones:['W35 · RARE → EPIC', 'W37 · 🏆 MVP', 'W39 · EPIC → LEGENDARY', 'W41 · 🔥 STREAK 5', 'W43 · NOTA DO TREINADOR'] }));
+    const scores = data.scores.length ? data.scores : [0]; const n = Math.max(scores.length - 1, 1); const W = 640, H = 220, pad = 30;
+    const x = i => pad + i * (W - 2 * pad) / n, y = v => H - pad - (Math.min(v, 3000) / 3000) * (H - 2 * pad); let s = '';
     [[0,400,'#5c6b62','common'],[401,900,'#3b82f6','rare'],[901,1600,'#a06bff','epic'],[1601,2400,'#f5c542','legendary'],[2401,3000,'#ffe08a','mythic']].forEach(([a, b, c, l]) => { const ih = Math.min(22, y(a) - y(b) - 2); s += `<rect x="${pad}" y="${y(b)}" width="${W - 2 * pad}" height="${y(a) - y(b)}" fill="${c}" opacity=".08"/><use href="#ic-tier-${l}" x="${W - pad + 3}" y="${(y(a) + y(b)) / 2 - ih / 2}" width="${ih}" height="${ih}"><title>Tier ${l}</title></use>`; });
-    s += line(scores.map((v, i) => [x(i), y(v)]), '#f5c542') + scores.map((v, i) => `<circle cx="${x(i)}" cy="${y(v)}" r="3.5" fill="#f5c542"/><text x="${x(i)}" y="${H - 10}" font-size="8" font-family="JetBrains Mono,monospace" text-anchor="middle" fill="#63756a">W${32 + i}</text>`).join('');
-    s += `<circle cx="${x(7)}" cy="${y(1420)}" r="8" fill="none" stroke="#a06bff"/><text x="${x(7)}" y="${y(1420) - 12}" font-size="8" font-family="JetBrains Mono,monospace" text-anchor="middle" fill="#e2d3ff">EPIC → LEGENDARY (W39)</text>`;
+    s += line(scores.map((v, i) => [x(i), y(v)]), '#f5c542') + scores.map((v, i) => `<circle cx="${x(i)}" cy="${y(v)}" r="3.5" fill="#f5c542"><title>${v}</title></circle><text x="${x(i)}" y="${H - 10}" font-size="8" font-family="JetBrains Mono,monospace" text-anchor="middle" fill="#63756a">W${data.labels[i] || i}</text>`).join('');
+    for (let i = 1; i < data.tiers.length; i++) if (data.tiers[i] !== data.tiers[i - 1]) s += `<circle cx="${x(i)}" cy="${y(scores[i])}" r="8" fill="none" stroke="#a06bff"/><text x="${x(i)}" y="${y(scores[i]) - 12}" font-size="8" font-family="JetBrains Mono,monospace" text-anchor="middle" fill="#e2d3ff">${data.tiers[i - 1]} → ${data.tiers[i]}</text>`;
     $('#evoChart').innerHTML = s;
-    $('#milestones').innerHTML = ['W35 · RARE → EPIC', 'W37 · 🏆 MVP', 'W39 · EPIC → LEGENDARY', 'W41 · 🔥 STREAK 5', 'W43 · NOTA DO TREINADOR'].map(m => `<li>${m}</li>`).join('');
+    $('#milestones').innerHTML = data.milestones.map(m => `<li>${esc(m)}</li>`).join('') || '<li>Sem marcos ainda.</li>';
   }
-  function drawGauge(v) { const a = Math.PI * (1 - v / 100), x = 60 + 50 * Math.cos(a), y = 62 - 50 * Math.sin(a); $('#readiness').innerHTML = `<path d="M10 62 A50 50 0 0 1 110 62" fill="none" stroke="#26332b" stroke-width="10" stroke-linecap="round"/><path d="M10 62 A50 50 0 0 1 ${x} ${y}" fill="none" stroke="#00d47a" stroke-width="10" stroke-linecap="round"/>`; }
-  function drawLoad() {
-    const acute = [420, 510, 380, 600, 450, 520, 504], chronic = 470; const W = 640, H = 160, pad = 24, bw = 56;
-    $('#loadChart').innerHTML = acute.map((v, i) => `<rect x="${pad + i * 86}" y="${H - pad - v / 5}" width="${bw}" height="${v / 5}" rx="6" fill="${v > chronic * 1.5 ? '#ff5d5d' : '#00d47a'}" opacity=".8"/><text x="${pad + i * 86 + bw / 2}" y="${H - 8}" font-size="8" font-family="JetBrains Mono,monospace" text-anchor="middle" fill="#63756a">${['S','T','Q','Q','S','S','D'][i]}</text>`).join('')
-      + `<line x1="${pad}" x2="${W - pad}" y1="${H - pad - chronic / 5}" y2="${H - pad - chronic / 5}" stroke="#f5c542" stroke-dasharray="4 4"/><text x="${W - pad}" y="${H - pad - chronic / 5 - 4}" font-size="8" font-family="JetBrains Mono,monospace" text-anchor="end" fill="#f5c542">CARGA CRÔNICA 28 D</text>`;
+  function drawGauge(v) { const a = Math.PI * (1 - v / 100), x = 60 + 50 * Math.cos(a), y = 62 - 50 * Math.sin(a); $('#readiness').innerHTML = `<path d="M10 62 A50 50 0 0 1 110 62" fill="none" stroke="#26332b" stroke-width="10" stroke-linecap="round"/><path d="M10 62 A50 50 0 0 1 ${x} ${y}" fill="none" stroke="${v < 60 ? '#ff5d5d' : '#00d47a'}" stroke-width="10" stroke-linecap="round"/><text x="60" y="58" text-anchor="middle" font-size="16" font-family="Space Grotesk,sans-serif" fill="#eaf2ee">${v}%</text>`; }
+  async function drawLoadPanel(athleteId) {
+    const d = await tryApi(async () => { const weeks = (await API.call(`/v1/twins/${await myAthleteId(athleteId)}/load`)).reverse(); return { readiness: weeks.length ? weeks[weeks.length - 1].readiness : 100, acute: weeks.map(w => +w.loadAu), chronic: weeks.length ? +weeks[weeks.length - 1].chronicLoadAu : 470, labels: weeks.map(w => 'W' + w.isoWeek.split('-W')[1]), priv: false }; },
+      () => ({ readiness: 78, acute: [420, 510, 380, 600, 450, 520, 504], chronic: 470, labels: ['S','T','Q','Q','S','S','D'], priv: false }));
+    drawGauge(d.readiness);
+    const W = 640, H = 160, pad = 24, n = Math.max(d.acute.length, 1), bw = Math.min(56, (W - 2 * pad) / n - 16), step = (W - 2 * pad) / n, max = Math.max(...d.acute, d.chronic * 1.6, 1);
+    const sc = v => (H - 2 * pad) * v / max;
+    $('#loadChart').innerHTML = d.acute.map((v, i) => `<rect x="${pad + i * step}" y="${H - pad - sc(v)}" width="${bw}" height="${sc(v)}" rx="6" fill="${v > d.chronic * 1.5 ? '#ff5d5d' : '#00d47a'}" opacity=".8"><title>${v} AU</title></rect><text x="${pad + i * step + bw / 2}" y="${H - 8}" font-size="8" font-family="JetBrains Mono,monospace" text-anchor="middle" fill="#63756a">${d.labels[i]}</text>`).join('')
+      + `<line x1="${pad}" x2="${W - pad}" y1="${H - pad - sc(d.chronic)}" y2="${H - pad - sc(d.chronic)}" stroke="#f5c542" stroke-dasharray="4 4"/><text x="${W - pad}" y="${H - pad - sc(d.chronic) - 4}" font-size="8" font-family="JetBrains Mono,monospace" text-anchor="end" fill="#f5c542">CARGA CRÔNICA 28 D</text>`;
+  }
+  let dnaVals = [88, 84, 72, 55, 80];
+  async function drawDna(athleteId) {
+    dnaVals = await tryApi(async () => (await API.call(`/v1/twins/${await myAthleteId(athleteId)}/dna`)).values, () => [88, 84, 72, 55, 80]);
+    drawRadar(dnaVals);
   }
   function drawRadar(vals) {
     const labels = ['ATAQUE', 'TÉCNICA', 'TÁTICA', 'DEFESA', 'CRIATIV.']; const cx = 160, cy = 160, R = 110; const pt = (i, r) => [cx + r * Math.sin(i * 2 * Math.PI / 5), cy - r * Math.cos(i * 2 * Math.PI / 5)];
@@ -350,83 +469,284 @@
     $('#radar').innerHTML = s;
   }
   function renderProvador() {
-    const pos = $('#provPos').value, form = $('#provForm').value; const fit = { MEIA:87, PONTA:74, VOLANTE:69, ATACANTE:61 }[pos] - (form === '3-5-2' ? 4 : 0);
+    const pos = $('#provPos').value, form = $('#provForm').value; const req = { MEIA:[80,85,80,50,85], PONTA:[85,80,70,45,85], VOLANTE:[60,80,85,75,70], ATACANTE:[90,80,70,40,75] }[pos] || [80,80,80,50,80];
+    const v = dnaVals; const fit = Math.max(0, Math.round(100 - req.reduce((acc, r, i) => acc + Math.max(0, r - v[i]), 0) / 2 - (form === '3-5-2' ? 4 : 0)));
     $('#fitPct').textContent = fit + '%'; $('#fitPct').nextElementSibling.textContent = `fit para ${pos} no ${form}`;
-    $('#gaps').innerHTML = [['Ataque', 88, 80], ['Técnica', 84, 85], ['Tática', 72, 80], ['Defesa', 55, pos === 'VOLANTE' ? 75 : 50], ['Criatividade', 80, 85]].map(([l, v, req]) => `<li><span>${l}</span><i style="--w:${v}%"></i><span class="mono" style="color:${v >= req ? '#6cffc0' : '#ff5d5d'}">${v}/${req}</span></li>`).join('');
+    $('#gaps').innerHTML = ['Ataque', 'Técnica', 'Tática', 'Defesa', 'Criatividade'].map((l, i) => `<li><span>${l}</span><i style="--w:${v[i]}%"></i><span class="mono" style="color:${v[i] >= req[i] ? '#6cffc0' : '#ff5d5d'}">${v[i]}/${req[i]}</span></li>`).join('');
   }
   ['#provPos', '#provForm'].forEach(s => $(s).addEventListener('change', renderProvador));
 
-  /* ---------- FLAIR ---------- */
-  const fcard = (a, cap) => { const power = Math.round(a.score * TIER_MULT[a.tier] * (cap ? 1.2 : 1)); return `<div class="fcard rarity-${a.tier.toLowerCase()}" style="--cc:${TIER_COLOR[a.tier]}"><div class="fin">${cap ? '<span class="cap">C</span>' : ''}<span class="avatar" data-initials="${a.ini}"><i class="dot dc-atleta"></i></span><b class="n">${esc(a.name)}</b><small style="text-align:center">${a.pos} · ${chip(a.tier)}</small><div class="axes3"><span>PP ${a.s[0]}</span><span>RP ${a.s[1]}</span><span>MP ${a.s[2]}</span></div><div class="power">${power.toLocaleString('pt-BR')}</div></div></div>`; };
-  function renderFlair() { $('#deckMe').innerHTML = [athletes[0], athletes[2], athletes[3]].map((a, i) => fcard(a, i === 0)).join(''); $('#deckOp').innerHTML = [athletes[1], athletes[4], athletes[3]].map((a, i) => fcard(a, i === 0)).join(''); }
-  $$('.axes button').forEach(b => b.addEventListener('click', () => { $$('.axes button').forEach(x => x.classList.toggle('primary', x === b)); toast(`EIXO: ${b.textContent}`); }));
-  $('#snapBtn').addEventListener('click', () => toast('⚡ SNAP! PONTOS EM DISPUTA DOBRADOS'));
+  /* =====================================================================
+     FLAIR — coleção, pacote diário, escalação e duelo 1×1 (API) · demo (mock)
+     ===================================================================== */
+  const F = { col:null, match:null, snap:false };
+  const fcard = (a, cap) => { const power = a.power ?? Math.round(a.score * TIER_MULT[a.tier] * (cap ? 1.2 : 1)); return `<div class="fcard rarity-${a.tier.toLowerCase()}" style="--cc:${TIER_COLOR[a.tier]}"><div class="fin">${cap ? '<span class="cap">C</span>' : ''}<span class="avatar" data-initials="${a.ini}"><i class="dot dc-atleta"></i></span><b class="n">${esc(a.name)}</b><small style="text-align:center">${esc(a.pos)} · ${chip(a.tier)}</small><div class="axes3"><span>PP ${a.s[0]}</span><span>RP ${a.s[1]}</span><span>MP ${a.s[2]}</span></div><div class="power">${fmt(power)}</div></div></div>`; };
+  async function renderFlair() {
+    if (!live()) { $('#deckMe').innerHTML = [athletes[0], athletes[2], athletes[3]].map((a, i) => fcard(a, i === 0)).join(''); $('#deckOp').innerHTML = [athletes[1], athletes[4], athletes[3]].map((a, i) => fcard(a, i === 0)).join(''); $('#flairLog').innerHTML = '<li class="hint">Modo demonstração — entre para jogar com cartas reais.</li>'; return; }
+    try {
+      F.col = await API.call('/v1/flair/collection');
+      $('#flairPoints').textContent = `🪙 ${fmt(F.col.points)} PONTOS`;
+      $('#packBtn').disabled = !F.col.freePackAvailable; $('#packBtn').textContent = F.col.freePackAvailable ? '🎁 Abrir pacote do dia' : '🎁 Pacote de hoje já aberto';
+      $('#flairOdds').textContent = 'odds · ' + Object.entries(F.col.packOdds).map(([k, v]) => `${k} ${v}`).join(' · ') + ` · partidas hoje ${F.col.matchesToday}/${F.col.dailyMatchLimit}`;
+      const deck = F.col.deck.cards.length ? F.col.deck.cards : F.col.cards.slice(0, 3).map((c, i) => ({ ...c, captain: i === 0 }));
+      $('#deckMe').innerHTML = deck.length ? deck.map(c => fcard(fromFlairCard(c), c.captain)).join('') : '<p class="hint">Abra seu primeiro pacote para montar a escalação.</p>';
+      if (!F.match) { $('#deckOp').innerHTML = '<p class="hint">Inicie um duelo para ver o oponente.</p>'; $('#scoreLine').textContent = '0 × 0'; $('#roundLabel').textContent = 'LANCE 1 DE 3 · VOCÊ ESCOLHE O EIXO'; $('#flairLog').innerHTML = ''; }
+      else renderMatch(F.match);
+    } catch (e) { toast('FLAIR: ' + e.message); }
+  }
+  function renderMatch(m) {
+    $('#deckMe').innerHTML = m.myDeck.map(c => fcard(fromFlairCard(c), c.captain)).join('');
+    $('#deckOp').innerHTML = m.theirDeck.map(c => fcard(fromFlairCard(c), c.captain)).join('');
+    $('#deckOpName').textContent = m.opponent; $('#scoreLine').textContent = `${m.myWins} × ${m.theirWins}`;
+    $('#roundLabel').textContent = m.status === 'FINISHED' ? `FIM · ${m.result === 'WIN' ? 'VITÓRIA' : m.result === 'LOSS' ? 'DERROTA' : 'EMPATE'} · ${m.pointsAwarded >= 0 ? '+' : ''}${m.pointsAwarded} PONTOS` : `LANCE ${m.round} DE 3 · VOCÊ ESCOLHE O EIXO`;
+    $('#flairLog').innerHTML = m.rounds.map(r => `<li class="${r.winner === 'THEM' ? 'lost' : ''}"><b>L${r.round} ${r.axis}</b> ${esc(r.myCard)} ${r.myValue} × ${r.theirValue} ${esc(r.theirCard)} → ${r.winner === 'ME' ? 'você' : r.winner === 'THEM' ? 'oponente' : 'empate'}${r.snap ? ' ⚡' : ''}</li>`).join('');
+  }
+  $('#packBtn').addEventListener('click', async () => { if (!live()) { toast('ENTRE PARA ABRIR PACOTES'); return; } try { const pk = await API.call('/v1/flair/packs/open', { method: 'POST' }); toast('PACOTE: ' + pk.cards.map(c => `${c.name} · ${TIER_LABEL[c.tier]}`).join(' · ')); F.match = null; renderFlair(); } catch (e) { toast(e.message); } });
+  $('#flairStart').addEventListener('click', async () => {
+    if (!live()) { toast('ENTRE PARA DUELAR'); return; }
+    try {
+      if (!F.col) F.col = await API.call('/v1/flair/collection');
+      if (!F.col.deck.complete) { if (F.col.cards.length < 3) { toast('ABRA PACOTES ATÉ TER 3 CARTAS'); return; } await API.call('/v1/flair/deck', { method: 'PUT', body: { cardIds: F.col.cards.slice(0, 3).map(c => c.id), captainIndex: 0 } }); }
+      F.match = await API.call('/v1/flair/matches', { method: 'POST', body: {} }); F.snap = false; $('#snapBtn').setAttribute('aria-pressed', 'false'); renderMatch(F.match); toast('DUELO INICIADO · ESCOLHA O EIXO DO LANCE 1');
+    } catch (e) { toast(e.message); }
+  });
+  $$('.axes button').forEach(b => b.addEventListener('click', async () => {
+    $$('.axes button').forEach(x => x.classList.toggle('primary', x === b));
+    if (!live() || !F.match || F.match.status === 'FINISHED') { toast(live() ? 'INICIE UM NOVO DUELO' : `EIXO: ${b.textContent}`); return; }
+    try { F.match = await API.call(`/v1/flair/matches/${F.match.id}/rounds`, { method: 'POST', body: { axis: b.dataset.axis, snap: F.snap } }); F.snap = false; $('#snapBtn').setAttribute('aria-pressed', 'false'); renderMatch(F.match); if (F.match.status === 'FINISHED') { toast(`${F.match.result} · ${F.match.pointsAwarded} PONTOS`); F.col = null; const pts = await API.call('/v1/flair/points'); $('#flairPoints').textContent = `🪙 ${fmt(pts.balance)} PONTOS`; } } catch (e) { toast(e.message); }
+  }));
+  $('#snapBtn').addEventListener('click', () => { F.snap = !F.snap; $('#snapBtn').setAttribute('aria-pressed', String(F.snap)); toast(F.snap ? '⚡ SNAP ARMADO · PONTOS EM DISPUTA DOBRADOS' : 'SNAP DESARMADO'); });
 
   /* ---------- páginas simples ---------- */
-  function renderMisc(win, sub, params) {
+  async function renderMisc(win, sub, params) {
+    const mine = win === 'cards' ? await tryApi(async () => (await API.call('/v1/posts/mine')).map(fromPost), () => posts.gemeo) : [];
+    const me = win === 'me' ? await tryApi(async () => API.user.role === 'ATLETA' ? fromAthlete(await API.call(`/v1/athletes/${API.user.id}/card`)) : null, () => athletes[0]) : null;
     const pages = {
-      buscar: ['Buscar', `<label class="filter-form">Buscar atletas, clubes, ligas <input type="search" value="${esc(params.q || '')}" placeholder="Ex.: lateral sub-20 Série B"></label><p class="hint">Eixo "Nome" do sistema de filtros — cruza Perfil, Clubes &amp; Ligas e Momentos.</p>`],
-      cards: ['Meus cards', '<p class="hint">Seus posts publicados, agrupados por tipo (borda) e feed.</p><div class="samples">' + posts.gemeo.map(postCard).join('') + '</div>'],
-      me: ['Meu perfil', vcard(athletes[0]) + '<p class="hint" style="margin-top:12px">Visibilidade atual: <b>SOMENTE EU</b> (Privacy by Default). Altere em Privacidade (LGPD).</p>'],
-      'me/historico': ['Histórico de atividades', '<ul class="milestones"><li>HOJE · LOGIN (CHROME · &lt;PREENCHER_CIDADE&gt;)</li><li>ONTEM · PUBLICOU TREINO</li><li>W42 · shareTelemetryWithClubs: false → true</li><li>W41 · EXPORTAÇÃO CONCLUÍDA</li></ul><span class="art">Art. 18, I e II</span>'],
+      buscar: ['Buscar', `<label class="filter-form">Buscar atletas, clubes, ligas <input type="search" value="${esc(params.q || '')}" placeholder="Ex.: lateral sub-20 Série B"></label><p class="hint">Eixo "Nome" do sistema de filtros — cruza Perfil, Clubes &amp; Ligas e Momentos.</p>` + (params.q ? `<p class="hint"><a href="#/perfil?q=${encodeURIComponent(params.q)}">Ver resultados em Perfil →</a></p>` : '')],
+      cards: ['Meus cards', '<p class="hint">Seus cards publicados e rascunhos, agrupados por tipo (borda) e feed.</p><div class="samples">' + cards(mine, postCard, 'Você ainda não criou cards — use o botão ＋.') + '</div>'],
+      me: ['Meu perfil', (me ? vcard(me) : `<p class="hint">Perfil de ${esc(roleOf(ROLE).label)} — cards de atleta só para ATLETA.</p>`) + `<p class="hint" style="margin-top:12px">Visibilidade atual: <b>${API.user ? API.user.visibility.replace('_', ' ') : 'SOMENTE EU'}</b> (Privacy by Default). Altere em Privacidade (LGPD).</p>`],
+      'me/historico': ['Histórico de atividades', '<ul class="milestones" id="histList"><li>carregando…</li></ul><span class="art">Art. 18, I e II</span>'],
       cupons: ['Cupons', '<p class="hint">Disponíveis apenas com <code>shareWithBrands = true</code>. Nenhum cupom ativo.</p>'],
-      pontos: ['Pontos', '<div class="kpis"><div class="kpi"><small>Saldo</small><b>1.240</b></div><div class="kpi"><small>Esta semana</small><b>+180</b></div></div><p class="hint">Ganhos por treinos publicados, avaliações e assiduidade. Não compráveis com dinheiro.</p>'],
-      'gestao/liga': ['Minha liga', '<p class="hint">Homologação de scouts, tabela, súmulas e punições — só <b>OFICIAL_LIGA</b>.</p>'],
+      pontos: ['Pontos', '<div class="kpis"><div class="kpi"><small>Saldo</small><b id="ptsBal">—</b></div><div class="kpi"><small>Origem</small><b>FLAIR</b></div></div><p class="hint">Ganhos por duelos FLAIR, treinos publicados e assiduidade. Não compráveis com dinheiro.</p>'],
+      'gestao/liga': ['Minha liga', '<p class="hint">Homologação de scouts, tabela, súmulas e punições — só <b>OFICIAL_LIGA</b>.</p><button class="btn ghost" id="recalcBtn">Recalcular Rarity da semana anterior</button>'],
       admin: ['Administração', '<p class="hint">Moderação, versões de termos Velion, auditoria LGPD e registro de papéis por agentes.</p>'],
     };
     const key = sub ? `${win}/${sub}` : win; const [t, body] = pages[key] || pages[win] || ['Página', '<p>Em construção.</p>'];
     $('#miscPanel').innerHTML = `<h3>${t}</h3>${body}`;
+    if (key === 'me/historico') $('#histList').innerHTML = (await tryApi(async () => (await API.call('/v1/me/consent-history')).map(c => `${c.changedAt.slice(0, 10)} · ${c.preference}: ${c.oldValue} → ${c.newValue} · ${esc(c.articleLabel)}`), () => ['HOJE · LOGIN', 'W42 · shareTelemetryWithClubs: false → true'])).map(x => `<li>${x}</li>`).join('') || '<li>Sem eventos.</li>';
+    if (key === 'pontos') $('#ptsBal').textContent = fmt(await tryApi(async () => (await API.call('/v1/flair/points')).balance, () => 1240));
+    if (key === 'gestao/liga') $('#recalcBtn').addEventListener('click', async () => { try { const r = await API.call('/v1/admin/rarity/recalculate', { method: 'POST' }); toast(`RARITY ${r.week}: ${r.recalculated} GÊMEOS RECALCULADOS`); } catch (e) { toast(e.message); } });
   }
 
-  /* ---------- composer + Copilot ---------- */
+  /* =====================================================================
+     CRIADOR DE CARDS — 4 etapas: modo → conteúdo → arte → revisar e salvar
+     ===================================================================== */
+  const ART_DEFAULT = { colors:['#00d47a','#3b82f6','#f7c948','#a06bff','#ff9f43','#ff5d5d','#f5c542','#2dd4bf','#f472b6','#22d3ee','#5c6b62','#eaf2ee'],
+    materials:[['FOSCO','Fosco'],['METALICO','Metálico'],['VIDRO','Vidro'],['CARBONO','Carbono'],['HOLOGRAFICO','Holográfico']],
+    layouts:[['CLASSICO','Clássico'],['HERO','Hero'],['SPLIT','Split'],['MINIMAL','Minimal']], styles:[['NEON','Neon'],['VITRAL','Vitral'],['GRAFITE','Grafite'],['OURO','Ouro'],['RETRO','Retrô']] };
+  const CT_COLOR = { TREINO:'#00d47a', PARTIDA_MOMENTO:'#3b82f6', RELATORIO_TATICO:'#ff9f43', LIGA:'#a06bff', INSTITUCIONAL:'#ff5d5d', LESAO_ALERTA:'#ff5d5d', ESPECIAL:'#f5c542' };
+  const WZ = { step:1, mode:'MANUAL', art:{ color:'#00d47a', material:'FOSCO', layout:'CLASSICO', style:'NEON' }, opts:ART_DEFAULT, suggestion:null, busy:false };
+  const words = s => String(s || '').trim().split(/\s+/).filter(Boolean).length;
+  const labelOf = (list, v) => (list.find(x => x[0] === v) || [v, v])[1];
   function openComposer(withCopilot) {
-    $('#composer').hidden = false;
+    WZ.step = 1; WZ.mode = withCopilot ? 'AI' : 'MANUAL'; WZ.suggestion = null; WZ.art = { color:'#00d47a', material:'FOSCO', layout:'CLASSICO', style:'NEON' };
+    ['#composerTitle', '#composerSub', '#composerText'].forEach(s => $(s).value = ''); $('#composerAge').value = 'SAFE'; $('#copilotBody').textContent = 'Gerando sugestão…';
+    $$('.mode-opt').forEach(b => b.classList.toggle('on', b.dataset.mode === WZ.mode));
     $$('.type-opt[data-roles]').forEach(l => l.hidden = !l.dataset.roles.split(',').includes(ROLE));
-    $('#copilot').hidden = !withCopilot;
-    $('#copilotBody').innerHTML = `<div>Tipo sugerido: <b>TREINO</b> (borda verde) — detectei uma sessão de 72 min no seu wearable.</div><div>Título: "Sessão de sprints — 25 km/h sustentados"</div><div>Snippet: "+38 PP registrados pelo wearable · 72 min · 8,4 km · RPE 7."</div><small class="mono">GERADO POR IA · VOCÊ REVISA ANTES DE PUBLICAR (LGPD ART. 20) · SEM DADOS DE SAÚDE</small>`;
+    const first = $$('.type-opt').find(l => !l.hidden); if (first) first.querySelector('input').checked = true;
+    $('#wzMeta').innerHTML = `<i class="dot xs dc-${roleOf(ROLE).dc}"></i> AUTOR · ${esc(roleOf(ROLE).label.toUpperCase())} · <span class="age-chip age-safe">SAFE</span>`;
+    buildArtOptions(); goStep(1); $('#composer').hidden = false; $('#titleCount').textContent = '0 palavras';
+    if (live()) API.call('/v1/cards/art-options').then(o => { WZ.opts = { colors:o.colors, materials:o.materials.map(m => [m.value, m.label]), layouts:o.layouts.map(m => [m.value, m.label]), styles:o.styles.map(m => [m.value, m.label]) }; buildArtOptions(); }).catch(() => {});
   }
-  $('#fabBtn').addEventListener('click', () => openComposer(true));
+  function buildArtOptions() {
+    $('#artColors').innerHTML = WZ.opts.colors.map(c => `<button type="button" class="swatch${c === WZ.art.color ? ' on' : ''}" data-color="${c}" style="--sw:${c}" aria-label="${c}"></button>`).join('');
+    const chips = (id, list, key) => $(id).innerHTML = list.map(([v, l]) => `<button type="button" class="optchip${WZ.art[key] === v ? ' on' : ''}" data-key="${key}" data-val="${v}">${l}</button>`).join('');
+    chips('#artMaterials', WZ.opts.materials, 'material'); chips('#artLayouts', WZ.opts.layouts, 'layout'); chips('#artStyles', WZ.opts.styles, 'style');
+    $('#artColorHex').textContent = WZ.art.color; $('#artCustom').value = WZ.art.color; renderArtPreview();
+  }
+  const currentCt = () => ($('input[name="ct"]:checked') || {}).value || 'TREINO';
+  const draftPost = () => { const ct = currentCt(); const ageSel = $('#composerAge').value; return { id:'', role:ROLE, name:API.user ? '@' + API.user.username : '@<preencher_user>', ct, top:'AGORA', title:$('#composerTitle').value || '(título do card · 5 a 12 palavras)', snip:$('#composerSub').value, meta:null,
+    art:{ ...WZ.art, materialLabel:labelOf(WZ.opts.materials, WZ.art.material), styleLabel:labelOf(WZ.opts.styles, WZ.art.style) }, gen:WZ.mode, age: ct === 'LESAO_ALERTA' ? ['age-sens','SENSÍVEL'] : [{ SAFE:'age-safe', KIDS:'age-kids', AGE_12:'age-12', AGE_16:'age-16', AGE_18:'age-18' }[ageSel] || 'age-safe', { SAFE:'SAFE', KIDS:'KIDS', AGE_12:'12+', AGE_16:'16+', AGE_18:'18+' }[ageSel] || 'SAFE'], alert: ct === 'LESAO_ALERTA' || ct === 'INSTITUCIONAL', alarm: ct === 'LESAO_ALERTA' ? '🩹 LESÃO' : '📣 INSTITUCIONAL', verified: API.user && API.user.verified }; };
+  function renderArtPreview() { $('#artPreview').innerHTML = postCard(draftPost()); }
+  function renderReview() {
+    const d = draftPost(); $('#reviewCard').innerHTML = postCard(d);
+    const rows = [['Modo', WZ.mode === 'AI' ? 'Com IA · Copilot (revisado)' : 'Manual'], ['Tipo · borda', `${(CT[d.ct] || CT.TREINO).badge} · ${CT_COLOR[d.ct]}`], ['Janela', { TREINO:'GÊMEO', PARTIDA_MOMENTO:'PERFIL', RELATORIO_TATICO:'SCOUTING', LIGA:'PERFIL', INSTITUCIONAL:'ALERTA', LESAO_ALERTA:'ALERTA', ESPECIAL:'PERFIL' }[d.ct]],
+      ['Título', `${words($('#composerTitle').value)} palavras`], ['Teaser', $('#composerSub').value ? 'sim' : '—'], ['Texto completo', $('#composerText').value ? `${$('#composerText').value.length} caracteres (só no PostView)` : '—'],
+      ['Classificação', d.age[1]], ['Cor', WZ.art.color], ['Material', labelOf(WZ.opts.materials, WZ.art.material)], ['Layout', labelOf(WZ.opts.layouts, WZ.art.layout)], ['Estilo', labelOf(WZ.opts.styles, WZ.art.style)], ['Fonte', live() ? 'API · POST /v1/posts' : 'demo (local)']];
+    $('#reviewSummary').innerHTML = rows.map(([k, v]) => `<li><span>${k}</span><b>${esc(v)}</b></li>`).join('');
+  }
+  function goStep(n) {
+    if (n === 3 && WZ.step === 2) { const w = words($('#composerTitle').value); if (w < 5 || w > 12) { toast('TÍTULO DEVE TER ENTRE 5 E 12 PALAVRAS'); $('#composerTitle').focus(); return; } }
+    WZ.step = Math.max(1, Math.min(4, n));
+    $$('#wzSteps li').forEach(li => { const s = +li.dataset.step; li.classList.toggle('on', s === WZ.step); li.classList.toggle('done', s < WZ.step); });
+    $$('.wz-pane').forEach(p => p.hidden = +p.dataset.step !== WZ.step);
+    $('#wzBack').disabled = WZ.step === 1; $('#wzNext').hidden = WZ.step === 4; $('#publishBtn').hidden = WZ.step !== 4; $('#saveDraftBtn').hidden = WZ.step !== 4;
+    $('#wzNext').textContent = WZ.step === 3 ? 'Revisar →' : 'Avançar →';
+    if (WZ.step === 2) { $('#copilot').hidden = WZ.mode !== 'AI'; if (WZ.mode === 'AI' && !WZ.suggestion) fetchSuggestion(); }
+    if (WZ.step === 3) { if (!WZ.art.touched) { WZ.art.color = CT_COLOR[currentCt()] || WZ.art.color; buildArtOptions(); } renderArtPreview(); }
+    if (WZ.step === 4) renderReview();
+  }
+  async function fetchSuggestion() {
+    $('#copilotBody').textContent = 'Gerando sugestão a partir dos seus dados…';
+    const s = await tryApi(() => API.call('/v1/copilot/suggest', { method: 'POST', body: { draft: $('#composerText').value || $('#composerTitle').value || null, contentType: $('input[name="ct"]:checked') ? currentCt() : null } }),
+      () => ({ contentType:'TREINO', title:'Sessão de sprints com 25 km/h sustentados hoje', subtitle:'+38 PP registrados pelo wearable · 72 min · 8,4 km · RPE 7.', badges:['⚡ PRONTO'], ageRating:'SAFE', art:{ color:'#00d47a', material:'VIDRO', materialLabel:'Vidro', layout:'CLASSICO', layoutLabel:'Clássico', style:'NEON', styleLabel:'Neon' }, rationale:'Detectei uma sessão de 72 min no seu wearable (demo).' }));
+    WZ.suggestion = s;
+    $('#copilotBody').innerHTML = `<div>Tipo sugerido: <b>${esc((CT[s.contentType] || CT.TREINO).badge)}</b> (borda ${esc(CT_COLOR[s.contentType] || '')})</div><div>Título: "${esc(s.title)}"</div><div>Teaser: "${esc(s.subtitle || '—')}"</div>${s.badges && s.badges.length ? `<div>Badges: ${s.badges.map(esc).join(' · ')}</div>` : ''}<div>Arte: ${esc(s.art ? `${s.art.materialLabel} · ${s.art.layoutLabel} · ${s.art.styleLabel} · ${s.art.color}` : '—')}</div><small class="mono">${esc(s.rationale || '')} · GERADO POR IA · VOCÊ REVISA ANTES DE PUBLICAR (LGPD ART. 20) · SEM DADOS DE SAÚDE</small>`;
+  }
+  function acceptSuggestion() {
+    const s = WZ.suggestion; if (!s) return;
+    const radio = $(`input[name="ct"][value="${s.contentType}"]`); if (radio && !radio.closest('.type-opt').hidden) radio.checked = true;
+    $('#composerTitle').value = s.title; $('#composerSub').value = s.subtitle || ''; if (s.content && !$('#composerText').value) $('#composerText').value = s.content;
+    $('#titleCount').textContent = `${words(s.title)} palavras`;
+    if (s.art) { WZ.art = { color:s.art.color, material:s.art.material, layout:s.art.layout, style:s.art.style, touched:true }; buildArtOptions(); }
+    toast('SUGESTÃO ACEITA · REVISE E AVANCE');
+  }
+  async function publish(draft) {
+    if (WZ.busy) return; WZ.busy = true;
+    const ct = currentCt(), title = $('#composerTitle').value.trim(), sub = $('#composerSub').value.trim(), text = $('#composerText').value.trim();
+    try {
+      if (live()) {
+        const body = { contentType: ct, title, subtitle: sub || null, content: text || null, ageRating: $('#composerAge').value, generationMode: WZ.mode, draft, art: { color: WZ.art.color, material: WZ.art.material, layout: WZ.art.layout, style: WZ.art.style } };
+        const created = await API.call('/v1/posts', { method: 'POST', body });
+        toast(draft ? 'RASCUNHO SALVO · MEUS CARDS' : `CARD PUBLICADO · ${created.badgeLabel} · ${created.window}`);
+        $('#composer').hidden = true; location.hash = draft ? '#/cards' : '#/' + created.window.toLowerCase(); renderSub(state.win, state.sub[state.win]);
+      } else {
+        const p = { ...draftPost(), title, snip: sub, trend: '➖ novo' }; const bucket = ct === 'TREINO' || ct === 'PARTIDA_MOMENTO' ? 'gemeo' : ct === 'RELATORIO_TATICO' ? 'scouting' : ct === 'INSTITUCIONAL' || ct === 'LESAO_ALERTA' ? 'alerta' : 'perfil';
+        if (!draft) posts[bucket].unshift(p); else posts.autopilot.unshift({ ...p, top:'RASCUNHO' });
+        $('#composer').hidden = true; location.hash = '#/' + bucket; renderSub(state.win, state.sub[state.win]); toast(draft ? 'RASCUNHO SALVO (DEMO)' : 'CARD PUBLICADO (DEMO) · BORDA ' + (CT[ct] || CT.TREINO).badge);
+      }
+    } catch (e) { toast(e.message); } finally { WZ.busy = false; }
+  }
+  $('#fabBtn').addEventListener('click', () => openComposer(false));
+  $$('.mode-opt').forEach(b => b.addEventListener('click', () => { WZ.mode = b.dataset.mode; $$('.mode-opt').forEach(x => x.classList.toggle('on', x === b)); }));
+  $('#wzNext').addEventListener('click', () => goStep(WZ.step + 1)); $('#wzBack').addEventListener('click', () => goStep(WZ.step - 1));
+  $$('#wzSteps li').forEach(li => li.addEventListener('click', () => { if (+li.dataset.step < WZ.step) goStep(+li.dataset.step); }));
+  $('#composerTitle').addEventListener('input', e => { const w = words(e.target.value); const el = $('#titleCount'); el.textContent = `${w} palavras`; el.className = w >= 5 && w <= 12 ? 'mono ok' : 'mono bad'; });
+  $$('input[name="ct"]').forEach(r => r.addEventListener('change', () => { if (!WZ.art.touched) WZ.art.color = CT_COLOR[r.value]; }));
+  $('#cpAccept').addEventListener('click', acceptSuggestion); $('#cpRefresh').addEventListener('click', fetchSuggestion); $('#cpDismiss').addEventListener('click', () => $('#copilot').hidden = true);
+  document.addEventListener('click', e => {
+    const sw = e.target.closest('.swatch'); if (sw) { WZ.art.color = sw.dataset.color; WZ.art.touched = true; buildArtOptions(); return; }
+    const oc = e.target.closest('.optchip'); if (oc) { WZ.art[oc.dataset.key] = oc.dataset.val; WZ.art.touched = true; buildArtOptions(); }
+  });
+  $('#artCustom').addEventListener('input', e => { WZ.art.color = e.target.value; WZ.art.touched = true; buildArtOptions(); });
+  $('#publishBtn').addEventListener('click', () => publish(false)); $('#saveDraftBtn').addEventListener('click', () => publish(true));
   $$('[data-close]').forEach(b => b.addEventListener('click', () => $('#' + b.dataset.close).hidden = true));
-  $('#cpAccept').addEventListener('click', () => { $('#composerTitle').value = 'Sessão de sprints — 25 km/h sustentados'; $('#composerSub').value = '+38 PP registrados pelo wearable · 72 min · 8,4 km · RPE 7.'; toast('SUGESTÃO ACEITA'); });
-  $('#cpEdit').addEventListener('click', () => { $('#composerTitle').value = 'Sessão de sprints — 25 km/h sustentados'; $('#composerTitle').focus(); });
-  $('#cpDismiss').addEventListener('click', () => $('#copilot').hidden = true);
-  $('#publishBtn').addEventListener('click', () => { const ct = $('input[name="ct"]:checked').value; const title = $('#composerTitle').value || '(sem título)', snip = $('#composerSub').value; if (!$('#composerTitle').value) { toast('TÍTULO É OBRIGATÓRIO'); return; } posts.gemeo.unshift({ role:ROLE, name:'@<preencher_user>', ct, top:'AGORA', title, snip, trend:'➖ novo' }); $('#composer').hidden = true; location.hash = ct === 'TREINO' || ct === 'PARTIDA_MOMENTO' ? '#/gemeo' : '#/perfil'; renderSub(state.win, state.sub[state.win]); toast('CARD PUBLICADO · BORDA ' + (CT[ct] || CT.TREINO).badge); });
 
-  /* ---------- LGPD ---------- */
-  function openLgpd() { $('#lgpdModal').hidden = false; }
-  $('#btnLgpd').addEventListener('click', openLgpd); $('#navLgpd').addEventListener('click', e => { e.preventDefault(); openLgpd(); });
+  /* =====================================================================
+     LGPD — Central de Privacidade ligada à API (opt-in, step-up, export, exclusão)
+     ===================================================================== */
+  const PREF_KEY = k => k.replace(/[A-Z]/g, c => '_' + c).toUpperCase();   // shareMedicalData → SHARE_MEDICAL_DATA
+  let stepUpToken = null, pending = null;
+  $('#lgpdToggles').innerHTML = lgpdToggles.map(([k, t, d, art, s]) => `<li class="toggle-row"><span><b>${t}</b><small>${d}</small><span class="art ${s ? 's' : ''}">${art}</span></span><input type="checkbox" class="sw" data-pref="${PREF_KEY(k)}" data-sensitive="${s}"></li>`).join('');
+  async function openLgpd(panel) {
+    $('#lgpdModal').hidden = false;
+    if (panel) $(`.lgpd-nav [data-lgpd="${panel}"]`).click();
+    if (!live()) return;
+    try {
+      const c = await API.call('/v1/me/privacy');
+      c.preferences.forEach(p => { const sw = $(`#lgpdToggles .sw[data-pref="${p.key}"]`); if (sw) sw.checked = p.enabled; });
+      const vis = $(`input[name="vis"][value="${c.visibility}"]`); if (vis) vis.checked = true;
+      $('#sessionList').innerHTML = (c.sessions || []).map(s => `<li>${esc(s['device.userAgent'] || 'dispositivo').slice(0, 40)} · ${esc(s['device.ip'])} · ${esc((s.lastSeenAt || '').slice(0, 16).replace('T', ' '))}</li>`).join('');
+      $('#accName').value = API.user.displayName; $('#langSelect').value = API.user.locale || 'pt-BR'; $('#darkToggle').checked = API.user.darkMode !== false; $('#fontScale').value = API.user.fontScale || 1;
+      const ex = await API.call('/v1/me/exports'); $('#exportList').innerHTML = ex.slice(0, 3).map(x => `<li>${x.requestedAt.slice(0, 16).replace('T', ' ')} · ${x.status}${x.downloadUrl ? ` · <a href="${x.downloadUrl}" target="_blank">baixar (7 d)</a>` : x.failureReason ? ' · ' + esc(x.failureReason) : ''}</li>`).join('');
+    } catch (e) { toast('LGPD: ' + e.message); }
+  }
+  $('#btnLgpd').addEventListener('click', () => openLgpd()); $('#navLgpd').addEventListener('click', e => { e.preventDefault(); openLgpd(); });
   $$('.lgpd-nav button').forEach(b => b.addEventListener('click', () => { $$('.lgpd-nav button').forEach(x => x.classList.toggle('active', x === b)); $$('.lgpd-panel').forEach(p => p.hidden = p.dataset.lgpd !== b.dataset.lgpd); }));
-  $('#lgpdToggles').innerHTML = lgpdToggles.map(([k, t, d, art, s]) => `<li class="toggle-row"><span><b>${t}</b><small>${d}</small><span class="art ${s ? 's' : ''}">${art}</span></span><input type="checkbox" class="sw" data-pref="${k}"></li>`).join('');
-  $$('#lgpdToggles .sw').forEach(sw => sw.addEventListener('change', () => toast(`${sw.dataset.pref}: ${!sw.checked} → ${sw.checked} · CONSENT AUDIT LOG`)));
-  $('#darkToggle').addEventListener('change', e => document.documentElement.dataset.theme = e.target.checked ? 'dark' : 'light');
-  $('#exportBtn').addEventListener('click', () => toast('EXPORTAÇÃO SOLICITADA (202) · LINK VÁLIDO POR 7 DIAS'));
+  async function setPref(key, enabled, sw) {
+    try {
+      const d = await API.call(`/v1/me/privacy/${key}`, { method: 'PUT', body: { enabled }, headers: stepUpToken ? { 'X-Step-Up-Token': stepUpToken } : {} });
+      sw.checked = d.enabled; toast(`${key}: ${!enabled} → ${enabled} · CONSENT AUDIT LOG · ${d.articleLabel}`); pending = null; $('#stepUpBox').hidden = true;
+    } catch (e) {
+      sw.checked = !enabled;
+      if (e.code === 'STEP_UP_REQUIRED') { pending = { key, enabled, sw }; $('#stepUpBox').hidden = false; $('#stepUpPass').focus(); toast('CONFIRME SUA SENHA PARA ATIVAR DADO SENSÍVEL (ART. 11)'); } else toast(e.message);
+    }
+  }
+  $$('#lgpdToggles .sw').forEach(sw => sw.addEventListener('change', () => { if (!live()) { toast(`${sw.dataset.pref}: ${!sw.checked} → ${sw.checked} · CONSENT AUDIT LOG (DEMO)`); return; } setPref(sw.dataset.pref, sw.checked, sw); }));
+  async function stepUp(password) { const d = await API.call('/v1/me/step-up', { method: 'POST', body: { password } }); stepUpToken = d.stepUpToken; setTimeout(() => stepUpToken = null, (d.expiresInSeconds - 5) * 1000); return stepUpToken; }
+  $('#stepUpBtn').addEventListener('click', async () => { try { await stepUp($('#stepUpPass').value); $('#stepUpPass').value = ''; toast('REAUTENTICADO · 5 MIN'); if (pending) { const p = pending; p.sw.checked = p.enabled; setPref(p.key, p.enabled, p.sw); } else if (pending === 'delete') doDelete(); $('#stepUpBox').hidden = true; } catch (e) { toast(e.message); } });
+  $$('input[name="vis"]').forEach(r => r.addEventListener('change', async () => { if (!live()) { toast('VISIBILIDADE: ' + r.value + ' (DEMO)'); return; } try { API.user = await API.call('/v1/me', { method: 'PATCH', body: { visibility: r.value } }); toast('VISIBILIDADE · ' + r.value); } catch (e) { toast(e.message); } }));
+  $('#accSave').addEventListener('click', async () => { if (!live()) { toast('SALVO (DEMO)'); return; } try { API.user = await API.call('/v1/me', { method: 'PATCH', body: { displayName: $('#accName').value, bio: $('#accBio').value || null, stateCode: $('#accState').value || null, city: $('#accCity').value || null } }); setUser(API.user); toast('PERFIL ATUALIZADO · ART. 18, III'); } catch (e) { toast(e.message); } });
+  $('#darkToggle').addEventListener('change', e => { document.documentElement.dataset.theme = e.target.checked ? 'dark' : 'light'; if (live()) API.call('/v1/me', { method: 'PATCH', body: { darkMode: e.target.checked } }).catch(() => {}); });
+  $('#fontScale').addEventListener('change', e => { document.documentElement.style.fontSize = (16 * +e.target.value) + 'px'; if (live()) API.call('/v1/me', { method: 'PATCH', body: { fontScale: +e.target.value } }).catch(() => {}); });
+  $('#langSelect').addEventListener('change', e => { if (live()) API.call('/v1/me', { method: 'PATCH', body: { locale: e.target.value } }).then(() => toast('IDIOMA · ' + e.target.value)).catch(err => toast(err.message)); else toast('IDIOMA · ' + e.target.value + ' (DEMO)'); });
+  $('#exportBtn').addEventListener('click', async () => { if (!live()) { toast('EXPORTAÇÃO SOLICITADA (202) · LINK VÁLIDO POR 7 DIAS (DEMO)'); return; } try { const x = await API.call('/v1/me/export', { method: 'POST' }); toast(`EXPORTAÇÃO ${x.status}${x.downloadUrl ? ' · LINK PRONTO (7 DIAS)' : x.failureReason ? ' · ' + x.failureReason : ''}`); openLgpd('dados'); } catch (e) { toast(e.message); } });
+  $('#historyBtn').addEventListener('click', async () => { const ul = $('#consentHistory'); ul.hidden = !ul.hidden; if (ul.hidden) return; ul.innerHTML = (await tryApi(async () => (await API.call('/v1/me/consent-history')).map(c => `${c.changedAt.slice(0, 16).replace('T', ' ')} · ${c.preference} ${c.oldValue} → ${c.newValue} · ${esc(c.articleLabel)}`), () => ['W42 · SHARE_TELEMETRY_WITH_CLUBS false → true · Art. 7º, I'])).map(x => `<li>${x}</li>`).join('') || '<li>Sem alterações registradas.</li>'; });
   $('#delConfirm').addEventListener('input', e => $('#deleteBtn').disabled = e.target.value !== 'EXCLUIR');
-  $('#deleteBtn').addEventListener('click', () => toast('REAUTENTIQUE-SE · PENDING_DELETE POR 30 DIAS'));
+  async function doDelete() { try { const d = await API.call('/v1/me', { method: 'DELETE', headers: stepUpToken ? { 'X-Step-Up-Token': stepUpToken } : {} }); toast(d.message); API.clear(); setTimeout(() => location.reload(), 1800); } catch (e) { if (e.code === 'STEP_UP_REQUIRED') { pending = 'delete'; $(`.lgpd-nav [data-lgpd="privacidade"]`).click(); $('#stepUpBox').hidden = false; $('#stepUpPass').focus(); toast('REAUTENTIQUE-SE PARA EXCLUIR'); } else toast(e.message); } }
+  $('#deleteBtn').addEventListener('click', () => { if (!live()) { toast('REAUTENTIQUE-SE · PENDING_DELETE POR 30 DIAS (DEMO)'); return; } doDelete(); });
+  $('#logoutBtn').addEventListener('click', async () => { try { if (live()) await API.call('/v1/auth/logout', { method: 'POST' }); } catch { } API.clear(); location.reload(); });
+  $('#logoutAllBtn').addEventListener('click', async () => { try { if (live()) await API.call('/v1/auth/logout-all', { method: 'POST' }); } catch { } API.clear(); location.reload(); });
 
-  /* ---------- sidebar por papel, menu, hide-on-scroll, swipe ---------- */
+  /* =====================================================================
+     AUTENTICAÇÃO — login / cadastro polimórfico / modo demo
+     ===================================================================== */
+  function setUser(u) {
+    API.user = u; ROLE = u.role; document.body.dataset.role = u.role; document.body.dataset.tier = u.tier || 'COMMON';
+    $('#meName').textContent = u.displayName; $('#meHandle').textContent = '@' + u.username; $('#meRole').textContent = roleOf(u.role).label;
+    $('#meTier').innerHTML = u.tier ? chip(u.tier) : ''; const av = $('#meBtn .avatar'); av.dataset.initials = ini(u.displayName); av.innerHTML = `<i class="dot dc-${roleOf(u.role).dc}"></i>`;
+    $('#srcBadge').textContent = 'API'; $('#srcBadge').classList.add('api');
+    if (u.darkMode === false) document.documentElement.dataset.theme = 'light';
+    $$('.sidebar a[data-roles]').forEach(a => a.hidden = !a.dataset.roles.split(',').includes(ROLE));
+  }
+  function openAuth() { $('#authModal').hidden = false; $('#authError').hidden = true; if (API.online && !API.terms) API.call('/v1/terms/current', { auth: false }).then(t => { API.terms = t; $('#termsVersion').textContent = `versão ${t.version} · ${t.owner}`; $('#termsLink').href = t.documentUrl || '#'; }).catch(() => {}); }
+  $$('.auth-tabs button').forEach(b => b.addEventListener('click', () => { $$('.auth-tabs button').forEach(x => x.classList.toggle('active', x === b)); $('#loginForm').hidden = b.dataset.auth !== 'login'; $('#registerForm').hidden = b.dataset.auth !== 'register'; }));
+  $('#regRole').addEventListener('change', e => $('#regAthlete').hidden = e.target.value !== 'ATLETA');
+  const authFail = e => { const el = $('#authError'); el.hidden = false; el.textContent = e.code === 'TERMS_REQUIRED' ? e.message + ' — aceite os termos para continuar.' : e.status === 429 ? 'Muitas tentativas — aguarde um minuto.' : e.message; };
+  $('#loginForm').addEventListener('submit', async e => {
+    e.preventDefault(); const fd = new FormData(e.target);
+    try { const d = await API.call('/v1/auth/login', { method: 'POST', body: { email: fd.get('email'), password: fd.get('password') }, auth: false }); API.setTokens(d.accessToken, d.refreshToken); setUser(d.user); $('#authModal').hidden = true; sessionStorage.removeItem('fas.demo'); toast(`BEM-VINDO · ${d.user.displayName}`); route(); } catch (err) { authFail(err); }
+  });
+  $('#registerForm').addEventListener('submit', async e => {
+    e.preventDefault(); const fd = new FormData(e.target);
+    const body = { role: fd.get('role'), email: fd.get('email'), password: fd.get('password'), username: fd.get('username'), displayName: fd.get('displayName'), birthDate: fd.get('birthDate') || null, acceptTerms: !!fd.get('acceptTerms'), termsVersion: API.terms ? API.terms.version : '2026.10', profile: { position: fd.get('position') || null, clubName: fd.get('clubName') || null } };
+    try { const d = await API.call('/v1/auth/register', { method: 'POST', body, auth: false }); API.setTokens(d.accessToken, d.refreshToken); setUser(d.user); $('#authModal').hidden = true; toast('CONTA CRIADA · VISIBILIDADE SOMENTE EU · CONSENTIMENTOS DESLIGADOS'); route(); } catch (err) { authFail(err); }
+  });
+  $('#demoBtn').addEventListener('click', () => { sessionStorage.setItem('fas.demo', '1'); $('#authModal').hidden = true; toast('MODO DEMONSTRAÇÃO · DADOS FICTÍCIOS'); });
+  $('#meBtn').addEventListener('click', () => API.user ? openLgpd('conta') : openAuth());
+
+  /* ---------- post view (texto completo só aqui) ---------- */
+  async function openPostView(id, fallbackCard) {
+    const m = $('#postViewModal'); m.hidden = false;
+    $('#postViewBody').innerHTML = fallbackCard || '';
+    if (!live() || !id) { $('#postViewBody').insertAdjacentHTML('beforeend', '<p class="content hint">Texto completo disponível no PostView (demo).</p>'); return; }
+    try { const v = await API.call(`/v1/posts/${id}`); $('#postViewBody').innerHTML = postCard(fromPost(v.card)) + `<div class="content">${esc(v.content || '(sem texto completo)')}</div>`; } catch (e) { toast(e.message); }
+  }
+
+  /* ---------- sidebar por papel, menu, hide-on-scroll, swipe, ações sociais ---------- */
   $$('.sidebar a[data-roles]').forEach(a => a.hidden = !a.dataset.roles.split(',').includes(ROLE) && ROLE !== 'ADMIN');
   $('#btnMore').addEventListener('click', () => $('#sidebar').classList.toggle('open'));
-  $('#searchForm').addEventListener('submit', e => { e.preventDefault(); location.hash = '#/buscar?q=' + encodeURIComponent($('#searchInput').value); });
+  $('#searchForm').addEventListener('submit', e => { e.preventDefault(); location.hash = '#/perfil?q=' + encodeURIComponent($('#searchInput').value); });
   let lastY = 0; window.addEventListener('scroll', () => { const y = window.scrollY; $('#bottomNav').classList.toggle('hidden', y > lastY + 24 && y > 80); if (y < lastY - 4 || y < 40) $('#bottomNav').classList.remove('hidden'); lastY = y; }, { passive: true });
   let x0 = null; document.addEventListener('touchstart', e => x0 = e.touches[0].clientX, { passive: true });
   document.addEventListener('touchend', e => { if (x0 === null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null; if (Math.abs(dx) < 70 || !WINDOWS.includes(state.win)) return; const i = WINDOWS.indexOf(state.win) + (dx < 0 ? 1 : -1); if (WINDOWS[i]) location.hash = '#/' + WINDOWS[i]; });
-  document.addEventListener('click', e => {
+  document.addEventListener('click', async e => {
     const act = e.target.closest('.act[data-act]');
     if (act) {
-      const n = act.querySelector('b'); const kind = act.dataset.act;
-      if (kind === 'like') { act.classList.toggle('on'); if (n) n.textContent = (parseInt(n.textContent.replace(/\./g, '')) + (act.classList.contains('on') ? 1 : -1)).toLocaleString('pt-BR'); }
-      else if (kind === 'comment') toast('ABRIR COMENTÁRIOS · POST VIEW');
-      else if (kind === 'share') { if (n) n.textContent = (parseInt(n.textContent.replace(/\./g, '')) + 1).toLocaleString('pt-BR'); toast('COMPARTILHADO · LINK COPIADO'); }
+      const card = act.closest('article'); const id = card && card.dataset.id; const isPost = card && !card.dataset.athlete; const n = act.querySelector('b'); const kind = act.dataset.act;
+      const bump = d => { if (n) n.textContent = fmt(parseInt(n.textContent.replace(/\./g, '')) + d); };
+      if (kind === 'comment') { openPostView(isPost ? id : null, card ? card.outerHTML : ''); return; }
+      if (live() && isPost && id) {
+        try { const r = await API.call(`/v1/posts/${id}/${kind}`, { method: 'POST' }); if (kind === 'like') { act.classList.toggle('on', r.liked); if (n) n.textContent = fmt(r.likes); } if (kind === 'save') { act.classList.toggle('on', r.saved); toast(r.saved ? 'SALVO' : 'REMOVIDO DOS SALVOS'); } if (kind === 'share') { if (n) n.textContent = fmt(r.shares); toast('COMPARTILHADO · LINK COPIADO'); try { navigator.clipboard.writeText(location.origin + '/#/post/' + id); } catch { } } } catch (err) { toast(err.message); }
+        return;
+      }
+      if (kind === 'like') { act.classList.toggle('on'); bump(act.classList.contains('on') ? 1 : -1); }
+      else if (kind === 'share') { bump(1); toast('COMPARTILHADO · LINK COPIADO'); }
       else if (kind === 'save') { act.classList.toggle('on'); toast(act.classList.contains('on') ? 'SALVO' : 'REMOVIDO DOS SALVOS'); }
       return;
     }
     const vt = e.target.closest('.vtabs .vt'); if (vt) { const card = vt.closest('.vcard'); card.querySelectorAll('.vtabs .vt').forEach(x => x.classList.toggle('on', x === vt)); card.querySelectorAll('.vpane').forEach(pn => pn.hidden = pn.dataset.vt !== vt.dataset.vt); return; }
     const b = e.target.closest('.bdgrow b[data-badge]'); if (b) toast(`TAP TO EXPAND · ${b.dataset.badge} · GET /v1/athletes/{id}/badges/{type}/history`); });
+  $$('.sorttabs').forEach(st => st.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; $$('button', st).forEach(x => x.classList.toggle('on', x === b)); sortBy = SORT[b.textContent.trim()] || 'FOR_YOU'; toast(`ORDENAR · ${b.textContent.toUpperCase()}`); renderSub(state.win, state.sub[state.win]); }));
 
-  $$('.sorttabs').forEach(st => st.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; $$('button', st).forEach(x => x.classList.toggle('on', x === b)); toast(`ORDENAR · ${b.textContent.toUpperCase()}`); }));
-
-  function toast(msg) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(t._t); t._t = setTimeout(() => t.hidden = true, 2600); }
-
-  window.addEventListener('hashchange', route);
-  route();
+  /* ---------- boot ---------- */
+  async function boot() {
+    await API.probe();
+    if (API.online && API.access) { try { setUser(await API.call('/v1/me')); } catch { API.clear(); } }
+    if (!API.online) { $('#srcBadge').textContent = 'DEMO · API OFFLINE'; }
+    if (API.online && !API.user && !sessionStorage.getItem('fas.demo')) openAuth();
+    window.addEventListener('hashchange', route);
+    route();
+  }
+  boot();
 })();

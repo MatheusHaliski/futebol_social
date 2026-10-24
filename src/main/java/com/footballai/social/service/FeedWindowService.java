@@ -102,6 +102,7 @@ public class FeedWindowService {
                 for (EventType e : q.eventTypes) types.add(e == EventType.TREINO ? PostContentType.TREINO : PostContentType.PARTIDA_MOMENTO);
                 ps.add(root.get("contentType").in(types));
             }
+            if (!q.contentTypes.isEmpty()) ps.add(root.get("contentType").in(q.contentTypes));
             if (!q.severities.isEmpty()) ps.add(root.get("severity").in(q.severities));
             if (!q.alertTypes.isEmpty()) ps.add(root.get("alertType").in(q.alertTypes));
             if (!q.sources.isEmpty()) ps.add(root.get("authorRole").in(q.sources));
@@ -181,6 +182,7 @@ public class FeedWindowService {
         if (!q.alertTypes.isEmpty() && q.alertTypes.stream().noneMatch(a -> a.name().equals(e.getAlertType()))) return false;
         if (!q.sources.isEmpty() && q.sources.stream().noneMatch(s -> s.name().equals(e.getSourceRole()))) return false;
         if (q.athleteId != null && !q.athleteId.equals(e.getAuthorId())) return false;
+        if (!q.contentTypes.isEmpty() && q.contentTypes.stream().noneMatch(c -> c.name().equals(e.getContentType()))) return false;
         if (!q.eventTypes.isEmpty()) {
             boolean ok = q.eventTypes.stream().anyMatch(ev -> (ev == EventType.TREINO ? "TREINO" : "PARTIDA_MOMENTO").equals(e.getContentType()));
             if (!ok) return false;

@@ -165,3 +165,19 @@
 ```
 
 `physical` e qualquer badge de saúde são omitidos quando o viewer não é o dono e `shareMedicalData = false`; nesse caso `classification.sensitive` continua `false` e o `age-chip` permanece `SAFE`.
+
+---
+
+## 9. Arte de fundo e criador de cards (4 etapas)
+
+O card é criado num assistente único (FAB / “Criar card”): **1 · Modo** (Manual · Com IA/Copilot) → **2 · Conteúdo** (tipo, título 5–12 palavras, teaser, texto, classificação) → **3 · Arte** → **4 · Revisar e salvar** (rascunho ou publicar).
+
+| Dimensão da arte (`CardArt`) | Valores | Render no `.pcard` (`.p-art`) |
+|---|---|---|
+| Cor | hex dos tokens (`--c-*`, `--gold`) ou personalizada | `--ac` do bloco; borda e brilho derivam dela |
+| Material | Fosco · Metálico · Vidro · Carbono · Holográfico | gradiente plano · faixa de brilho · translúcido com blur · trama diagonal · conic-gradient animado |
+| Layout | Clássico · Hero · Split · Minimal | bloco 120 px após o título · 136 px acima do título · coluna lateral de 72 px · fio de 8 px sob o `p-top` |
+| Estilo | Neon · Vitral · Grafite · Ouro · Retrô | glow externo/interno · facetas do logo · véu grafite · aro Elite Gold · scanlines sépia |
+
+Regras: a arte **nunca substitui** a borda de conteúdo nem a bolinha do autor; posts com mídia mostram a mídia no lugar da arte; o Copilot sugere arte por tier (Common fosco/grafite … Mythic holográfico/ouro) e tipo (partida/especial = hero; relatório = split; institucional/lesão = minimal); cards gerados com IA exibem a pill “GERADO COM IA · REVISADO”.
+

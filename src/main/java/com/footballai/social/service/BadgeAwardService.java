@@ -34,6 +34,7 @@ public class BadgeAwardService {
     private final AthleteRepository athletes;
     private final Clock clock;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public BadgeAwardService(AthleteBadgeRepository badges, BadgeAuditLogRepository audit, MatchPerformanceRepository matches,
                              TrainingSummaryRepository training, InjuryRecordRepository injuries, DigitalTwinRepository twins, AthleteRepository athletes) {
         this(badges, audit, matches, training, injuries, twins, athletes, Clock.systemUTC());

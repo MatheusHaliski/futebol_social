@@ -38,12 +38,22 @@ public final class CardDtos {
     public record SocialCountersDTO(int likes, int comments, int shares, int saves, boolean likedByMe, boolean savedByMe) { }
     public record TrendDTO(String direction, String emoji) { }
     public record MediaDTO(String key, String url, String kind) { }
+    /** Arte de fundo escolhida no criador de cards (cor · material · layout · estilo). */
+    public record CardArtDTO(String color, String material, String materialLabel, String layout, String layoutLabel, String style, String styleLabel) {
+        public static CardArtDTO of(com.footballai.social.model.entity.CardArt a) {
+            if (a == null || a.isEmpty()) return null;
+            return new CardArtDTO(a.getColor(), a.getMaterial() == null ? null : a.getMaterial().name(), a.getMaterial() == null ? null : a.getMaterial().label(),
+                    a.getLayout() == null ? null : a.getLayout().name(), a.getLayout() == null ? null : a.getLayout().label(),
+                    a.getStyle() == null ? null : a.getStyle().name(), a.getStyle() == null ? null : a.getStyle().label());
+        }
+    }
 
     /** Card de post (.pcard): título obrigatório, teaser, sem texto corrido; barra de ações em todo post. */
     public record PostCardDTO(UUID id, Instant publishedAt, String timeLabel, AuthorDTO author,
                               String contentType, String borderClass, String borderColor, String badgeLabel, String vslGlyph, boolean hazard,
                               AgeRatingDTO ageRating, String title, String subtitle, MediaDTO media, List<String> meta,
-                              SocialCountersDTO social, TrendDTO trend, String window, String severity, String alertType) { }
+                              SocialCountersDTO social, TrendDTO trend, String window, String severity, String alertType,
+                              String generationMode, CardArtDTO art) { }
 
     public record PostViewDTO(PostCardDTO card, String content) { }
 

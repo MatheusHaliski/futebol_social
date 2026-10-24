@@ -65,6 +65,10 @@ controller/  AuthController, UserController, FeedWindowController, PostControlle
 | `GET` | `/v1/ui/navigation` · `/v1/ui/tokens` — bottom bar (4 abas + FAB) e tokens de design | RF3 |
 | `POST` | `/v1/posts` · `/{id}/like` · `/{id}/save` · `/{id}/share` — `GET /v1/posts/{id}` (PostView) | RF3 |
 | `GET` | `/v1/me` · `PATCH /v1/me` · `/v1/athletes/{id}/card` · `/v1/athletes/{id}/badges/{type}/history` | RF4/RF4.1 |
+| `POST` | `/v1/telemetry` · `PUT /v1/telemetry/plan` · `/v1/evaluations` · `/v1/matches/performances` · `/v1/injuries` · `/v1/injuries/{id}/clear` — `GET /v1/twins/{id}/evolution\|dna\|load` · `/v1/twins/compare?ids=` · `/v1/twins/me` | RF4 |
+| `GET` | `/v1/rankings/athletes` · `/v1/rankings/clubs` · `/v1/clubs` (globo Explorar) — `POST /v1/admin/rarity/recalculate` (OFICIAL_LIGA) | RF3/RF4 |
+| `POST` | `/v1/copilot/suggest` · `GET /v1/autopilot/drafts` · `GET /v1/cards/art-options` · `GET /v1/posts/mine` · `POST /v1/posts/{id}/publish` | RF3 |
+| `GET/POST/PUT` | `/v1/flair/collection` · `/v1/flair/packs/open` · `/v1/flair/deck` · `/v1/flair/matches` · `/v1/flair/matches/{id}/rounds` · `/v1/flair/points` | RF6 |
 | `GET/PUT` | `/v1/me/privacy` · `/v1/me/privacy/{preference}` (header `X-Step-Up-Token` para sensíveis) · `/v1/me/consent-history` | RF5 |
 | `POST` | `/v1/me/step-up` · `/v1/me/export` · `GET /v1/me/exports` · `DELETE /v1/me` · `POST /v1/me/restore` | RF5 |
 
@@ -83,10 +87,16 @@ Filtros por janela (`GET /v1/feeds/…`): **PERFIL** `tier`, `position`, `ageMin
 - **LGPD**: exclusão = soft delete com 30 dias de graça (login restaura), anonimização diária, exportação JSON com URL de 7 dias,
   step-up por senha para ações sensíveis, trilha de consentimento com base legal.
 
+## Contas de exemplo (seed · perfis `local`/`docker`)
+
+Senha de todas: `Senha@Forte123`. `atleta1@exemplo.dev` (Legendary) · `atleta2@exemplo.dev` (Mythic) · `atleta3`…`atleta5@exemplo.dev` · `scout@exemplo.dev` (homologado) · `tecnico@exemplo.dev` · `medico@exemplo.dev` · `clube1`…`clube3@exemplo.dev` · `imprensa@exemplo.dev` · `torcedor@exemplo.dev` · `oficial@exemplo.dev` (OFICIAL_LIGA / admin). Nomes aparecem como `<PREENCHER_*>`.
+
+A SPA em <http://localhost:8080/> abre o modal de login; sem API alcançável (ou em “modo demonstração”) ela roda com dados fictícios e mostra `DEMO` no chip de identidade.
+
 ## Testes
 
 ```bash
-mvn -q verify     # 36 testes unitários: Rarity Engine, tiers, máquina de estados, badges, regras de post, filtros, JWT, cripto, LGPD
+mvn -q verify     # testes unitários: Rarity Engine, tiers, máquina de estados, badges, regras de post, filtros, JWT, cripto, LGPD, FLAIR, telemetria, Copilot
 ```
 
 Os testes não exigem banco. Testes de integração com Testcontainers (MySQL/Redis/Cassandra) são o próximo passo.
@@ -103,5 +113,5 @@ python scripts/enrichment_agent.py --in seed.json --out enriched.json # badges, 
 ## Front-end
 
 `src/main/resources/static/` — `index.html`, `styles.css`, `app.js`, `icons.svg` (mini-brasões derivados do logo oficial) e `brand/`.
-Mockup funcional com as 4 janelas, painel de filtros por aba, cards, FLAIR, composer/Copilot e Central LGPD; consome os mesmos
-parâmetros expostos pela API.
+SPA ligada à API (JWT + refresh automático, fallback demo): 4 janelas com painel de filtros, cards `.pcard`/`.vcard`, criador de cards em
+4 etapas (modo → conteúdo → arte → revisar), Copilot/Autopilot, FLAIR, rankings, globo, evolução/carga/DNA e Central LGPD.

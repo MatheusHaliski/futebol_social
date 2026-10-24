@@ -25,6 +25,12 @@ public class PostController {
     @ResponseStatus(HttpStatus.CREATED)
     public PostCardDTO create(@AuthenticationPrincipal AuthPrincipal p, @Valid @RequestBody CreatePostRequest r) { return posts.create(p, r); }
 
+    @GetMapping("/mine")
+    public java.util.List<PostCardDTO> mine(@AuthenticationPrincipal AuthPrincipal p) { return posts.mine(p); }
+
+    @PostMapping("/{id}/publish")
+    public PostCardDTO publish(@AuthenticationPrincipal AuthPrincipal p, @PathVariable UUID id) { return posts.publishDraft(p, id); }
+
     @GetMapping("/{id}")
     public PostViewDTO view(@AuthenticationPrincipal AuthPrincipal p, @PathVariable UUID id) { return posts.view(p, id); }
 

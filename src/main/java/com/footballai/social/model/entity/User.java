@@ -73,8 +73,9 @@ public abstract class User {
     @Column(nullable = false, length = 5)
     private String locale = "pt-BR";
 
+    /** Interface dark-first (modelo visual); preferência de UI, não dado pessoal. */
     @Column(name = "dark_mode", nullable = false)
-    private boolean darkMode = false;
+    private boolean darkMode = true;
 
     @Column(name = "font_scale", nullable = false, precision = 2, scale = 1)
     private BigDecimal fontScale = BigDecimal.ONE;

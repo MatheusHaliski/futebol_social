@@ -75,7 +75,8 @@ public class CardAssembler {
                 AgeRatingDTO.of(p.getAgeRating()), p.getTitle(), media == null ? p.getSubtitle() : null, media, meta,
                 new SocialCountersDTO(p.getLikeCount(), p.getCommentCount(), p.getShareCount(), p.getSaveCount(), liked, saved),
                 new TrendDTO(p.trend().name(), p.trend().emoji()), p.getWindow().name(),
-                p.getSeverity() == null ? null : p.getSeverity().name(), p.getAlertType() == null ? null : p.getAlertType().name());
+                p.getSeverity() == null ? null : p.getSeverity().name(), p.getAlertType() == null ? null : p.getAlertType().name(),
+                p.getGenerationMode().name(), CardArtDTO.of(p.getArt()));
     }
 
     static String timeLabel(Instant at, Instant now) {
