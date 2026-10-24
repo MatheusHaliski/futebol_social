@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Football AI · Social</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body data-role="ATLETA" data-tier="LEGENDARY">
+
+<!-- ===================== TOPBAR ===================== -->
+<header class="topbar">
+  <button class="icon-btn" id="btnMore" aria-label="Mais">☰</button>
+  <a class="brand" href="#/perfil"><span class="brand-ball">⚽</span> Football AI · Social</a>
+  <form class="search" id="searchForm" role="search">
+    <input type="search" id="searchInput" placeholder="Buscar atletas, clubes, ligas…" aria-label="Buscar">
+  </form>
+  <a class="icon-btn" href="#/perfil/explorar" aria-label="Explorar">🌐</a>
+  <button class="icon-btn" id="btnLgpd" aria-label="Privacidade LGPD">🛡️</button>
+  <!-- Bolinha do usuário logado: cor do anel = UserRole -->
+  <button class="me" id="meBtn" aria-label="Meu perfil">
+    <span class="avatar ring ring-atleta" data-initials="MA"></span>
+    <span class="me-meta"><b>&lt;PREENCHER_NOME&gt;</b><small><i class="dot dot-atleta"></i> ATLETA · <span class="tier-pill tier-legendary-pill">LEGENDARY</span></small></span>
+  </button>
+</header>
+
+<div class="shell">
+
+<!-- ===================== SIDEBAR (desktop · 7 seções) ===================== -->
+<nav class="sidebar" id="sidebar" aria-label="Navegação principal">
+  <section><h4>Descobrir</h4>
+    <a href="#/perfil" data-nav="perfil/feed"><i>🏠</i>Feed</a>
+    <a href="#/buscar" data-nav="buscar"><i>🔍</i>Buscar</a>
+    <a href="#/perfil/explorar" data-nav="perfil/explorar"><i>🌐</i>Explorar (globo)</a>
+    <a href="#/perfil/explorar?view=ligas" data-nav="perfil/explorar"><i>🛡️</i>Clubes &amp; Ligas</a>
+    <a href="#/scouting/lens" data-nav="scouting/lens" data-roles="ATLETA,STAFF,SCOUT,CLUBE"><i>🎯</i>Lens</a>
+  </section>
+  <section><h4>Meu Gêmeo</h4>
+    <a href="#/gemeo" data-nav="gemeo/telemetria"><i>📈</i>Telemetria</a>
+    <a href="#/gemeo/evolucao" data-nav="gemeo/evolucao"><i>🕒</i>Evolução</a>
+    <a href="#/gemeo/carga" data-nav="gemeo/carga"><i>❤️</i>Carga &amp; Recuperação</a>
+    <a href="#/gemeo/dna" data-nav="gemeo/dna"><i>🧬</i>DNA de jogo</a>
+    <a href="#/gemeo/comparador" data-nav="gemeo/comparador"><i>⇄</i>Comparador</a>
+    <a href="#/gemeo/provador" data-nav="gemeo/provador"><i>🧪</i>Provador tático</a>
+    <a href="#/gemeo/avatar" data-nav="gemeo/avatar"><i>🧍</i>Meu Avatar 3D</a>
+  </section>
+  <section><h4>Cards</h4>
+    <a href="#/cards" data-nav="cards"><i>🃏</i>Meus cards</a>
+    <a href="#/novo" data-nav="novo" class="fab-link"><i>＋</i>Criar card</a>
+    <a href="#/novo?copilot=1" data-nav="novo"><i>✨</i>Copilot</a>
+    <a href="#/gemeo/autopilot" data-nav="gemeo/autopilot"><i>🔁</i>Autopiloto</a>
+  </section>
+  <section><h4>Perfil</h4>
+    <a href="#/me" data-nav="me"><i>👤</i>Meu perfil</a>
+    <a href="#/me/historico" data-nav="me/historico"><i>📜</i>Histórico</a>
+    <a href="#/configuracoes/privacidade" data-nav="lgpd" id="navLgpd"><i>🛡️</i>Privacidade (LGPD)</a>
+  </section>
+  <section><h4>Jogar e Ganhar</h4>
+    <a href="#/perfil/momentos" data-nav="perfil/momentos"><i>🎬</i>Momentos</a>
+    <a href="#/flair" data-nav="flair"><i>🃏</i>FLAIR</a>
+    <a href="#/perfil/ranking" data-nav="perfil/ranking"><i>🏆</i>Destaques / Rankings</a>
+    <a href="#/cupons" data-nav="cupons"><i>🎟️</i>Cupons</a>
+  </section>
+  <section><h4>Loja</h4>
+    <a href="#/pontos" data-nav="pontos"><i>🪙</i>Pontos</a>
+  </section>
+  <section><h4>Gestão</h4>
+    <a href="#/alerta/mural" data-nav="alerta/mural" data-roles="CLUBE,STAFF"><i>🏟️</i>Meu clube</a>
+    <a href="#/gestao/liga" data-nav="gestao/liga" data-roles="OFICIAL_LIGA"><i>🏅</i>Minha liga</a>
+    <a href="#/admin" data-nav="admin" data-roles="ADMIN"><i>⚙️</i>Administração</a>
+  </section>
+  <div class="legend">
+    <h4>Anéis de identidade</h4>
+    <span><i class="dot dot-atleta"></i>Atleta</span><span><i class="dot dot-staff"></i>Staff</span>
+    <span><i class="dot dot-saude"></i>Saúde</span><span><i class="dot dot-clube"></i>Clube</span>
+    <span><i class="dot dot-scout"></i>Scout</span><span><i class="dot dot-agente"></i>Agente</span>
+    <span><i class="dot dot-marca"></i>Marca</span><span><i class="dot dot-imprensa"></i>Imprensa</span>
+    <span><i class="dot dot-liga"></i>Liga</span><span><i class="dot dot-torcedor"></i>Torcedor</span>
+    <span><i class="dot dot-ia"></i>IA</span>
+  </div>
+</nav>
+
+<!-- ===================== MAIN ===================== -->
+<main class="main" id="main">
+
+  <!-- ========== JANELA 1 · PERFIL (Descoberta) ========== -->
+  <section class="window" data-window="perfil" id="win-perfil">
+    <header class="win-head">
+      <h2><span class="win-n">1</span> Perfil <small>Descoberta &amp; Social</small></h2>
+      <nav class="segments" data-for="perfil">
+        <a href="#/perfil" data-sub="feed" class="active">Feed</a>
+        <a href="#/perfil/ranking" data-sub="ranking">Ranking</a>
+        <a href="#/perfil/explorar" data-sub="explorar">Explorar</a>
+        <a href="#/perfil/momentos" data-sub="momentos">Momentos</a>
+      </nav>
+      <button class="filters-toggle" data-toggle="perfil" aria-expanded="true">Filtros</button>
+    </header>
+
+    <div class="win-body">
+      <!-- FILTROS ESPECÍFICOS DA JANELA PERFIL -->
+      <aside class="filters-panel" id="filters-perfil" data-window="perfil">
+        <h3>Filtros · Perfil</h3>
+        <form id="form-perfil" class="filter-form">
+          <fieldset>
+            <legend>Nível de raridade</legend>
+            <label class="chip tier-common"><input type="checkbox" name="tier" value="COMMON"> Common</label>
+            <label class="chip tier-rare"><input type="checkbox" name="tier" value="RARE"> Rare</label>
+            <label class="chip tier-epic"><input type="checkbox" name="tier" value="EPIC"> Epic</label>
+            <label class="chip tier-legendary"><input type="checkbox" name="tier" value="LEGENDARY"> Legendary</label>
+            <label class="chip tier-mythic"><input type="checkbox" name="tier" value="MYTHIC"> Mythic</label>
+          </fieldset>
+          <label>Posição em campo
+            <select name="position">
+              <option value="">Todas</option>
+              <option>GOLEIRO</option><option>ZAGUEIRO</option><option>LATERAL</option><option>VOLANTE</option>
+              <option>MEIA</option><option>PONTA</option><option>ATACANTE</option>
+            </select>
+          </label>
+          <div class="row2">
+            <label>Idade mín. <input type="number" name="ageMin" min="13" max="45" placeholder="16"></label>
+            <label>Idade máx. <input type="number" name="ageMax" min="13" max="45" placeholder="23"></label>
+          </div>
+          <label>Clube atual
+            <select name="clubId">
+              <option value="">Todos</option>
+              <option value="club-1">&lt;PREENCHER_CLUBE_1&gt;</option>
+              <option value="club-2">&lt;PREENCHER_CLUBE_2&gt;</option>
+            </select>
+          </label>
+          <fieldset>
+            <legend>Status</legend>
+            <label class="radio"><input type="radio" name="contractStatus" value="" checked> Todos</label>
+            <label class="radio"><input type="radio" name="contractStatus" value="AGENTE_LIVRE"> Agente livre</label>
+            <label class="radio"><input type="radio" name="contractStatus" value="CONTRATADO"> Contratado</label>
+          </fieldset>
+          <div class="filter-actions">
+            <button type="submit" class="btn primary">Aplicar</button>
+            <button type="reset" class="btn ghost">Limpar</button>
+          </div>
+          <code class="query-preview" data-preview="perfil">GET /v1/feeds/PERFIL</code>
+        </form>
+      </aside>
+
+      <div class="content">
+        <div class="subview" data-sub="feed"><div class="feed" id="feed-perfil"></div></div>
+        <div class="subview" data-sub="ranking" hidden>
+          <div class="panel">
+            <div class="panel-head"><h3>Ranking semanal</h3>
+              <div class="seg-mini"><button class="active" data-rank="atletas">Jogadores</button><button data-rank="clubes">Clubes</button></div>
+            </div>
+            <table class="ranking" id="rankingTable"></table>
+          </div>
+        </div>
+        <div class="subview" data-sub="explorar" hidden>
+          <div class="explore">
+            <div class="globe-wrap panel">
+              <div class="panel-head"><h3>Explorar · clubes ao redor do mundo</h3>
+                <label class="inline">Rotação <input type="range" id="globeRot" min="-180" max="180" value="45"></label></div>
+              <svg id="globe" viewBox="0 0 420 420" role="img" aria-label="Globo com clubes"></svg>
+              <p class="hint">Dados: Wikidata (CC0) + openfootball · render MapLibre GL (projeção globe) na versão final; aqui, projeção ortográfica SVG.</p>
+            </div>
+            <aside class="panel explore-side">
+              <h3>Ligas &amp; clubes</h3>
+              <label>País <select id="exCountry"><option value="">Todos</option><option>BR</option><option>AR</option><option>ES</option><option>EN</option><option>DE</option><option>SA</option><option>US</option></select></label>
+              <label>Divisão <select id="exDiv"><option value="">Todas</option><option>1</option><option>2</option><option>3</option></select></label>
+              <label>Tier médio do plantel <select id="exTier"><option value="">Qualquer</option><option>RARE+</option><option>EPIC+</option><option>LEGENDARY+</option></select></label>
+              <ul class="club-list" id="clubList"></ul>
+            </aside>
+          </div>
+        </div>
+        <div class="subview" data-sub="momentos" hidden><div class="feed" id="feed-momentos"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== JANELA 2 · GÊMEO (Telemetria) ========== -->
+  <section class="window" data-window="gemeo" id="win-gemeo" hidden>
+    <header class="win-head">
+      <h2><span class="win-n">2</span> Gêmeo <small>Telemetria &amp; Performance</small></h2>
+      <nav class="segments" data-for="gemeo">
+        <a href="#/gemeo" data-sub="telemetria" class="active">Telemetria</a>
+        <a href="#/gemeo/evolucao" data-sub="evolucao">Evolução</a>
+        <a href="#/gemeo/carga" data-sub="carga">Carga &amp; Recup.</a>
+        <a href="#/gemeo/dna" data-sub="dna">DNA</a>
+        <a href="#/gemeo/comparador" data-sub="comparador">Comparador</a>
+        <a href="#/gemeo/provador" data-sub="provador">Provador</a>
+        <a href="#/gemeo/avatar" data-sub="avatar">Avatar 3D</a>
+        <a href="#/gemeo/autopilot" data-sub="autopilot">Rascunhos <b class="count">2</b></a>
+      </nav>
+      <button class="filters-toggle" data-toggle="gemeo" aria-expanded="true">Filtros</button>
+    </header>
+    <div class="win-body">
+      <!-- FILTROS ESPECÍFICOS DA JANELA GÊMEO -->
+      <aside class="filters-panel" id="filters-gemeo" data-window="gemeo">
+        <h3>Filtros · Gêmeo</h3>
+        <form id="form-gemeo" class="filter-form">
+          <fieldset><legend>Evolução temporal</legend>
+            <label class="radio"><input type="radio" name="period" value="WEEK" checked> Semana</label>
+            <label class="radio"><input type="radio" name="period" value="MONTH"> Mês</label>
+            <label class="radio"><input type="radio" name="period" value="SEASON"> Temporada</label>
+          </fieldset>
+          <fieldset><legend>Tipo de métrica</legend>
+            <label class="chip"><input type="checkbox" name="metricType" value="FISICA" checked> Física</label>
+            <label class="chip"><input type="checkbox" name="metricType" value="TECNICA"> Técnica</label>
+            <label class="chip"><input type="checkbox" name="metricType" value="TATICA"> Tática</label>
+          </fieldset>
+          <fieldset><legend>Tipo de evento</legend>
+            <label class="radio"><input type="radio" name="eventType" value="" checked> Treino + Partida</label>
+            <label class="radio"><input type="radio" name="eventType" value="TREINO"> Treino</label>
+            <label class="radio"><input type="radio" name="eventType" value="PARTIDA"> Partida</label>
+          </fieldset>
+          <label>Atleta <select name="athleteId"><option value="me">Eu (&lt;PREENCHER_NOME&gt;)</option><option value="ath-2">&lt;PREENCHER_ATLETA_2&gt;</option></select></label>
+          <div class="filter-actions"><button type="submit" class="btn primary">Aplicar</button><button type="reset" class="btn ghost">Limpar</button></div>
+          <code class="query-preview" data-preview="gemeo">GET /v1/feeds/GEMEO</code>
+        </form>
+      </aside>
+      <div class="content">
+        <div class="subview" data-sub="telemetria">
+          <div class="kpis">
+            <div class="kpi"><small>Score semanal</small><b>1.650</b><span class="tier-pill tier-legendary-pill">LEGENDARY</span></div>
+            <div class="kpi"><small>Físico · 30%</small><b>82</b><i style="--w:82%"></i></div>
+            <div class="kpi"><small>Técnico · 40%</small><b>88</b><i style="--w:88%"></i></div>
+            <div class="kpi"><small>Partidas · 30%</small><b>76</b><i style="--w:76%"></i></div>
+          </div>
+          <div class="feed" id="feed-gemeo"></div>
+        </div>
+        <div class="subview" data-sub="evolucao" hidden><div class="panel"><h3>Evolução do Score_Total (12 semanas)</h3><svg id="evoChart" viewBox="0 0 640 220" class="chart"></svg><ul class="milestones" id="milestones"></ul></div></div>
+        <div class="subview" data-sub="carga" hidden>
+          <div class="panel private"><span class="lock">🔒 Privado por padrão · só você vê (Art. 11)</span>
+            <div class="carga-grid">
+              <div class="gauge"><svg viewBox="0 0 120 70" id="readiness"></svg><b>78</b><small>Prontidão · HIGH</small></div>
+              <div class="acwr"><h4>ACWR 7:28</h4><b>1,21</b><small>zona segura (0,8–1,3)</small><div class="bar"><i style="--w:60%"></i></div></div>
+              <div class="status-badge ready">⚡ PRONTO PRA JOGO</div>
+            </div>
+            <svg id="loadChart" viewBox="0 0 640 160" class="chart"></svg>
+          </div>
+        </div>
+        <div class="subview" data-sub="dna" hidden><div class="panel dna"><svg id="radar" viewBox="0 0 320 320"></svg><div><h3>DNA de jogo</h3><p class="styles"><span>⚽ Finalizador</span><span>🔥 Motor</span><span>👑 Líder</span></p><p class="hint">Eixos derivados de badges + avaliações verificadas (determinístico, semanal).</p></div></div></div>
+        <div class="subview" data-sub="comparador" hidden><div class="compare" id="compareTwin"></div></div>
+        <div class="subview" data-sub="provador" hidden>
+          <div class="panel"><h3>Provador tático</h3>
+            <div class="row2"><label>Posição <select id="provPos"><option>MEIA</option><option>PONTA</option><option>VOLANTE</option><option>ATACANTE</option></select></label>
+            <label>Esquema <select id="provForm"><option>4-3-3</option><option>4-2-3-1</option><option>3-5-2</option></select></label></div>
+            <div class="fit"><b id="fitPct">87%</b><small>fit para MEIA no 4-3-3</small></div>
+            <ul class="gaps" id="gaps"></ul>
+          </div>
+        </div>
+        <div class="subview" data-sub="avatar" hidden><div class="panel avatar3d"><div class="avatar-stage tier-legendary"><div class="avatar-fig">🧍</div></div><div><h3>Meu Avatar 3D</h3><p>Moldura e aura seguem o <code>RarityTier</code>. Uniforme do clube e badges 3D. Animação respeita <code>prefers-reduced-motion</code>.</p></div></div></div>
+        <div class="subview" data-sub="autopilot" hidden><div class="feed" id="feed-autopilot"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== JANELA 3 · SCOUTING (Análise) ========== -->
+  <section class="window" data-window="scouting" id="win-scouting" hidden>
+    <header class="win-head">
+      <h2><span class="win-n">3</span> Scouting <small>Análise Tática &amp; Técnica</small></h2>
+      <nav class="segments" data-for="scouting">
+        <a href="#/scouting" data-sub="pranchetas" class="active">Pranchetas</a>
+        <a href="#/scouting/comparar" data-sub="comparar">Comparar</a>
+        <a href="#/scouting/relatorios" data-sub="relatorios">Relatórios</a>
+        <a href="#/scouting/lens" data-sub="lens">Lens</a>
+      </nav>
+      <button class="filters-toggle" data-toggle="scouting" aria-expanded="true">Filtros</button>
+    </header>
+    <div class="win-body">
+      <!-- FILTROS ESPECÍFICOS DA JANELA SCOUTING -->
+      <aside class="filters-panel" id="filters-scouting" data-window="scouting">
+        <h3>Filtros · Scouting</h3>
+        <form id="form-scouting" class="filter-form">
+          <fieldset><legend>Atributos específicos</legend>
+            <div class="attr-row"><span>Velocidade</span><select name="op-velocidade"><option value="gt">&gt;</option><option value="lt">&lt;</option></select><input type="number" name="attr-velocidade" min="0" max="100" placeholder="80"></div>
+            <div class="attr-row"><span>Passe</span><select name="op-passe"><option value="gt">&gt;</option><option value="lt">&lt;</option></select><input type="number" name="attr-passe" min="0" max="100" placeholder="85"></div>
+            <div class="attr-row"><span>Finalização</span><select name="op-finalizacao"><option value="gt">&gt;</option><option value="lt">&lt;</option></select><input type="number" name="attr-finalizacao" min="0" max="100"></div>
+            <div class="attr-row"><span>Desarme</span><select name="op-desarme"><option value="gt">&gt;</option><option value="lt">&lt;</option></select><input type="number" name="attr-desarme" min="0" max="100"></div>
+          </fieldset>
+          <fieldset><legend>Comparador side-by-side</legend>
+            <label>Atleta A <select name="compareA"><option value="">—</option><option value="ath-1">&lt;PREENCHER_ATLETA_A&gt;</option><option value="ath-2">&lt;PREENCHER_ATLETA_B&gt;</option></select></label>
+            <label>Atleta B <select name="compareB"><option value="">—</option><option value="ath-1">&lt;PREENCHER_ATLETA_A&gt;</option><option value="ath-2">&lt;PREENCHER_ATLETA_B&gt;</option></select></label>
+          </fieldset>
+          <fieldset><legend>Origem do relatório</legend>
+            <label class="radio"><input type="radio" name="source" value="" checked> Todas</label>
+            <label class="radio"><input type="radio" name="source" value="HOMOLOGADO"> Scouts homologados</label>
+            <label class="radio"><input type="radio" name="source" value="COMUNIDADE"> Comunidade</label>
+          </fieldset>
+          <div class="filter-actions"><button type="submit" class="btn primary">Aplicar</button><button type="reset" class="btn ghost">Limpar</button></div>
+          <code class="query-preview" data-preview="scouting">GET /v1/feeds/SCOUTING</code>
+        </form>
+      </aside>
+      <div class="content">
+        <div class="subview" data-sub="pranchetas"><div class="feed" id="feed-scouting"></div></div>
+        <div class="subview" data-sub="comparar" hidden><div class="compare" id="compareScout"></div></div>
+        <div class="subview" data-sub="relatorios" hidden><div class="feed" id="feed-relatorios"></div></div>
+        <div class="subview" data-sub="lens" hidden><div class="panel lens"><div class="cam">📷</div><div><h3>Lens · scouting por vídeo</h3><p>Aponte a câmera ou envie um vídeo: a IA extrai eventos (passes, sprints, finalizações). Reconhecimento de rostos só com <code>shareBiometricData</code>.</p><button class="btn primary">Enviar vídeo</button></div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== JANELA 4 · ALERTA (Comunicados) ========== -->
+  <section class="window" data-window="alerta" id="win-alerta" hidden>
+    <header class="win-head">
+      <h2><span class="win-n">4</span> Alerta <small>Comunicados, Saúde &amp; DM</small></h2>
+      <nav class="segments" data-for="alerta">
+        <a href="#/alerta" data-sub="tudo" class="active">Tudo</a>
+        <a href="#/alerta/mural" data-sub="mural">Mural do Clube</a>
+        <a href="#/alerta/saude" data-sub="saude">Saúde</a>
+        <a href="#/alerta/dm" data-sub="dm">DM <b class="count">3</b></a>
+      </nav>
+      <button class="filters-toggle" data-toggle="alerta" aria-expanded="true">Filtros</button>
+    </header>
+    <div class="win-body">
+      <!-- FILTROS ESPECÍFICOS DA JANELA ALERTA -->
+      <aside class="filters-panel" id="filters-alerta" data-window="alerta">
+        <h3>Filtros · Alerta</h3>
+        <form id="form-alerta" class="filter-form">
+          <fieldset><legend>Severidade / urgência</legend>
+            <label class="chip sev-baixa"><input type="checkbox" name="severity" value="BAIXA"> Baixa</label>
+            <label class="chip sev-media"><input type="checkbox" name="severity" value="MEDIA"> Média</label>
+            <label class="chip sev-alta"><input type="checkbox" name="severity" value="ALTA"> Alta</label>
+            <label class="chip sev-critica"><input type="checkbox" name="severity" value="CRITICA"> Crítica</label>
+          </fieldset>
+          <fieldset><legend>Tipo de alerta</legend>
+            <label class="chip"><input type="checkbox" name="alertType" value="TRANSFERENCIA"> Transferência</label>
+            <label class="chip"><input type="checkbox" name="alertType" value="LESAO"> Lesão</label>
+            <label class="chip"><input type="checkbox" name="alertType" value="PUNICAO"> Punição</label>
+            <label class="chip"><input type="checkbox" name="alertType" value="INSTITUCIONAL"> Institucional</label>
+          </fieldset>
+          <fieldset><legend>Fonte</legend>
+            <label class="chip"><input type="checkbox" name="source" value="IMPRENSA"> <i class="dot dot-imprensa"></i>Imprensa</label>
+            <label class="chip"><input type="checkbox" name="source" value="CLUBE"> <i class="dot dot-clube"></i>Clube</label>
+            <label class="chip"><input type="checkbox" name="source" value="OFICIAL_LIGA"> <i class="dot dot-liga"></i>Liga</label>
+          </fieldset>
+          <div class="filter-actions"><button type="submit" class="btn primary">Aplicar</button><button type="reset" class="btn ghost">Limpar</button></div>
+          <code class="query-preview" data-preview="alerta">GET /v1/feeds/ALERTA</code>
+        </form>
+      </aside>
+      <div class="content">
+        <div class="subview" data-sub="tudo"><div class="feed" id="feed-alerta"></div></div>
+        <div class="subview" data-sub="mural" hidden>
+          <div class="mural-head panel"><span class="avatar ring ring-clube" data-initials="CL"></span><div><h3>&lt;PREENCHER_CLUBE&gt; · Mural oficial</h3><small><i class="dot dot-clube"></i> CLUBE · Série A · 31 atletas · 3 vagas abertas</small></div><button class="btn ghost">Seguir</button></div>
+          <div class="feed" id="feed-mural"></div>
+        </div>
+        <div class="subview" data-sub="saude" hidden><div class="feed" id="feed-saude"></div></div>
+        <div class="subview" data-sub="dm" hidden><div class="panel"><h3>Mensagens diretas</h3><ul class="dm" id="dmList"></ul></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== FLAIR (Jogar e Ganhar) ========== -->
+  <section class="window" data-window="flair" id="win-flair" hidden>
+    <header class="win-head"><h2>🃏 FLAIR <small>Duelo semanal com os seus cards</small></h2>
+      <nav class="segments"><a class="active" href="#/flair">Duelo 1×1</a><a href="#/flair?mode=liga">Liga de 8</a><a href="#/flair?mode=colecao">Coleção</a><a href="#/flair?mode=pacotes">Pacotes</a></nav>
+      <span class="points">🪙 1.240 pontos</span>
+    </header>
+    <div class="flair">
+      <div class="duel">
+        <div class="deck-side"><h4>Sua escalação</h4><div class="deck" id="deckMe"></div></div>
+        <div class="versus"><div class="vs">VS</div><div class="round"><small>Lance 2 de 3 · você escolhe o eixo</small><div class="axes"><button class="btn ghost" data-axis="fisico">Físico 30</button><button class="btn primary" data-axis="tecnico">Técnico 40</button><button class="btn ghost" data-axis="partidas">Partidas 30</button></div><button class="btn snap" id="snapBtn">⚡ Snap (dobra)</button></div><div class="score-line">1 × 0</div></div>
+        <div class="deck-side"><h4>&lt;PREENCHER_OPONENTE&gt;</h4><div class="deck" id="deckOp"></div></div>
+      </div>
+      <p class="hint legal">Sem dinheiro real · pacotes gratuitos com probabilidades visíveis (ECA Digital art. 20) · cards usam só stats consentidas; status médico nunca aparece (LGPD art. 11) · limite diário de partidas.</p>
+    </div>
+  </section>
+
+  <!-- ========== PÁGINAS SIMPLES (Mais) ========== -->
+  <section class="window simple" data-window="misc" id="win-misc" hidden><div class="panel" id="miscPanel"></div></section>
+</main>
+</div>
+
+<!-- ===================== BOTTOM NAV (mobile · 4 abas + FAB) ===================== -->
+<nav class="bottom-nav" id="bottomNav" aria-label="Janelas">
+  <a href="#/perfil" data-win="perfil" class="active"><i>👤</i><span>Perfil</span></a>
+  <a href="#/gemeo" data-win="gemeo"><i>📈</i><span>Gêmeo</span></a>
+  <button class="fab" id="fabBtn" aria-label="Criar card">＋</button>
+  <a href="#/scouting" data-win="scouting"><i>📋</i><span>Scouting</span></a>
+  <a href="#/alerta" data-win="alerta"><i>🔔</i><span>Alerta</span><b class="count">3</b></a>
+</nav>
+
+<!-- ===================== COMPOSER + COPILOT ===================== -->
+<div class="sheet" id="composer" hidden>
+  <div class="sheet-card">
+    <header><h3>Criar card</h3><button class="icon-btn" data-close="composer">✕</button></header>
+    <div class="types">
+      <label class="type-opt border-treino"><input type="radio" name="ct" value="TREINO" checked> Treino</label>
+      <label class="type-opt border-partida"><input type="radio" name="ct" value="PARTIDA_MOMENTO"> Partida / Momento</label>
+      <label class="type-opt border-tatico" data-roles="STAFF,SCOUT"><input type="radio" name="ct" value="RELATORIO_TATICO"> Relatório tático</label>
+      <label class="type-opt border-inst" data-roles="CLUBE,MARCA,OFICIAL_LIGA"><input type="radio" name="ct" value="INSTITUCIONAL"> Institucional</label>
+      <label class="type-opt border-lesao" data-roles="ATLETA,STAFF_SAUDE"><input type="radio" name="ct" value="LESAO_ALERTA"> Lesão / Alerta</label>
+    </div>
+    <textarea id="composerText" placeholder="O que aconteceu hoje?"></textarea>
+    <div class="copilot" id="copilot">
+      <div class="cp-head">✨ Copilot <small>sugere · você aceita</small></div>
+      <div class="cp-body" id="copilotBody"></div>
+      <div class="cp-actions"><button class="btn primary" id="cpAccept">Aceitar</button><button class="btn ghost" id="cpEdit">Editar</button><button class="btn ghost" id="cpDismiss">✕</button></div>
+    </div>
+    <footer><small>Autor: <i class="dot dot-atleta"></i> ATLETA · borda pelo tipo escolhido</small><button class="btn primary" id="publishBtn">Publicar</button></footer>
+  </div>
+</div>
+
+<!-- ===================== MODAL LGPD ===================== -->
+<div class="modal" id="lgpdModal" hidden role="dialog" aria-modal="true" aria-labelledby="lgpdTitle">
+  <div class="modal-card lgpd">
+    <nav class="lgpd-nav">
+      <button class="active" data-lgpd="conta">Conta</button><button data-lgpd="privacidade">Privacidade</button><button data-lgpd="aparencia">Aparência</button><button data-lgpd="idioma">Idioma</button><button data-lgpd="dados">Seus dados</button>
+    </nav>
+    <div class="lgpd-body">
+      <header><h3 id="lgpdTitle">Central de Privacidade</h3><button class="icon-btn" data-close="lgpdModal">✕</button></header>
+      <div class="lgpd-panel" data-lgpd="conta">
+        <h4>Conta <span class="art">Art. 18, III · Correção</span></h4>
+        <label>Nome de exibição <input type="text" value="<PREENCHER_NOME>"></label>
+        <label>E-mail <span class="verified">✓ verificado</span> <input type="email" value="<PREENCHER_EMAIL>"><span class="art">Art. 7º, V · Execução de contrato</span></label>
+        <label>Data de nascimento <input type="date" value="2003-05-12"><small>Usada só para verificar idade — necessidade (Art. 6º, III)</small></label>
+        <label>Posição / clube <input type="text" value="Meia · <PREENCHER_CLUBE>"></label>
+        <div class="filter-actions"><button class="btn primary">Salvar alterações</button><button class="btn ghost">Cancelar</button></div>
+      </div>
+      <div class="lgpd-panel" data-lgpd="privacidade" hidden>
+        <h4>Quem pode ver seu perfil <span class="art">Art. 18, VII</span></h4>
+        <div class="radio-cards">
+          <label class="radio-card sel"><input type="radio" name="vis" value="SOMENTE_EU" checked><b>Somente eu</b><small>padrão mais protetivo (Privacy by Default)</small></label>
+          <label class="radio-card"><input type="radio" name="vis" value="CONEXOES"><b>Conexões</b><small>clube, staff e scouts aprovados</small></label>
+          <label class="radio-card"><input type="radio" name="vis" value="PUBLICO"><b>Público</b><small>qualquer pessoa, inclusive rankings</small></label>
+        </div>
+        <h4>Uso dos seus dados <span class="art">consentimento · opt-in · todos desligados</span></h4>
+        <ul class="toggles" id="lgpdToggles"></ul>
+      </div>
+      <div class="lgpd-panel" data-lgpd="aparencia" hidden>
+        <h4>Aparência <span class="art muted">preferência de interface — não é dado pessoal</span></h4>
+        <label class="toggle-row"><span><b>Modo escuro</b><small>tema da interface</small></span><input type="checkbox" class="sw" id="darkToggle" checked></label>
+        <label>Tamanho da fonte <input type="range" min="0.8" max="1.4" step="0.1" value="1"></label>
+      </div>
+      <div class="lgpd-panel" data-lgpd="idioma" hidden>
+        <h4>Idioma <span class="art">Art. 6º, IV e VI · transparência</span></h4>
+        <label>Idioma da interface <select><option>Português (Brasil)</option><option>English (US)</option><option>Español</option></select></label>
+      </div>
+      <div class="lgpd-panel" data-lgpd="dados" hidden>
+        <h4>Seus dados <span class="art">Art. 18</span></h4>
+        <div class="toggle-row"><span><b>Baixar seus dados</b><small>JSON completo: perfil, consentimentos, gêmeo, badges, telemetria, posts · link expira em 7 dias</small><span class="art">Art. 18, V · Portabilidade</span></span><button class="btn ghost" id="exportBtn">Exportar</button></div>
+        <div class="toggle-row"><span><b>Histórico de atividades</b><small>tudo o que foi tratado e quando</small><span class="art">Art. 18, I e II</span></span><button class="btn ghost">Ver</button></div>
+        <div class="danger">
+          <b>Excluir conta</b>
+          <p>Sua conta entra em <b>PENDING_DELETE</b> por <b>30 dias</b> (soft-delete). Nesse período, basta fazer login para reativar. Depois, seus dados pessoais são anonimizados de forma irreversível.</p>
+          <label>Digite <code>EXCLUIR</code> para confirmar <input type="text" id="delConfirm" placeholder="EXCLUIR"></label>
+          <button class="btn danger" id="deleteBtn" disabled>Excluir conta (exige reautenticação)</button>
+          <span class="art s">Art. 18, VI · Eliminação com período de graça</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+<script src="app.js"></script>
+</body>
+</html>
