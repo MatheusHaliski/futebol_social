@@ -51,6 +51,7 @@ public class FlairMatch {
     public int getPointsAwarded() { return pointsAwarded; }
     public void setPointsAwarded(int pointsAwarded) { this.pointsAwarded = pointsAwarded; }
     public String getDeckJson() { return deckJson; }
+    public void setDeckJson(String deckJson) { this.deckJson = deckJson; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getFinishedAt() { return finishedAt; }
     public void setFinishedAt(Instant finishedAt) { this.finishedAt = finishedAt; }

@@ -20,6 +20,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
+import com.footballai.social.model.enums.AccountStatus;
+import com.footballai.social.model.enums.ProfileVisibility;
 
 /** Perfil do usuário, card completo do atleta e histórico de badges (tap to expand). */
 @RestController
@@ -44,6 +46,9 @@ public class UserController {
     @GetMapping("/athletes/{id}/card")
     public AthleteCardDTO card(@AuthenticationPrincipal AuthPrincipal p, @PathVariable UUID id) {
         Athlete a = athletes.findById(id).orElseThrow(() -> ApiException.notFound("Atleta"));
+        boolean owner = p != null && p.userId().equals(id);
+        // mesma regra de FeedWindowService.athleteSpec: fora o dono, só perfil PUBLICO e conta ATIVA (404 para não revelar existência)
+        if (!owner && (a.getStatus() != AccountStatus.ACTIVE || a.getVisibility() != ProfileVisibility.PUBLICO)) throw ApiException.notFound("Atleta");
         return assembler.athleteCard(a, p);
     }
 

@@ -56,9 +56,14 @@
       if (!res.ok) { const e = new Error((data && (data.detail || data.title)) || ('HTTP ' + res.status)); e.status = res.status; e.code = data && data.code; e.data = data; throw e; }
       return data;
     },
-    async refreshTokens() {
-      try { const d = await this.call('/v1/auth/refresh', { method: 'POST', body: { refreshToken: this.refresh }, auth: false, retry: false }); this.setTokens(d.accessToken, d.refreshToken); return true; }
-      catch { this.clear(); return false; }
+    async refreshTokens() {   // 401 simultâneos (Promise.all do mural) compartilham um único refresh: reuso do token rotacionado derrubaria a sessão
+      if (this._refreshing) return this._refreshing;
+      this._refreshing = (async () => {
+        try { const d = await this.call('/v1/auth/refresh', { method: 'POST', body: { refreshToken: this.refresh }, auth: false, retry: false }); this.setTokens(d.accessToken, d.refreshToken); return true; }
+        catch { this.clear(); return false; }
+        finally { this._refreshing = null; }
+      })();
+      return this._refreshing;
     },
     async probe() { try { const r = await this.raw('/v1/ui/navigation'); this.online = r.ok; } catch { this.online = false; } return this.online; },
   };
@@ -144,7 +149,7 @@
     return { id:d.id, authorId:d.author.id, mine: !!(API.user && API.user.id === d.author.id), role:d.author.role, name:d.author.handle, ai:d.author.aiGenerated, verified:d.author.verified, ct:d.contentType, top:d.timeLabel, title:d.title, snip:d.subtitle,
       media:d.media ? (d.media.kind === 'video' ? 'VÍDEO' : 'IMAGEM') : null, mediaUrl:d.media && d.media.url, mediaKind:d.media && d.media.kind, meta:d.meta && d.meta.length ? d.meta : null, likes:d.social.likes, comments:d.social.comments, shares:d.social.shares,
       liked:d.social.likedByMe, saved:d.social.savedByMe, trend:d.trend ? TREND[d.trend.direction] : null, alert, alarm: alert ? alarm : null, sev:d.severity, type:d.alertType,
-      age:[d.ageRating.cssClass, d.ageRating.label], art:d.art, gen:d.generationMode, window:d.window };
+      age:[d.ageRating.cssClass, d.ageRating.label], ageValue:d.ageRating.value, art:d.art, gen:d.generationMode, window:d.window };
   };
   const PHYS_MAP = { READY:'READY', FATIGUE_RISK:'FATIGUE', INJURED:'INJURED' };
   const fromAthlete = d => {
@@ -163,7 +168,7 @@
   const roleOf = r => ROLES[r] || ROLES.ATLETA;
   /* arte = atributos do PRÓPRIO card (tinge o fundo); a fotografia é outro campo (upload do usuário) */
   const artAttrs = art => art && (art.color || art.material) ? ` data-material="${esc(art.material || 'FOSCO')}" data-style="${esc(art.style || 'GRAFITE')}" data-layout="${esc(art.layout || 'CLASSICO')}" data-art-label="${esc([art.materialLabel || art.material, art.layoutLabel || art.layout, art.styleLabel || art.style].filter(Boolean).join(' · '))}" style="--ac:${esc(art.color || '#00d47a')}"` : '';
-  const mediaBlock = p => p.mediaUrl ? `<div class="p-media photo">${p.mediaKind === 'video' ? `<video src="${esc(p.mediaUrl)}" muted playsinline></video>` : `<img src="${esc(p.mediaUrl)}" alt="" loading="lazy">`}</div>` : p.media ? `<div class="p-media">${esc(p.media)}</div>` : '';
+  const mediaBlock = p => p.mediaUrl ? `<div class="p-media photo">${p.mediaKind === 'video' ? `<video src="${esc(p.mediaUrl)}" controls preload="metadata" playsinline></video>` : `<img src="${esc(p.mediaUrl)}" alt="" loading="lazy">`}</div>` : p.media ? `<div class="p-media">${esc(p.media)}</div>` : '';
 
   /* PostCard — borda esquerda = tipo · bolinha = papel · arte opcional · ações sociais sempre */
   const postCard = p => {
@@ -309,7 +314,7 @@
       + Object.entries(active).filter(([k]) => !AXES[win].some(ax => k.toLowerCase().startsWith(ax.toLowerCase().slice(0, 4)))).map(([k, v]) => `<span class="fchip hot">${esc(k)} <b>${esc(v)}</b></span>`).join('');
   }
   function applyParamsToForm(win, params) {
-    const f = $(`#form-${win}`); if (!f) return; f.reset();
+    const f = $(`#form-${win}`); if (!f) return; f._hydrating = true; f.reset(); f._hydrating = false;
     Object.entries(params).forEach(([k, v]) => {
       if (k === 'compare') { const [a, b] = v.split(','); if (f.compareA) { f.compareA.value = a || ''; f.compareB.value = b || ''; } return; }
       const m = k.match(/^attr\[(\w+)\]$/); if (m) { const [op, val] = v.split(':'); if (f[`attr-${m[1]}`]) { f[`attr-${m[1]}`].value = val; f[`op-${m[1]}`].value = op; } return; }
@@ -321,7 +326,7 @@
     const f = $(`#form-${win}`);
     f.addEventListener('input', () => updatePreview(win));
     f.addEventListener('submit', e => { e.preventDefault(); const qs = formToParams(win).toString(); location.hash = `#/${win}/${state.sub[win]}${qs ? '?' + qs : ''}`; toast(`FILTROS APLICADOS · ${win.toUpperCase()}`); });
-    f.addEventListener('reset', () => setTimeout(() => { updatePreview(win); location.hash = `#/${win}/${state.sub[win]}`; }, 0));
+    f.addEventListener('reset', () => { if (f._hydrating) return; setTimeout(() => { updatePreview(win); location.hash = `#/${win}/${state.sub[win]}`; }, 0); });
   });
   function setFilters(win, open) {
     const b = $(`.filters-toggle[data-toggle="${win}"]`); b.setAttribute('aria-expanded', String(open)); b.textContent = (open ? '◧ ' : '◨ ') + 'filtros';
@@ -560,6 +565,7 @@
     if (edit) {   // estúdio de edição: campos preenchidos, tipo/borda travados, começa no conteúdo
       const radio = $(`input[name="ct"][value="${edit.ct}"]`); if (radio) { radio.checked = true; } $$('input[name="ct"]').forEach(r => r.disabled = true);
       $('#composerTitle').value = edit.title || ''; $('#composerSub').value = edit.snip || ''; $('#composerText').value = edit.content || ''; $('#titleCount').textContent = `${words(edit.title)} palavras`;
+      if (edit.ageValue) $('#composerAge').value = edit.ageValue;   // mantém a classificação publicada (uma edição só de arte não rebaixa 16+/18+)
       if (edit.art && edit.art.color) WZ.art = { color: edit.art.color, material: edit.art.material || 'FOSCO', layout: edit.art.layout || 'CLASSICO', style: edit.art.style || 'NEON', touched: true };
       if (edit.mediaUrl) { WZ.photo = { key: edit.mediaKey || null, url: edit.mediaUrl, kind: edit.mediaKind || 'image', keep: true }; $('#photoPreview').innerHTML = `<img src="${esc(edit.mediaUrl)}" alt="">`; $('#photoPreview').hidden = false; $('#photoClear').hidden = false; $('#photoStatus').textContent = 'fotografia atual · envie outra para substituir'; }
       buildArtOptions(); goStep(2);
@@ -759,10 +765,16 @@
   function openAuth() { $('#authModal').hidden = false; $('#authError').hidden = true; if (API.online && !API.terms) API.call('/v1/terms/current', { auth: false }).then(t => { API.terms = t; $('#termsVersion').textContent = `versão ${t.version} · ${t.owner}`; $('#termsLink').href = t.documentUrl || '#'; }).catch(() => {}); }
   $$('.auth-tabs button').forEach(b => b.addEventListener('click', () => { $$('.auth-tabs button').forEach(x => x.classList.toggle('active', x === b)); $('#loginForm').hidden = b.dataset.auth !== 'login'; $('#registerForm').hidden = b.dataset.auth !== 'register'; }));
   $('#regRole').addEventListener('change', e => $('#regAthlete').hidden = e.target.value !== 'ATLETA');
-  const authFail = e => { const el = $('#authError'); el.hidden = false; el.textContent = e.code === 'TERMS_REQUIRED' ? e.message + ' — aceite os termos para continuar.' : e.status === 429 ? 'Muitas tentativas — aguarde um minuto.' : e.message; };
+  const authFail = e => {
+    const el = $('#authError'); el.hidden = false;
+    if (e.code === 'TERMS_REQUIRED') { $('#loginTermsRow').hidden = false; $('#loginTermsVersion').textContent = API.terms ? `versão ${API.terms.version}` : ''; el.textContent = e.message + ' — marque o aceite e entre de novo.'; return; }
+    el.textContent = e.status === 429 ? 'Muitas tentativas — aguarde um minuto.' : e.message;
+  };
   $('#loginForm').addEventListener('submit', async e => {
     e.preventDefault(); const fd = new FormData(e.target);
-    try { const d = await API.call('/v1/auth/login', { method: 'POST', body: { email: fd.get('email'), password: fd.get('password') }, auth: false }); API.setTokens(d.accessToken, d.refreshToken); setUser(d.user); $('#authModal').hidden = true; sessionStorage.removeItem('fas.demo'); toast(`BEM-VINDO · ${d.user.displayName}`); route(); } catch (err) { authFail(err); }
+    const body = { email: fd.get('email'), password: fd.get('password') };
+    if (fd.get('acceptNewTerms') && API.terms) body.acceptTermsVersion = API.terms.version;   // nova versão dos termos: aceite junto com as credenciais
+    try { const d = await API.call('/v1/auth/login', { method: 'POST', body, auth: false }); API.setTokens(d.accessToken, d.refreshToken); setUser(d.user); $('#authModal').hidden = true; sessionStorage.removeItem('fas.demo'); toast(`BEM-VINDO · ${d.user.displayName}`); route(); } catch (err) { authFail(err); }
   });
   $('#registerForm').addEventListener('submit', async e => {
     e.preventDefault(); const fd = new FormData(e.target);

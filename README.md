@@ -63,6 +63,7 @@ controller/  AuthController, UserController, FeedWindowController, PostControlle
 | Método | Rota | RF |
 |---|---|---|
 | `POST` | `/v1/auth/register` · `/login` · `/refresh` · `/logout` · `/logout-all` · `/terms/accept` — `GET /v1/terms/current` | RF1/RF2 |
+| | `/login` aceita `acceptTermsVersion` opcional: quem volta após uma nova versão dos termos recebe `428 TERMS_REQUIRED` e aceita a versão vigente junto com as credenciais, sem sessão prévia | RF1 |
 | `GET` | `/v1/feeds/{PERFIL\|GEMEO\|SCOUTING\|ALERTA}?…` — filtros segmentados por janela, `sort`, `cursor`, `size` | RF3 |
 | `GET` | `/v1/ui/navigation` · `/v1/ui/tokens` — bottom bar (4 abas + FAB) e tokens de design | RF3 |
 | `POST` | `/v1/posts` · `/{id}/like` · `/{id}/save` · `/{id}/share` — `GET /v1/posts/{id}` (PostView) | RF3 |

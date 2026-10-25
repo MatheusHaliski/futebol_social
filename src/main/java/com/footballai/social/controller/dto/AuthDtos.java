@@ -29,7 +29,10 @@ public final class AuthDtos {
                                   @Size(max = 80) String city,
                                   Map<String, String> profile) { }
 
-    public record LoginRequest(@NotBlank @Email String email, @NotBlank String password) { }
+    /** {@code acceptTermsVersion}: aceite da versão vigente junto com as credenciais, para quem voltou após uma nova versão dos termos. */
+    public record LoginRequest(@NotBlank @Email String email, @NotBlank String password, String acceptTermsVersion) {
+        public LoginRequest(String email, String password) { this(email, password, null); }
+    }
     public record RefreshRequest(@NotBlank String refreshToken) { }
     public record LogoutRequest(String refreshToken) { }
     public record AcceptTermsRequest(@NotBlank String termsVersion) { }

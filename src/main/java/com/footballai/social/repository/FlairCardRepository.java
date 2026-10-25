@@ -10,4 +10,5 @@ import java.util.UUID;
 public interface FlairCardRepository extends JpaRepository<FlairCard, UUID> {
     List<FlairCard> findAllByOwnerIdOrderByScoreTotalDesc(UUID ownerId);
     long countByOwnerIdAndSourceAndAcquiredAtAfter(UUID ownerId, String source, Instant after);
+    List<FlairCard> findAllByAthleteId(UUID athleteId);
 }

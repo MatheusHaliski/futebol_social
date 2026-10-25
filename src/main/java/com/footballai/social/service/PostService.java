@@ -100,8 +100,10 @@ public class PostService {
 
     @Transactional
     public PostViewDTO view(AuthPrincipal p, UUID id) {
-        Post post = posts.findById(id).filter(x -> x.getStatus() == PostStatus.PUBLISHED).orElseThrow(() -> ApiException.notFound("Post"));
-        post.view(); posts.save(post);
+        Post post = posts.findById(id)
+                .filter(x -> x.getStatus() == PostStatus.PUBLISHED || (p != null && x.getAuthorId().equals(p.userId()) && x.getStatus() != PostStatus.REMOVED)) // autor abre o próprio rascunho (estúdio)
+                .orElseThrow(() -> ApiException.notFound("Post"));
+        if (post.getStatus() == PostStatus.PUBLISHED) { post.view(); posts.save(post); }
         return new PostViewDTO(assembler.postCards(List.of(post), p).get(0), post.getContent());
     }
 
@@ -151,6 +153,7 @@ public class PostService {
         if (Boolean.TRUE.equals(r.clearMedia())) post.setMediaKeys(null);
         else if (r.mediaKeys() != null && !r.mediaKeys().isEmpty()) post.setMediaKeys("[" + r.mediaKeys().stream().map(k -> "\"" + k.replace("\"", "") + "\"").reduce((a, b) -> a + "," + b).orElse("") + "]");
         if (r.ageRating() != null && !post.getContentType().sensitive()) post.setAgeRating(r.ageRating());
+        if (users.require(p.userId()) instanceof Brand b && b.isBettingBrand()) post.setAgeRating(AgeRating.AGE_18); // Lei 14.790/2023: a edição não rebaixa a classificação de marca de apostas
         if (r.art() != null) {
             try { post.setArt(new CardArt(r.art().color(), r.art().material(), r.art().layout(), r.art().style())); }
             catch (IllegalArgumentException e) { throw ApiException.badRequest("ART_INVALID", e.getMessage()); }

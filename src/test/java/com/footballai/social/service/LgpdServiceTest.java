@@ -45,7 +45,9 @@ class LgpdServiceTest {
         training = mock(TrainingSummaryRepository.class); exports = mock(DataExportRequestRepository.class); reactions = mock(PostReactionRepository.class);
         sessions = mock(RedisSessionService.class); storage = mock(StorageService.class);
         svc = new LgpdService(users, prefs, consents, mock(TermsAcceptanceRepository.class), twins, mock(WeeklyScoreSnapshotRepository.class), mock(AthleteBadgeRepository.class),
-                injuries, posts, reactions, mock(TechnicalEvaluationRepository.class), training, exports, sessions, storage, new ObjectMapper(), TestProps.props(),
+                injuries, posts, reactions, mock(TechnicalEvaluationRepository.class), training, exports, sessions, storage,
+                mock(com.footballai.social.repository.FlairCardRepository.class), mock(com.footballai.social.repository.FlairMatchRepository.class),
+                new org.springframework.transaction.support.TransactionTemplate(mock(org.springframework.transaction.PlatformTransactionManager.class)), new ObjectMapper(), TestProps.props(),
                 Clock.fixed(now, ZoneOffset.UTC));
         when(prefs.findById(userId)).thenReturn(Optional.of(new UserLgpdPreferences(userId)));
         when(prefs.save(any())).thenAnswer(i -> i.getArgument(0));

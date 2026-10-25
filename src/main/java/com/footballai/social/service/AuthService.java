@@ -180,8 +180,10 @@ public class AuthService {
             case PENDING_DELETE -> { u.cancelDeletion(); twins.findByUserId(u.getId()).ifPresent(t -> { if (t.getStatus() == TwinStatus.PENDING_DELETE) t.transitionTo(TwinStatus.ACTIVE, clock.instant()); }); users.save(u); }
             default -> { }
         }
-        if (!acceptances.existsByUserIdAndTermsVersion(u.getId(), currentTermsVersion()))
-            throw new ApiException(HttpStatus.PRECONDITION_REQUIRED, "TERMS_REQUIRED", "Há uma nova versão dos Termos (" + currentTermsVersion() + ") pendente de aceite");
+        if (!acceptances.existsByUserIdAndTermsVersion(u.getId(), currentTermsVersion())) {
+            if (currentTermsVersion().equals(r.acceptTermsVersion())) acceptances.save(new TermsAcceptance(u.getId(), currentTermsVersion(), clock.instant(), ip, ua)); // aceite com credenciais válidas, sem sessão prévia
+            else throw new ApiException(HttpStatus.PRECONDITION_REQUIRED, "TERMS_REQUIRED", "Há uma nova versão dos Termos (" + currentTermsVersion() + ") pendente de aceite");
+        }
         sessions.clearLoginFailures(emailHash);
         return issue(u, ip, ua);
     }
