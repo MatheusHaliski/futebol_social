@@ -1,0 +1,85 @@
+@startuml activity_lgpd_export_delete
+title RF5 — Atividades: Exportar dados (Art. 18, V) e Excluir conta (Art. 18, VI)
+skinparam activityBackgroundColor #131b17
+skinparam activityBorderColor #00d47a
+skinparam activityFontColor #eaf2ee
+skinparam backgroundColor #0a0f0c
+skinparam arrowColor #95a89d
+skinparam noteBackgroundColor #19231d
+skinparam noteBorderColor #f5c542
+skinparam noteFontColor #eaf2ee
+
+|Titular (SPA)|
+start
+:Abre Central de Privacidade\n(GET /v1/me/privacy);
+if (ação?) then (Exportar)
+  |API · LgpdController|
+  :POST /v1/me/export;
+  |LgpdService|
+  :cria DataExportRequest (REQUESTED);
+  :status = PROCESSING;
+  fork
+    :profile, lgpdPreferences, consentHistory;
+  fork again
+    :digitalTwin, weeklyScores, badges, injuries;
+  fork again
+    :telemetry, posts, evaluationsReceived, sessions;
+  end fork
+  :serializa JSON (chaves de topo §7.4);
+  |S3 / MinIO|
+  :PUT fas-lgpd-exports/exports/{userId}/{id}.json;
+  |LgpdService|
+  if (upload ok?) then (sim)
+    :markReady(expiresAt = +7 d);
+    :URL pré-assinada (≤ 7 d);
+  else (não)
+    :markFailed(reason) · attempts++;
+  endif
+  |Titular (SPA)|
+  :recebe ExportDTO (202) e baixa o arquivo;
+  stop
+else (Excluir)
+  |Titular (SPA)|
+  :POST /v1/me/step-up {senha};
+  |API · LgpdController|
+  if (senha confere?) then (sim)
+    :emite stepUpToken (5 min);
+  else (não)
+    :401 BAD_CREDENTIALS;
+    stop
+  endif
+  |Titular (SPA)|
+  :DELETE /v1/me  (X-Step-Up-Token);
+  |LgpdService|
+  :User.requestDeletion(now, 30 d)\nstatus = PENDING_DELETE;
+  :DigitalTwin → PENDING_DELETE;
+  :revoga todas as sessões Redis;
+  note right
+    Nada é apagado fisicamente
+    antes de 30 dias (Art. 18, VI).
+    Cancelar = 1 toque / login.
+  end note
+  |Titular (SPA)|
+  if (login ou POST /v1/me/restore em até 30 d?) then (sim)
+    |LgpdService|
+    :cancelDeletion() → ACTIVE;
+    :DigitalTwin → ACTIVE;
+    stop
+  else (não)
+    |Job diário 03:30|
+    :findAllByStatusAndScheduledPurgeAtBefore(now);
+    :posts → "[conteúdo removido]";
+    :InjuryRecord, TrainingSummary → remoção física;
+    :preferências → todas FALSE;
+    :DigitalTwin → ANONYMIZED;
+    :exports → objetos S3 apagados (EXPIRED);
+    :User.anonymize() → anon_{shortId};
+    note right
+      ConsentAuditLog e TermsAcceptance
+      permanecem pseudonimizados
+      (accountability, Art. 6º, X).
+    end note
+    stop
+  endif
+endif
+@enduml
