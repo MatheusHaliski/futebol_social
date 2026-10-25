@@ -45,4 +45,12 @@ class FeedQueryTest {
         assertThat(q.severities).hasSize(2); assertThat(q.alertTypes).hasSize(1); assertThat(q.sources).hasSize(2); assertThat(q.source).isNull();
         assertThat(q.contentTypes).hasSize(2); assertThat(q.applied()).containsKey("contentType");
     }
+
+    @org.junit.jupiter.api.Test
+    void cursorKeepsSubMillisecondPrecisionAndReadsLegacyMillis() {
+        java.time.Instant t = java.time.Instant.parse("2026-10-25T02:57:38.123456Z");
+        org.assertj.core.api.Assertions.assertThat(FeedWindowService.decodeTimeCursor(FeedWindowService.encodeTimeCursor(t))).isEqualTo(t);   // DATETIME(6): micros preservados
+        String legacy = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(Long.toString(t.toEpochMilli()).getBytes());
+        org.assertj.core.api.Assertions.assertThat(FeedWindowService.decodeTimeCursor(legacy)).isEqualTo(java.time.Instant.ofEpochMilli(t.toEpochMilli()));
+    }
 }

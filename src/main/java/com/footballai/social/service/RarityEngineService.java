@@ -20,6 +20,7 @@ import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Objects;
+import com.footballai.social.model.enums.NotificationType;
 
 /**
  * CORE — Rarity Engine. Cálculo determinístico e semanal do Score_Total (0–3000+):
@@ -52,16 +53,17 @@ public class RarityEngineService {
     private final WeeklyScoreSnapshotRepository snapshots;
     private final RarityInputProvider inputs;
     private final BadgeAwardService badges;
+    private final NotificationService notifications;
     private final Clock clock;
 
     @org.springframework.beans.factory.annotation.Autowired
     public RarityEngineService(DigitalTwinRepository twins, WeeklyScoreSnapshotRepository snapshots, RarityInputProvider inputs,
-                               BadgeAwardService badges, AppProperties props) {
-        this(twins, snapshots, inputs, badges, Clock.systemUTC());
+                               BadgeAwardService badges, NotificationService notifications, AppProperties props) {
+        this(twins, snapshots, inputs, badges, notifications, Clock.systemUTC());
     }
 
-    RarityEngineService(DigitalTwinRepository twins, WeeklyScoreSnapshotRepository snapshots, RarityInputProvider inputs, BadgeAwardService badges, Clock clock) {
-        this.twins = twins; this.snapshots = snapshots; this.inputs = inputs; this.badges = badges; this.clock = clock;
+    RarityEngineService(DigitalTwinRepository twins, WeeklyScoreSnapshotRepository snapshots, RarityInputProvider inputs, BadgeAwardService badges, NotificationService notifications, Clock clock) {
+        this.twins = twins; this.snapshots = snapshots; this.inputs = inputs; this.badges = badges; this.notifications = notifications; this.clock = clock;
     }
 
     /* ---------------- cálculo puro ---------------- */
@@ -134,8 +136,12 @@ public class RarityEngineService {
             snapshots.save(new WeeklyScoreSnapshot(twinId, isoWeek, r.physicalScore(), r.technicalScore(), r.matchScore(), r.badgeBonus(),
                     r.scoreTotal(), r.tier(), r.inputsHash(), clock.instant()));
         }
+        RarityTier before = twin.getRarityTier();
         twin.applyWeeklyScore(r.scoreTotal(), isoWeek);
         twins.save(twin);
+        if (before != twin.getRarityTier())   // o atleta sabe que mudou de tier (sem expor nenhum dado de saúde)
+            notifications.notify(twin.getUserId(), NotificationType.TIER_CHANGE, null, "TWIN", twin.getId(),
+                    "Seu Gêmeo Digital agora é " + twin.getRarityTier().name(), "Score_Total " + r.scoreTotal() + " · semana " + isoWeek + (twin.getRarityTier().ordinal() > before.ordinal() ? " · subiu de " : " · desceu de ") + before.name());
         badges.onWeeklyScore(twin.getUserId(), isoWeek);
         return true;
     }

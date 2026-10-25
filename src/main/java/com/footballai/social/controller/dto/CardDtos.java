@@ -76,7 +76,7 @@ public final class CardDtos {
     /** Card de atleta (.vcard): hero limpo, janela segmentada Temporada · Atributos, badges na área inferior. */
     public record AthleteCardDTO(UUID athleteId, String handle, String name, AuthorDTO author, String context, String vslGlyph,
                                  RarityDTO rarity, List<AttributeChipDTO> attributes, SeasonStatsDTO season, PhysicalDTO physical,
-                                 List<BadgeDTO> topBadges, ClassificationDTO classification, SocialCountersDTO social, MediaDTO heroImage) { }
+                                 List<BadgeDTO> topBadges, ClassificationDTO classification, SocialCountersDTO social, MediaDTO heroImage, boolean followedByMe) { }
 
     public record FeedPageDTO(String window, String sort, List<PostCardDTO> posts, List<AthleteCardDTO> athletes, String nextCursor,
                               Map<String, Object> appliedFilters, String source) { }

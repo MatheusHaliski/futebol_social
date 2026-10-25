@@ -67,6 +67,7 @@ public class Post {
     }
 
     public void like(int delta) { likeCount = Math.max(0, likeCount + delta); }
+    public void comment(int delta) { commentCount = Math.max(0, commentCount + delta); }
     public void save(int delta) { saveCount = Math.max(0, saveCount + delta); }
     public void share() { shareCount++; }
     public void view() { viewCount++; }

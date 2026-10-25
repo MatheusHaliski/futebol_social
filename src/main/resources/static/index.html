@@ -196,6 +196,7 @@
   <div class="top-actions">
     <form class="search" id="searchForm" role="search"><input type="search" id="searchInput" placeholder="Buscar atletas, clubes, ligas…" aria-label="Buscar"></form>
     <a class="icon-btn" href="#/perfil/explorar" aria-label="Explorar"><svg class="ic"><use href="#ic-explorar"/></svg></a>
+    <button class="icon-btn" id="btnNotif" aria-label="Notificações"><svg class="ic"><use href="#ic-alerta"/></svg><b class="count" id="notifCount" hidden>0</b></button>
     <button class="icon-btn" id="btnLgpd" aria-label="Privacidade LGPD"><svg class="ic"><use href="#ic-privacidade"/></svg></button>
     <button class="me" id="meBtn" aria-label="Meu perfil">
       <span class="avatar" data-initials="MA"><i class="dot dc-atleta"></i></span>
@@ -482,7 +483,7 @@
         <a href="#/alerta" data-sub="tudo" class="active">Tudo</a>
         <a href="#/alerta/mural" data-sub="mural">Mural do Clube</a>
         <a href="#/alerta/saude" data-sub="saude">Saúde</a>
-        <a href="#/alerta/dm" data-sub="dm">DM <b class="count">3</b></a>
+        <a href="#/alerta/dm" data-sub="dm">DM</a>
       </nav>
       <button class="filters-toggle" data-toggle="alerta" aria-expanded="true">◧ filtros</button>
     </header>
@@ -554,7 +555,7 @@
   <a href="#/gemeo" data-win="gemeo"><svg class="ic"><use href="#ic-telemetria"/></svg><span>Gêmeo</span></a>
   <button class="fab" id="fabBtn" aria-label="Criar card"><svg class="ic"><use href="#ic-plus"/></svg></button>
   <a href="#/scouting" data-win="scouting"><svg class="ic"><use href="#ic-scouting"/></svg><span>Scouting</span></a>
-  <a href="#/alerta" data-win="alerta"><svg class="ic"><use href="#ic-alerta"/></svg><span>Alerta</span><b class="count">3</b></a>
+  <a href="#/alerta" data-win="alerta"><svg class="ic"><use href="#ic-alerta"/></svg><span>Alerta</span><b class="count" id="navAlertCount" hidden>0</b></a>
 </nav>
 
 <!-- ===================== CRIADOR DE CARDS · assistente em 4 etapas (modo → conteúdo → arte → revisar) ===================== -->
@@ -656,7 +657,7 @@
         <h4>Quem pode ver seu perfil <span class="art">Art. 18, VII</span></h4>
         <div class="radio-cards">
           <label class="radio-card"><input type="radio" name="vis" value="SOMENTE_EU" checked><b>Somente eu</b><small>padrão mais protetivo (Privacy by Default)</small></label>
-          <label class="radio-card"><input type="radio" name="vis" value="CONEXOES"><b>Conexões</b><small>clube, staff e scouts aprovados</small></label>
+          <label class="radio-card"><input type="radio" name="vis" value="CONEXOES"><b>Conexões</b><small>quem você segue e que segue você de volta (seguir mútuo)</small></label>
           <label class="radio-card"><input type="radio" name="vis" value="PUBLICO"><b>Público</b><small>qualquer pessoa, inclusive rankings</small></label>
         </div>
         <h4>Uso dos seus dados <span class="art">consentimento · opt-in · todos desligados</span></h4>
@@ -725,6 +726,14 @@
 </div>
 
 <!-- ===================== POST VIEW (texto completo só aqui) ===================== -->
+<div class="modal" id="notifModal" hidden role="dialog" aria-modal="true" aria-labelledby="notifTitle">
+  <div class="modal-card postview">
+    <header><h3 id="notifTitle">Notificações</h3><button class="icon-btn" data-close="notifModal" aria-label="Fechar">✕</button></header>
+    <div class="notif-head"><p class="hint">Curtidas, comentários, seguidores, duelos FLAIR e mudanças de tier. Nada de dado sensível aqui (Art. 11).</p><button class="btn ghost" id="notifReadAll">Marcar todas como lidas</button></div>
+    <ul class="notif-list" id="notifList"></ul>
+  </div>
+</div>
+
 <div class="modal" id="postViewModal" hidden role="dialog" aria-modal="true">
   <div class="modal-card postview">
     <header><h3>Card</h3><button class="icon-btn" data-close="postViewModal" aria-label="Fechar">✕</button></header>

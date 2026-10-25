@@ -19,6 +19,14 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
+import com.footballai.social.model.entity.Follow;
+import com.footballai.social.model.entity.PostComment;
+import com.footballai.social.model.entity.Notification;
+import com.footballai.social.model.enums.FollowTargetType;
+import com.footballai.social.model.enums.NotificationType;
+import com.footballai.social.repository.FollowRepository;
+import com.footballai.social.repository.PostCommentRepository;
+import com.footballai.social.repository.NotificationRepository;
 
 /**
  * Dados de exemplo para os perfis local/docker (app.seed.enabled=true). Nomes/e-mails são placeholders
@@ -36,14 +44,15 @@ public class DataSeeder implements CommandLineRunner {
     private final TrainingSummaryRepository training; private final MatchPerformanceRepository matches; private final TechnicalEvaluationRepository evaluations;
     private final ScoutingAttributeRepository scouting; private final InjuryRecordRepository injuries; private final PostRepository posts;
     private final BadgeAwardService badges; private final RarityEngineService rarity; private final PasswordEncoder encoder; private final AppProperties props;
+    private final FollowRepository follows; private final PostCommentRepository comments; private final NotificationRepository notifications;
 
     public DataSeeder(UserRepository users, AthleteRepository athletes, TermsAcceptanceRepository terms, UserLgpdPreferencesRepository prefs, DigitalTwinRepository twins,
                       WeeklyScoreSnapshotRepository snapshots, TrainingSummaryRepository training, MatchPerformanceRepository matches, TechnicalEvaluationRepository evaluations,
                       ScoutingAttributeRepository scouting, InjuryRecordRepository injuries, PostRepository posts, BadgeAwardService badges, RarityEngineService rarity,
-                      PasswordEncoder encoder, AppProperties props) {
+                      PasswordEncoder encoder, AppProperties props, FollowRepository follows, PostCommentRepository comments, NotificationRepository notifications) {
         this.users = users; this.athletes = athletes; this.terms = terms; this.prefs = prefs; this.twins = twins; this.snapshots = snapshots; this.training = training;
         this.matches = matches; this.evaluations = evaluations; this.scouting = scouting; this.injuries = injuries; this.posts = posts; this.badges = badges; this.rarity = rarity;
-        this.encoder = encoder; this.props = props;
+        this.encoder = encoder; this.props = props; this.follows = follows; this.comments = comments; this.notifications = notifications;
     }
 
     @Override
@@ -121,7 +130,37 @@ public class DataSeeder implements CommandLineRunner {
         post(liga, PostContentType.INSTITUCIONAL, FeedWindow.ALERTA, "Suspensão de dois jogos após expulsão na rodada", "Decisão do tribunal desportivo · cabe recurso em 48 h.", AlertSeverity.MEDIA, AlertType.PUNICAO, 120, 30, 12, "#ff5d5d", CardMaterial.FOSCO, CardLayout.MINIMAL, CardStyle.GRAFITE, now.minusSeconds(5 * 3600));
         post(press, PostContentType.INSTITUCIONAL, FeedWindow.ALERTA, "Proposta oficial recebida por lateral sub-20 paulista", "Janela fecha em 9 dias · clube avalia contraproposta.", AlertSeverity.BAIXA, AlertType.TRANSFERENCIA, 210, 44, 31, "#ff5d5d", CardMaterial.VIDRO, CardLayout.SPLIT, CardStyle.NEON, now.minusSeconds(24 * 3600));
         post(c2, PostContentType.LIGA, FeedWindow.PERFIL, "Nova terceira camisa: vote até domingo no mural", "1.204 votos · aberta a sócios.", null, null, 1204, 88, 40, "#a06bff", CardMaterial.HOLOGRAFICO, CardLayout.HERO, CardStyle.VITRAL, now.minusSeconds(12 * 3600));
-        log.info("Seed concluído: {} usuários, {} posts", users.count(), posts.count());
+        // ---- camada social: seguir (conexão = mútuo), comentários e notificações de exemplo ----
+        Instant t0 = Instant.now();
+        final User fTorcedor = torcedor, fScout = scout, fStaff = staff;   // cópias efetivamente finais para as lambdas
+        follow(created.get(0), created.get(1), t0.minusSeconds(86400 * 9)); follow(created.get(1), created.get(0), t0.minusSeconds(86400 * 8));   // conexão
+        follow(scout, created.get(0), t0.minusSeconds(86400 * 20)); follow(scout, created.get(1), t0.minusSeconds(86400 * 20)); follow(scout, created.get(4), t0.minusSeconds(86400 * 3));
+        follow(torcedor, created.get(1), t0.minusSeconds(86400 * 30)); follow(torcedor, c1, t0.minusSeconds(86400 * 40)); follow(torcedor, c2, t0.minusSeconds(86400 * 40));
+        follow(press, created.get(1), t0.minusSeconds(86400 * 5)); follow(staff, created.get(0), t0.minusSeconds(86400 * 12)); follow(staff, created.get(2), t0.minusSeconds(86400 * 12));
+        follow(created.get(1), c2, t0.minusSeconds(86400 * 60)); follow(created.get(0), c1, t0.minusSeconds(86400 * 61)); follow(created.get(2), liga, t0.minusSeconds(86400 * 2));
+        posts.findAllByAuthorId(created.get(1).getId()).stream().filter(x -> x.getTitle().startsWith("Hat-trick")).findFirst().ifPresent(hat -> {
+            PostComment root = comment(hat, fTorcedor, "Que lance! Passe de calcanhar no segundo gol foi absurdo.", null, t0.minusSeconds(3600 * 20));
+            comment(hat, created.get(1), "Valeu! Treinamos essa saída a semana inteira.", root, t0.minusSeconds(3600 * 19));
+            comment(hat, fScout, "Leitura de jogo acima da média para a idade — entra na shortlist.", null, t0.minusSeconds(3600 * 6));
+        });
+        posts.findAllByAuthorId(created.get(0).getId()).stream().filter(x -> x.getTitle().startsWith("Sessão de sprints")).findFirst().ifPresent(sp -> {
+            comment(sp, fStaff, "Boa, mantém o RPE abaixo de 8 nas próximas duas sessões.", null, t0.minusSeconds(3600 * 5));
+        });
+        notifications.save(new Notification(created.get(1).getId(), NotificationType.FOLLOW, scout.getId(), "USER", scout.getId(), "@" + scout.getUsername() + " começou a seguir você", null, t0.minusSeconds(86400 * 20)));
+        notifications.save(new Notification(created.get(1).getId(), NotificationType.COMMENT, torcedor.getId(), "POST", null, "@" + torcedor.getUsername() + " comentou no seu card", "\"Que lance! Passe de calcanhar…\" · Hat-trick de passes decisivos na semifinal estadual", t0.minusSeconds(3600 * 20)));
+        notifications.save(new Notification(created.get(1).getId(), NotificationType.TIER_CHANGE, null, "TWIN", null, "Seu Gêmeo Digital agora é MYTHIC", "Score_Total 2.480 · semana " + prevWeek, t0.minusSeconds(3600 * 30)));
+        notifications.save(new Notification(created.get(0).getId(), NotificationType.LIKE, torcedor.getId(), "POST", null, "@" + torcedor.getUsername() + " curtiu seu card", "Sessão de sprints com 25 km/h sustentados hoje", t0.minusSeconds(3600 * 2)));
+        log.info("Seed concluído: {} usuários, {} posts, {} follows, {} comentários", users.count(), posts.count(), follows.count(), comments.count());
+    }
+
+    private void follow(User follower, User target, Instant since) {
+        if (!follows.existsByFollowerIdAndTargetId(follower.getId(), target.getId())) follows.save(new Follow(follower.getId(), target.getId(), FollowTargetType.of(target.getRole()), since));
+    }
+
+    private PostComment comment(Post post, User author, String body, PostComment parent, Instant at) {
+        PostComment c = comments.save(new PostComment(post.getId(), author.getId(), parent == null ? null : parent.getId(), body, at));
+        post.comment(1); posts.save(post);
+        return c;
     }
 
     private <T extends User> T base(T u, String email, String username, String name, String hash, LocalDate birth, String state) {
