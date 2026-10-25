@@ -8,6 +8,9 @@ import com.footballai.social.model.enums.FeedWindow;
 import com.footballai.social.model.enums.PostContentType;
 import com.footballai.social.model.enums.RarityTier;
 import com.footballai.social.model.enums.UserRole;
+import com.footballai.social.model.enums.UiAccent;
+import com.footballai.social.model.enums.UiSurface;
+import com.footballai.social.model.enums.Wallpaper;
 import com.footballai.social.service.FeedQuery;
 import com.footballai.social.service.FeedWindowService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -49,6 +52,15 @@ public class FeedWindowController {
         rules.put("filtersPanelPerWindow", "<aside class=\"filters-panel\">");
         rules.put("rarityNeverAsText", "use crestIcon (ic-tier-*)");
         return new NavigationDTO(items, rules, tokens());
+    }
+
+    /** Opções da tela Aparência: cor de destaque, tom das barras/painéis e telas de fundo. */
+    @GetMapping("/ui/appearance-options")
+    public Map<String, Object> appearance() {
+        return Map.of(
+                "accents", Arrays.stream(UiAccent.values()).map(a -> Map.of("value", a.name(), "label", a.label(), "hex", a.hex())).toList(),
+                "surfaces", Arrays.stream(UiSurface.values()).map(s -> Map.of("value", s.name(), "label", s.label(), "hex", s.hex(), "light", s.light())).toList(),
+                "wallpapers", Arrays.stream(Wallpaper.values()).map(w -> { Map<String, Object> m = new LinkedHashMap<>(); m.put("value", w.name()); m.put("label", w.label()); m.put("url", w.url()); return m; }).toList());
     }
 
     /** Tokens de design + cores de papéis/bordas/tiers para a SPA (fonte única de verdade). */

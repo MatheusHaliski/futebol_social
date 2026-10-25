@@ -141,8 +141,8 @@
   const fromPost = d => {
     const alert = !!d.hazard;
     const alarm = d.contentType === 'LESAO_ALERTA' ? '🩹 LESÃO' : d.alertType === 'PUNICAO' ? '⚖️ PUNIÇÃO' : d.alertType === 'TRANSFERENCIA' ? '🔁 TRANSFERÊNCIA' : d.alertType === 'LESAO' ? '🩹 LESÃO' : '📣 ' + (d.badgeLabel || 'ALERTA');
-    return { id:d.id, role:d.author.role, name:d.author.handle, ai:d.author.aiGenerated, verified:d.author.verified, ct:d.contentType, top:d.timeLabel, title:d.title, snip:d.subtitle,
-      media:d.media ? (d.media.kind === 'video' ? 'VÍDEO' : 'IMAGEM') : null, meta:d.meta && d.meta.length ? d.meta : null, likes:d.social.likes, comments:d.social.comments, shares:d.social.shares,
+    return { id:d.id, authorId:d.author.id, mine: !!(API.user && API.user.id === d.author.id), role:d.author.role, name:d.author.handle, ai:d.author.aiGenerated, verified:d.author.verified, ct:d.contentType, top:d.timeLabel, title:d.title, snip:d.subtitle,
+      media:d.media ? (d.media.kind === 'video' ? 'VÍDEO' : 'IMAGEM') : null, mediaUrl:d.media && d.media.url, mediaKind:d.media && d.media.kind, meta:d.meta && d.meta.length ? d.meta : null, likes:d.social.likes, comments:d.social.comments, shares:d.social.shares,
       liked:d.social.likedByMe, saved:d.social.savedByMe, trend:d.trend ? TREND[d.trend.direction] : null, alert, alarm: alert ? alarm : null, sev:d.severity, type:d.alertType,
       age:[d.ageRating.cssClass, d.ageRating.label], art:d.art, gen:d.generationMode, window:d.window };
   };
@@ -161,7 +161,9 @@
   /* ---------- templates ---------- */
   const chip = t => { const k = String(t || 'COMMON').toUpperCase(); return `<svg class="ic tier t-${k.toLowerCase()}" role="img" aria-label="Tier ${TIER_LABEL[k] || k}" data-tier="${k}"><title>Tier ${TIER_LABEL[k] || k}</title><use href="#ic-tier-${k.toLowerCase()}"/></svg>`; };
   const roleOf = r => ROLES[r] || ROLES.ATLETA;
-  const artBlock = (art, extra = '') => art && (art.color || art.material) ? `<div class="p-art" data-material="${esc(art.material || 'FOSCO')}" data-style="${esc(art.style || 'GRAFITE')}" data-layout="${esc(art.layout || 'CLASSICO')}" data-label="${esc([art.materialLabel || art.material, art.styleLabel || art.style].filter(Boolean).join(' · '))}" style="--ac:${esc(art.color || '#00d47a')}" ${extra}></div>` : '';
+  /* arte = atributos do PRÓPRIO card (tinge o fundo); a fotografia é outro campo (upload do usuário) */
+  const artAttrs = art => art && (art.color || art.material) ? ` data-material="${esc(art.material || 'FOSCO')}" data-style="${esc(art.style || 'GRAFITE')}" data-layout="${esc(art.layout || 'CLASSICO')}" data-art-label="${esc([art.materialLabel || art.material, art.layoutLabel || art.layout, art.styleLabel || art.style].filter(Boolean).join(' · '))}" style="--ac:${esc(art.color || '#00d47a')}"` : '';
+  const mediaBlock = p => p.mediaUrl ? `<div class="p-media photo">${p.mediaKind === 'video' ? `<video src="${esc(p.mediaUrl)}" muted playsinline></video>` : `<img src="${esc(p.mediaUrl)}" alt="" loading="lazy">`}</div>` : p.media ? `<div class="p-media">${esc(p.media)}</div>` : '';
 
   /* PostCard — borda esquerda = tipo · bolinha = papel · arte opcional · ações sociais sempre */
   const postCard = p => {
@@ -170,18 +172,15 @@
     const VSL = { treino:'◇', partida:'◇', scouting:'▭', liga:'⬢', institucional:'▭', especial:'✦' };
     const age = p.lock || p.ct === 'LESAO_ALERTA' ? ['age-sens','SENSÍVEL'] : p.age || ['age-safe','SAFE'];
     const topRight = p.alert ? `<span class="alarm">${esc(p.alarm || '📣 ALERTA')}</span>` : `<span class="badge cc">${c.badge}</span>`;
-    const layout = p.art && p.art.layout || 'CLASSICO';
-    let body = '';
-    if (p.art && layout === 'HERO' && !p.media) body += artBlock(p.art);
-    body += `<div class="p-title">${esc(p.title)}</div>`;
-    if (p.media) body += `<div class="p-media">${esc(p.media)}</div>`;
-    else { if (p.art && layout === 'CLASSICO') body += artBlock(p.art); if (p.snip) body += `<div class="p-sub">${esc(p.snip)}</div>`; }
+    const hasArt = !!(p.art && (p.art.color || p.art.material));
+    let body = `<div class="p-title">${esc(p.title)}</div>`;
+    if (p.media || p.mediaUrl) body += mediaBlock(p);            // post com fotografia: imagem + autor/título, sem subtítulo
+    else if (p.snip) body += `<div class="p-sub">${esc(p.snip)}</div>`;  // post de texto: teaser (≤ 2 linhas)
     if (p.meta) body += `<div class="p-meta">${p.meta.map(m => `<span class="badge">${esc(m)}</span>`).join('')}</div>`;
     if (p.gen === 'AI' || p.ai) body += `<div class="p-meta"><span class="badge">GERADO COM IA · REVISADO</span></div>`;
     if (p.lock) body += `<span class="lock">🔒 DADO SENSÍVEL · ART. 11</span>`;
-    const top = `<div class="p-top"><span class="time">${esc(p.top || '')}</span><span class="vsl" title="VSL">${VSL[c.cc]}</span>${topRight}<span class="age-chip ${age[0]}">${age[1]}</span></div>` + (p.art && layout === 'MINIMAL' && !p.media ? artBlock(p.art) : '');
-    return `<article class="pcard cc-${c.cc}${p.alert ? ' alertcard' : ''}${p.art && layout === 'SPLIT' && !p.media ? ' layout-split' : ''}" data-id="${esc(p.id || '')}">
-      ${p.art && layout === 'SPLIT' && !p.media ? artBlock(p.art) : ''}
+    const top = `<div class="p-top"><span class="time">${esc(p.top || '')}</span><span class="vsl" title="VSL">${VSL[c.cc]}</span>${topRight}<span class="age-chip ${age[0]}">${age[1]}</span></div>`;
+    return `<article class="pcard cc-${c.cc}${p.alert ? ' alertcard' : ''}${hasArt ? ' has-art' : ''}" data-id="${esc(p.id || '')}"${hasArt ? artAttrs(p.art) : ''}>
       ${top}
       <div class="p-author"><span class="dot sm dc-${r.dc}"></span><span class="p-name">${esc(p.name)} <span>· ${r.label}</span>${p.verified ? '<span class="verified">✦</span>' : ''}${p.ai ? '<span class="ai">IA</span>' : ''}</span></div>
       ${body}
@@ -190,6 +189,7 @@
         <button class="act" data-act="comment"><span class="i">💬</span>Comentar<b>${fmt(comments)}</b></button>
         <button class="act" data-act="share"><span class="i">↗</span>Compartilhar<b>${fmt(shares)}</b></button>
         <button class="act save${p.saved ? ' on' : ''}" data-act="save" aria-label="salvar"><span class="i">🔖</span></button>
+        ${p.mine ? '<button class="act" data-act="edit" title="Editar no estúdio"><span class="i">✎</span>Editar</button>' : ''}
         ${p.trend ? `<span class="trend${/💠|✦/.test(p.trend) ? ' gold' : /📉|➖/.test(p.trend) ? ' down' : ''}">${esc(p.trend)}</span>` : ''}
       </div>
     </article>`;
@@ -518,7 +518,7 @@
   $('#snapBtn').addEventListener('click', () => { F.snap = !F.snap; $('#snapBtn').setAttribute('aria-pressed', String(F.snap)); toast(F.snap ? '⚡ SNAP ARMADO · PONTOS EM DISPUTA DOBRADOS' : 'SNAP DESARMADO'); });
 
   /* ---------- páginas simples ---------- */
-  async function renderMisc(win, sub, params) {
+  async function renderMisc(win, sub, params = {}) {
     const mine = win === 'cards' ? await tryApi(async () => (await API.call('/v1/posts/mine')).map(fromPost), () => posts.gemeo) : [];
     const me = win === 'me' ? await tryApi(async () => API.user.role === 'ATLETA' ? fromAthlete(await API.call(`/v1/athletes/${API.user.id}/card`)) : null, () => athletes[0]) : null;
     const pages = {
@@ -545,17 +545,25 @@
     materials:[['FOSCO','Fosco'],['METALICO','Metálico'],['VIDRO','Vidro'],['CARBONO','Carbono'],['HOLOGRAFICO','Holográfico']],
     layouts:[['CLASSICO','Clássico'],['HERO','Hero'],['SPLIT','Split'],['MINIMAL','Minimal']], styles:[['NEON','Neon'],['VITRAL','Vitral'],['GRAFITE','Grafite'],['OURO','Ouro'],['RETRO','Retrô']] };
   const CT_COLOR = { TREINO:'#00d47a', PARTIDA_MOMENTO:'#3b82f6', RELATORIO_TATICO:'#ff9f43', LIGA:'#a06bff', INSTITUCIONAL:'#ff5d5d', LESAO_ALERTA:'#ff5d5d', ESPECIAL:'#f5c542' };
-  const WZ = { step:1, mode:'MANUAL', art:{ color:'#00d47a', material:'FOSCO', layout:'CLASSICO', style:'NEON' }, opts:ART_DEFAULT, suggestion:null, busy:false };
+  const WZ = { step:1, mode:'MANUAL', art:{ color:'#00d47a', material:'FOSCO', layout:'CLASSICO', style:'NEON' }, opts:ART_DEFAULT, suggestion:null, busy:false, photo:null, editId:null };
   const words = s => String(s || '').trim().split(/\s+/).filter(Boolean).length;
   const labelOf = (list, v) => (list.find(x => x[0] === v) || [v, v])[1];
-  function openComposer(withCopilot) {
-    WZ.step = 1; WZ.mode = withCopilot ? 'AI' : 'MANUAL'; WZ.suggestion = null; WZ.art = { color:'#00d47a', material:'FOSCO', layout:'CLASSICO', style:'NEON' };
-    ['#composerTitle', '#composerSub', '#composerText'].forEach(s => $(s).value = ''); $('#composerAge').value = 'SAFE'; $('#copilotBody').textContent = 'Gerando sugestão…';
+  function openComposer(withCopilot, edit) {
+    WZ.step = 1; WZ.mode = withCopilot ? 'AI' : 'MANUAL'; WZ.suggestion = null; WZ.art = { color:'#00d47a', material:'FOSCO', layout:'CLASSICO', style:'NEON' }; WZ.editId = edit ? edit.id : null;
+    $('#wzTitle').textContent = edit ? 'Editar card · estúdio' : 'Criar card';
+    ['#composerTitle', '#composerSub', '#composerText'].forEach(s => $(s).value = ''); $('#composerAge').value = 'SAFE'; $('#copilotBody').textContent = 'Gerando sugestão…'; clearPhoto();
     $$('.mode-opt').forEach(b => b.classList.toggle('on', b.dataset.mode === WZ.mode));
     $$('.type-opt[data-roles]').forEach(l => l.hidden = !l.dataset.roles.split(',').includes(ROLE));
     const first = $$('.type-opt').find(l => !l.hidden); if (first) first.querySelector('input').checked = true;
     $('#wzMeta').innerHTML = `<i class="dot xs dc-${roleOf(ROLE).dc}"></i> AUTOR · ${esc(roleOf(ROLE).label.toUpperCase())} · <span class="age-chip age-safe">SAFE</span>`;
     buildArtOptions(); goStep(1); $('#composer').hidden = false; $('#titleCount').textContent = '0 palavras';
+    if (edit) {   // estúdio de edição: campos preenchidos, tipo/borda travados, começa no conteúdo
+      const radio = $(`input[name="ct"][value="${edit.ct}"]`); if (radio) { radio.checked = true; } $$('input[name="ct"]').forEach(r => r.disabled = true);
+      $('#composerTitle').value = edit.title || ''; $('#composerSub').value = edit.snip || ''; $('#composerText').value = edit.content || ''; $('#titleCount').textContent = `${words(edit.title)} palavras`;
+      if (edit.art && edit.art.color) WZ.art = { color: edit.art.color, material: edit.art.material || 'FOSCO', layout: edit.art.layout || 'CLASSICO', style: edit.art.style || 'NEON', touched: true };
+      if (edit.mediaUrl) { WZ.photo = { key: edit.mediaKey || null, url: edit.mediaUrl, kind: edit.mediaKind || 'image', keep: true }; $('#photoPreview').innerHTML = `<img src="${esc(edit.mediaUrl)}" alt="">`; $('#photoPreview').hidden = false; $('#photoClear').hidden = false; $('#photoStatus').textContent = 'fotografia atual · envie outra para substituir'; }
+      buildArtOptions(); goStep(2);
+    } else $$('input[name="ct"]').forEach(r => r.disabled = false);
     if (live()) API.call('/v1/cards/art-options').then(o => { WZ.opts = { colors:o.colors, materials:o.materials.map(m => [m.value, m.label]), layouts:o.layouts.map(m => [m.value, m.label]), styles:o.styles.map(m => [m.value, m.label]) }; buildArtOptions(); }).catch(() => {});
   }
   function buildArtOptions() {
@@ -565,14 +573,14 @@
     $('#artColorHex').textContent = WZ.art.color; $('#artCustom').value = WZ.art.color; renderArtPreview();
   }
   const currentCt = () => ($('input[name="ct"]:checked') || {}).value || 'TREINO';
-  const draftPost = () => { const ct = currentCt(); const ageSel = $('#composerAge').value; return { id:'', role:ROLE, name:API.user ? '@' + API.user.username : '@<preencher_user>', ct, top:'AGORA', title:$('#composerTitle').value || '(título do card · 5 a 12 palavras)', snip:$('#composerSub').value, meta:null,
+  const draftPost = () => { const ct = currentCt(); const ageSel = $('#composerAge').value; return { id:'', role:ROLE, name:API.user ? '@' + API.user.username : '@<preencher_user>', ct, top:'AGORA', title:$('#composerTitle').value || '(título do card · 5 a 12 palavras)', snip:$('#composerSub').value, meta:null, mediaUrl: WZ.photo ? WZ.photo.url : null, mediaKind: WZ.photo ? WZ.photo.kind : null,
     art:{ ...WZ.art, materialLabel:labelOf(WZ.opts.materials, WZ.art.material), styleLabel:labelOf(WZ.opts.styles, WZ.art.style) }, gen:WZ.mode, age: ct === 'LESAO_ALERTA' ? ['age-sens','SENSÍVEL'] : [{ SAFE:'age-safe', KIDS:'age-kids', AGE_12:'age-12', AGE_16:'age-16', AGE_18:'age-18' }[ageSel] || 'age-safe', { SAFE:'SAFE', KIDS:'KIDS', AGE_12:'12+', AGE_16:'16+', AGE_18:'18+' }[ageSel] || 'SAFE'], alert: ct === 'LESAO_ALERTA' || ct === 'INSTITUCIONAL', alarm: ct === 'LESAO_ALERTA' ? '🩹 LESÃO' : '📣 INSTITUCIONAL', verified: API.user && API.user.verified }; };
   function renderArtPreview() { $('#artPreview').innerHTML = postCard(draftPost()); }
   function renderReview() {
     const d = draftPost(); $('#reviewCard').innerHTML = postCard(d);
     const rows = [['Modo', WZ.mode === 'AI' ? 'Com IA · Copilot (revisado)' : 'Manual'], ['Tipo · borda', `${(CT[d.ct] || CT.TREINO).badge} · ${CT_COLOR[d.ct]}`], ['Janela', { TREINO:'GÊMEO', PARTIDA_MOMENTO:'PERFIL', RELATORIO_TATICO:'SCOUTING', LIGA:'PERFIL', INSTITUCIONAL:'ALERTA', LESAO_ALERTA:'ALERTA', ESPECIAL:'PERFIL' }[d.ct]],
       ['Título', `${words($('#composerTitle').value)} palavras`], ['Teaser', $('#composerSub').value ? 'sim' : '—'], ['Texto completo', $('#composerText').value ? `${$('#composerText').value.length} caracteres (só no PostView)` : '—'],
-      ['Classificação', d.age[1]], ['Cor', WZ.art.color], ['Material', labelOf(WZ.opts.materials, WZ.art.material)], ['Layout', labelOf(WZ.opts.layouts, WZ.art.layout)], ['Estilo', labelOf(WZ.opts.styles, WZ.art.style)], ['Fonte', live() ? 'API · POST /v1/posts' : 'demo (local)']];
+      ['Fotografia', WZ.photo ? (WZ.photo.key ? 'enviada · ' + WZ.photo.key.split('/').pop() : 'prévia local (demo)') : '— (só arte de fundo)'], ['Classificação', d.age[1]], ['Cor de fundo', WZ.art.color], ['Material', labelOf(WZ.opts.materials, WZ.art.material)], ['Layout', labelOf(WZ.opts.layouts, WZ.art.layout)], ['Estilo', labelOf(WZ.opts.styles, WZ.art.style)], ['Fonte', live() ? (WZ.editId ? 'API · PATCH /v1/posts/{id}' : 'API · POST /v1/posts') : 'demo (local)']];
     $('#reviewSummary').innerHTML = rows.map(([k, v]) => `<li><span>${k}</span><b>${esc(v)}</b></li>`).join('');
   }
   function goStep(n) {
@@ -605,8 +613,13 @@
     if (WZ.busy) return; WZ.busy = true;
     const ct = currentCt(), title = $('#composerTitle').value.trim(), sub = $('#composerSub').value.trim(), text = $('#composerText').value.trim();
     try {
+      if (live() && WZ.editId) {
+        const body = { title, subtitle: sub, content: text, ageRating: $('#composerAge').value, mediaKeys: WZ.photo && WZ.photo.key ? [WZ.photo.key] : null, clearMedia: !WZ.photo, art: { color: WZ.art.color, material: WZ.art.material, layout: WZ.art.layout, style: WZ.art.style } };
+        await API.call(`/v1/posts/${WZ.editId}`, { method: 'PATCH', body });
+        toast('CARD ATUALIZADO · ESTÚDIO'); $('#composer').hidden = true; renderSub(state.win, state.sub[state.win]); if (location.hash.startsWith('#/cards')) renderMisc('cards'); return;
+      }
       if (live()) {
-        const body = { contentType: ct, title, subtitle: sub || null, content: text || null, ageRating: $('#composerAge').value, generationMode: WZ.mode, draft, art: { color: WZ.art.color, material: WZ.art.material, layout: WZ.art.layout, style: WZ.art.style } };
+        const body = { contentType: ct, title, subtitle: sub || null, content: text || null, ageRating: $('#composerAge').value, generationMode: WZ.mode, draft, mediaKeys: WZ.photo && WZ.photo.key ? [WZ.photo.key] : null, art: { color: WZ.art.color, material: WZ.art.material, layout: WZ.art.layout, style: WZ.art.style } };
         const created = await API.call('/v1/posts', { method: 'POST', body });
         toast(draft ? 'RASCUNHO SALVO · MEUS CARDS' : `CARD PUBLICADO · ${created.badgeLabel} · ${created.window}`);
         $('#composer').hidden = true; location.hash = draft ? '#/cards' : '#/' + created.window.toLowerCase(); renderSub(state.win, state.sub[state.win]);
@@ -617,6 +630,23 @@
       }
     } catch (e) { toast(e.message); } finally { WZ.busy = false; }
   }
+  /* fotografia: campo de upload do usuário (POST /v1/media multipart) — independente da arte de fundo */
+  function clearPhoto() { WZ.photo = null; $('#composerPhoto').value = ''; $('#photoPreview').hidden = true; $('#photoPreview').innerHTML = ''; $('#photoClear').hidden = true; $('#photoStatus').textContent = 'sem fotografia — o card usa só a arte de fundo'; }
+  $('#composerPhoto').addEventListener('change', async e => {
+    const f = e.target.files && e.target.files[0]; if (!f) { clearPhoto(); return; }
+    if (f.size > 25 * 1024 * 1024) { toast('ARQUIVO ACIMA DE 25 MB'); clearPhoto(); return; }
+    const kind = f.type.startsWith('video') ? 'video' : 'image'; const local = URL.createObjectURL(f);
+    $('#photoPreview').innerHTML = kind === 'video' ? `<video src="${local}" muted playsinline></video>` : `<img src="${local}" alt="prévia da fotografia">`; $('#photoPreview').hidden = false; $('#photoClear').hidden = false;
+    if (!live()) { WZ.photo = { key: null, url: local, kind }; $('#photoStatus').textContent = 'prévia local (demo) · ' + f.name; return; }
+    $('#photoStatus').textContent = 'enviando…';
+    try {
+      const fd = new FormData(); fd.append('file', f);
+      const res = await API.raw('/v1/media', { method: 'POST', headers: { Authorization: 'Bearer ' + API.access }, body: fd });
+      const d = await res.json(); if (!res.ok) throw new Error(d.detail || 'upload falhou');
+      WZ.photo = { key: d.key, url: d.url, kind: d.kind }; $('#photoStatus').textContent = `enviada · ${d.key.split('/').pop()} · ${(d.sizeBytes / 1024).toFixed(0)} KB`;
+    } catch (err) { toast('FOTO: ' + err.message); WZ.photo = { key: null, url: local, kind }; $('#photoStatus').textContent = 'falha no upload — prévia local'; }
+  });
+  $('#photoClear').addEventListener('click', clearPhoto);
   $('#fabBtn').addEventListener('click', () => openComposer(false));
   $$('.mode-opt').forEach(b => b.addEventListener('click', () => { WZ.mode = b.dataset.mode; $$('.mode-opt').forEach(x => x.classList.toggle('on', x === b)); }));
   $('#wzNext').addEventListener('click', () => goStep(WZ.step + 1)); $('#wzBack').addEventListener('click', () => goStep(WZ.step - 1));
@@ -647,7 +677,7 @@
       c.preferences.forEach(p => { const sw = $(`#lgpdToggles .sw[data-pref="${p.key}"]`); if (sw) sw.checked = p.enabled; });
       const vis = $(`input[name="vis"][value="${c.visibility}"]`); if (vis) vis.checked = true;
       $('#sessionList').innerHTML = (c.sessions || []).map(s => `<li>${esc(s['device.userAgent'] || 'dispositivo').slice(0, 40)} · ${esc(s['device.ip'])} · ${esc((s.lastSeenAt || '').slice(0, 16).replace('T', ' '))}</li>`).join('');
-      $('#accName').value = API.user.displayName; $('#langSelect').value = API.user.locale || 'pt-BR'; $('#darkToggle').checked = API.user.darkMode !== false; $('#fontScale').value = API.user.fontScale || 1;
+      $('#accName').value = API.user.displayName; $('#langSelect').value = API.user.locale || 'pt-BR';
       const ex = await API.call('/v1/me/exports'); $('#exportList').innerHTML = ex.slice(0, 3).map(x => `<li>${x.requestedAt.slice(0, 16).replace('T', ' ')} · ${x.status}${x.downloadUrl ? ` · <a href="${x.downloadUrl}" target="_blank">baixar (7 d)</a>` : x.failureReason ? ' · ' + esc(x.failureReason) : ''}</li>`).join('');
     } catch (e) { toast('LGPD: ' + e.message); }
   }
@@ -667,8 +697,8 @@
   $('#stepUpBtn').addEventListener('click', async () => { try { await stepUp($('#stepUpPass').value); $('#stepUpPass').value = ''; toast('REAUTENTICADO · 5 MIN'); if (pending) { const p = pending; p.sw.checked = p.enabled; setPref(p.key, p.enabled, p.sw); } else if (pending === 'delete') doDelete(); $('#stepUpBox').hidden = true; } catch (e) { toast(e.message); } });
   $$('input[name="vis"]').forEach(r => r.addEventListener('change', async () => { if (!live()) { toast('VISIBILIDADE: ' + r.value + ' (DEMO)'); return; } try { API.user = await API.call('/v1/me', { method: 'PATCH', body: { visibility: r.value } }); toast('VISIBILIDADE · ' + r.value); } catch (e) { toast(e.message); } }));
   $('#accSave').addEventListener('click', async () => { if (!live()) { toast('SALVO (DEMO)'); return; } try { API.user = await API.call('/v1/me', { method: 'PATCH', body: { displayName: $('#accName').value, bio: $('#accBio').value || null, stateCode: $('#accState').value || null, city: $('#accCity').value || null } }); setUser(API.user); toast('PERFIL ATUALIZADO · ART. 18, III'); } catch (e) { toast(e.message); } });
-  $('#darkToggle').addEventListener('change', e => { document.documentElement.dataset.theme = e.target.checked ? 'dark' : 'light'; if (live()) API.call('/v1/me', { method: 'PATCH', body: { darkMode: e.target.checked } }).catch(() => {}); });
-  $('#fontScale').addEventListener('change', e => { document.documentElement.style.fontSize = (16 * +e.target.value) + 'px'; if (live()) API.call('/v1/me', { method: 'PATCH', body: { fontScale: +e.target.value } }).catch(() => {}); });
+  $('#darkToggle').addEventListener('change', e => saveAppearance({ theme: e.target.checked ? 'dark' : 'light' }));
+  $('#fontScale').addEventListener('change', e => saveAppearance({ fontScale: +e.target.value }));
   $('#langSelect').addEventListener('change', e => { if (live()) API.call('/v1/me', { method: 'PATCH', body: { locale: e.target.value } }).then(() => toast('IDIOMA · ' + e.target.value)).catch(err => toast(err.message)); else toast('IDIOMA · ' + e.target.value + ' (DEMO)'); });
   $('#exportBtn').addEventListener('click', async () => { if (!live()) { toast('EXPORTAÇÃO SOLICITADA (202) · LINK VÁLIDO POR 7 DIAS (DEMO)'); return; } try { const x = await API.call('/v1/me/export', { method: 'POST' }); toast(`EXPORTAÇÃO ${x.status}${x.downloadUrl ? ' · LINK PRONTO (7 DIAS)' : x.failureReason ? ' · ' + x.failureReason : ''}`); openLgpd('dados'); } catch (e) { toast(e.message); } });
   $('#historyBtn').addEventListener('click', async () => { const ul = $('#consentHistory'); ul.hidden = !ul.hidden; if (ul.hidden) return; ul.innerHTML = (await tryApi(async () => (await API.call('/v1/me/consent-history')).map(c => `${c.changedAt.slice(0, 16).replace('T', ' ')} · ${c.preference} ${c.oldValue} → ${c.newValue} · ${esc(c.articleLabel)}`), () => ['W42 · SHARE_TELEMETRY_WITH_CLUBS false → true · Art. 7º, I'])).map(x => `<li>${x}</li>`).join('') || '<li>Sem alterações registradas.</li>'; });
@@ -681,12 +711,49 @@
   /* =====================================================================
      AUTENTICAÇÃO — login / cadastro polimórfico / modo demo
      ===================================================================== */
+  /* ---------- Aparência: tema · destaque · superfície · tela de fundo (aplicado no <html>, salvo local + API) ---------- */
+  const AP_DEFAULT = { accents:[['GREEN','Verde campo','#00d47a'],['BLUE','Azul','#3b82f6'],['GOLD','Ouro','#f5c542'],['PURPLE','Roxo','#a06bff'],['ORANGE','Laranja','#ff9f43']],
+    surfaces:[['GRAPHITE','Grafite','#131b17'],['FOREST','Floresta','#0f241a'],['NAVY','Marinho','#0f192b'],['PLUM','Ameixa','#1f1529'],['SAND','Areia','#fbf7ee']],
+    wallpapers:[['NONE','Sem fundo',null],['VERDE','Verde','brand/wallpapers/verde.svg'],['CIANO','Ciano','brand/wallpapers/ciano.svg'],['OURO','Ouro','brand/wallpapers/ouro.svg'],['VERDE_CLARO','Verde-claro','brand/wallpapers/verde-claro.svg'],['VERDE_VIVO','Verde-vivo','brand/wallpapers/verde-vivo.svg']] };
+  let AP = Object.assign({ theme:'dark', accent:'GREEN', surface:'GRAPHITE', wallpaper:'NONE', wallpaperUrl:null, fontScale:1 }, JSON.parse(localStorage.getItem('fas.appearance') || '{}'));
+  function applyAppearance(save = true) {
+    const root = document.documentElement;
+    root.dataset.theme = AP.theme; root.dataset.accent = AP.accent; root.dataset.surface = AP.surface; root.dataset.wallpaper = AP.wallpaper;
+    const wp = AP.wallpaper === 'NONE' ? null : AP.wallpaperUrl || (AP_DEFAULT.wallpapers.find(w => w[0] === AP.wallpaper) || [])[2];
+    root.style.setProperty('--wallpaper-img', wp ? `url("${wp}")` : 'none'); root.style.fontSize = (16 * (AP.fontScale || 1)) + 'px';
+    if (save) try { localStorage.setItem('fas.appearance', JSON.stringify(AP)); } catch { }
+    renderAppearancePanel();
+  }
+  function renderAppearancePanel() {
+    $('#apAccents').innerHTML = AP_DEFAULT.accents.map(([v, l, hex]) => `<button type="button" class="ap-swatch${AP.accent === v ? ' on' : ''}" data-ap="accent" data-val="${v}" style="--sw:${hex}" title="${l}" aria-label="${l}"></button>`).join('');
+    $('#apSurfaces').innerHTML = AP_DEFAULT.surfaces.map(([v, l, hex]) => `<button type="button" class="ap-swatch${AP.surface === v ? ' on' : ''}" data-ap="surface" data-val="${v}" style="--sw:${hex}" title="${l}" aria-label="${l}"></button>`).join('');
+    $('#apWalls').innerHTML = AP_DEFAULT.wallpapers.map(([v, l, url]) => `<button type="button" class="ap-wall${AP.wallpaper === v ? ' on' : ''}" data-ap="wallpaper" data-val="${v}"><div class="thumb${url ? '' : ' none'}" style="${url ? `--wp:url('${url}')` : ''}">${url ? '' : 'SEM FUNDO'}</div><span>${l}</span></button>`).join('')
+      + `<label class="ap-wall custom${AP.wallpaper === 'CUSTOM' ? ' on' : ''}"><div class="thumb${AP.wallpaper === 'CUSTOM' && AP.wallpaperUrl ? '' : ' none'}" style="${AP.wallpaper === 'CUSTOM' && AP.wallpaperUrl ? `--wp:url('${AP.wallpaperUrl}')` : ''}">${AP.wallpaper === 'CUSTOM' && AP.wallpaperUrl ? '' : 'SEU ARQUIVO'}</div><span>Personalizado</span><input type="file" id="apCustom" accept="image/jpeg,image/png,image/webp"></label>`;
+    $('#darkToggle').checked = AP.theme !== 'light'; $('#fontScale').value = AP.fontScale || 1;
+  }
+  async function saveAppearance(patch) {
+    Object.assign(AP, patch); applyAppearance(true);
+    if (!live()) return;
+    const body = {}; if (patch.theme !== undefined) body.darkMode = patch.theme !== 'light'; if (patch.accent) body.uiAccent = patch.accent; if (patch.surface) body.uiSurface = patch.surface;
+    if (patch.wallpaper) body.wallpaper = patch.wallpaper; if (patch.wallpaperKey) body.wallpaperKey = patch.wallpaperKey; if (patch.fontScale) body.fontScale = patch.fontScale;
+    try { API.user = await API.call('/v1/me', { method: 'PATCH', body }); } catch (e) { toast(e.message); }
+  }
+  document.addEventListener('click', e => { const b = e.target.closest('[data-ap]'); if (!b) return; const patch = {}; patch[b.dataset.ap] = b.dataset.val; if (b.dataset.ap === 'wallpaper') patch.wallpaperUrl = null; saveAppearance(patch); toast(`APARÊNCIA · ${b.dataset.ap.toUpperCase()} ${b.dataset.val}`); });
+  document.addEventListener('change', async e => {
+    if (e.target.id !== 'apCustom') return; const f = e.target.files && e.target.files[0]; if (!f) return;
+    const local = URL.createObjectURL(f);
+    if (!live()) { saveAppearance({ wallpaper: 'CUSTOM', wallpaperUrl: local }); toast('FUNDO PERSONALIZADO (DEMO · SÓ NESTA SESSÃO)'); return; }
+    try { const fd = new FormData(); fd.append('file', f); const res = await API.raw('/v1/media', { method: 'POST', headers: { Authorization: 'Bearer ' + API.access }, body: fd }); const d = await res.json(); if (!res.ok) throw new Error(d.detail || 'upload falhou');
+      saveAppearance({ wallpaper: 'CUSTOM', wallpaperUrl: d.url, wallpaperKey: d.key }); toast('FUNDO PERSONALIZADO SALVO'); } catch (err) { toast('FUNDO: ' + err.message); }
+  });
+  applyAppearance(false);
+
   function setUser(u) {
     API.user = u; ROLE = u.role; document.body.dataset.role = u.role; document.body.dataset.tier = u.tier || 'COMMON';
+    Object.assign(AP, { theme: u.darkMode === false ? 'light' : 'dark', accent: u.uiAccent || 'GREEN', surface: u.uiSurface || 'GRAPHITE', wallpaper: u.wallpaper || 'NONE', wallpaperUrl: u.wallpaperUrl || null, fontScale: +u.fontScale || 1 }); applyAppearance(true);
     $('#meName').textContent = u.displayName; $('#meHandle').textContent = '@' + u.username; $('#meRole').textContent = roleOf(u.role).label;
     $('#meTier').innerHTML = u.tier ? chip(u.tier) : ''; const av = $('#meBtn .avatar'); av.dataset.initials = ini(u.displayName); av.innerHTML = `<i class="dot dc-${roleOf(u.role).dc}"></i>`;
     $('#srcBadge').textContent = 'API'; $('#srcBadge').classList.add('api');
-    if (u.darkMode === false) document.documentElement.dataset.theme = 'light';
     $$('.sidebar a[data-roles]').forEach(a => a.hidden = !a.dataset.roles.split(',').includes(ROLE));
   }
   function openAuth() { $('#authModal').hidden = false; $('#authError').hidden = true; if (API.online && !API.terms) API.call('/v1/terms/current', { auth: false }).then(t => { API.terms = t; $('#termsVersion').textContent = `versão ${t.version} · ${t.owner}`; $('#termsLink').href = t.documentUrl || '#'; }).catch(() => {}); }
@@ -726,6 +793,11 @@
       const card = act.closest('article'); const id = card && card.dataset.id; const isPost = card && !card.dataset.athlete; const n = act.querySelector('b'); const kind = act.dataset.act;
       const bump = d => { if (n) n.textContent = fmt(parseInt(n.textContent.replace(/\./g, '')) + d); };
       if (kind === 'comment') { openPostView(isPost ? id : null, card ? card.outerHTML : ''); return; }
+      if (kind === 'edit') {
+        if (!live() || !id) { toast('EDIÇÃO DISPONÍVEL COM A API'); return; }
+        try { const v = await API.call(`/v1/posts/${id}`); const d = fromPost(v.card); openComposer(false, { ...d, content: v.content, mediaKey: v.card.media && v.card.media.key }); } catch (err) { toast(err.message); }
+        return;
+      }
       if (live() && isPost && id) {
         try { const r = await API.call(`/v1/posts/${id}/${kind}`, { method: 'POST' }); if (kind === 'like') { act.classList.toggle('on', r.liked); if (n) n.textContent = fmt(r.likes); } if (kind === 'save') { act.classList.toggle('on', r.saved); toast(r.saved ? 'SALVO' : 'REMOVIDO DOS SALVOS'); } if (kind === 'share') { if (n) n.textContent = fmt(r.shares); toast('COMPARTILHADO · LINK COPIADO'); try { navigator.clipboard.writeText(location.origin + '/#/post/' + id); } catch { } } } catch (err) { toast(err.message); }
         return;

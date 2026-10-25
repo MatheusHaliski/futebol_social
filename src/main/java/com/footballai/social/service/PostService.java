@@ -6,6 +6,7 @@ import com.footballai.social.controller.dto.CardDtos.PostCardDTO;
 import com.footballai.social.controller.dto.CardDtos.PostViewDTO;
 import com.footballai.social.controller.dto.PostDtos.CreatePostRequest;
 import com.footballai.social.controller.dto.PostDtos.ReactionDTO;
+import com.footballai.social.controller.dto.PostDtos.UpdatePostRequest;
 import com.footballai.social.model.cassandra.FeedEntry;
 import com.footballai.social.model.entity.Brand;
 import com.footballai.social.model.entity.CardArt;
@@ -132,6 +133,30 @@ public class PostService {
         Post post = posts.findById(id).orElseThrow(() -> ApiException.notFound("Post"));
         if (!post.getAuthorId().equals(p.userId())) throw ApiException.forbidden("NOT_AUTHOR", "Só o autor publica o rascunho");
         if (post.getStatus() == PostStatus.DRAFT) { post.setStatus(PostStatus.PUBLISHED); post.setPublishedAt(clock.instant()); posts.save(post); fanOut(post, users.require(p.userId())); }
+        return assembler.postCards(List.of(post), p).get(0);
+    }
+
+    /** Estúdio de edição: o autor altera título, teaser, texto, fotografia, classificação e arte de fundo. */
+    @Transactional
+    public PostCardDTO update(AuthPrincipal p, UUID id, UpdatePostRequest r) {
+        Post post = posts.findById(id).orElseThrow(() -> ApiException.notFound("Post"));
+        if (!post.getAuthorId().equals(p.userId())) throw ApiException.forbidden("NOT_AUTHOR", "Só o autor edita o card");
+        if (r.title() != null) {
+            int words = wordCount(r.title());
+            if (words < TITLE_MIN_WORDS || words > TITLE_MAX_WORDS) throw ApiException.badRequest("TITLE_WORDS", "Título deve ter entre " + TITLE_MIN_WORDS + " e " + TITLE_MAX_WORDS + " palavras");
+            post.setTitle(r.title().trim());
+        }
+        if (r.subtitle() != null) post.setSubtitle(r.subtitle().isBlank() ? null : r.subtitle());
+        if (r.content() != null) post.setContent(r.content().isBlank() ? null : r.content());
+        if (Boolean.TRUE.equals(r.clearMedia())) post.setMediaKeys(null);
+        else if (r.mediaKeys() != null && !r.mediaKeys().isEmpty()) post.setMediaKeys("[" + r.mediaKeys().stream().map(k -> "\"" + k.replace("\"", "") + "\"").reduce((a, b) -> a + "," + b).orElse("") + "]");
+        if (r.ageRating() != null && !post.getContentType().sensitive()) post.setAgeRating(r.ageRating());
+        if (r.art() != null) {
+            try { post.setArt(new CardArt(r.art().color(), r.art().material(), r.art().layout(), r.art().style())); }
+            catch (IllegalArgumentException e) { throw ApiException.badRequest("ART_INVALID", e.getMessage()); }
+        }
+        if (post.hasMedia()) post.setSubtitle(null);
+        post = posts.save(post);
         return assembler.postCards(List.of(post), p).get(0);
     }
 
