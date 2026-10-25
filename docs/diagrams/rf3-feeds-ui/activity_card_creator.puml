@@ -1,0 +1,72 @@
+@startuml activity_card_creator
+title RF3 — Atividades: Criador de cards em 4 etapas (modo → conteúdo → arte → revisar e salvar)
+skinparam activityBackgroundColor #131b17
+skinparam activityBorderColor #00d47a
+skinparam activityFontColor #eaf2ee
+skinparam backgroundColor #0a0f0c
+skinparam arrowColor #95a89d
+skinparam noteBackgroundColor #19231d
+skinparam noteBorderColor #f5c542
+skinparam noteFontColor #eaf2ee
+
+|Autor (SPA)|
+start
+:Toca ＋ (FAB) ou "Criar card";
+partition "Etapa 1 · Modo" {
+  if (modo de geração?) then (Manual)
+    :generationMode = MANUAL;
+  else (Com IA · Copilot)
+    :generationMode = AI;
+    |API · CopilotService|
+    :POST /v1/copilot/suggest {draft, contentType?};
+    :infere tipo pelo papel/rascunho;
+    :título 5–12 palavras a partir dos dados
+    (treinos, última partida) — sem saúde;
+    :teaser, badges, ageRating, arte por tier;
+    |Autor (SPA)|
+    :vê sugestão rotulada "GERADO POR IA";
+    if (aceita?) then (sim)
+      :campos preenchidos (editáveis);
+    else (edita / ignora)
+    endif
+  endif
+}
+partition "Etapa 2 · Conteúdo" {
+  :escolhe tipo (borda) permitido ao papel;
+  :título obrigatório · teaser · texto completo · classificação;
+  if (5 ≤ palavras do título ≤ 12?) then (não)
+    :bloqueia avanço (TITLE_WORDS);
+    detach
+  else (sim)
+  endif
+}
+partition "Etapa 3 · Arte de fundo" {
+  :cor (swatches dos tokens ou personalizada);
+  :material (fosco · metálico · vidro · carbono · holográfico);
+  :layout (clássico · hero · split · minimal);
+  :estilo (neon · vitral · grafite · ouro · retrô);
+  :prévia ao vivo do .pcard com p-art;
+}
+partition "Etapa 4 · Revisar e salvar" {
+  :prévia final + resumo (modo, tipo, janela, arte, fonte);
+  if (ação?) then (Salvar rascunho)
+    |API · PostService|
+    :POST /v1/posts {draft:true};
+    :status = DRAFT (sem fan-out);
+    |Autor (SPA)|
+    :aparece em "Meus cards";
+    :POST /v1/posts/{id}/publish quando quiser;
+  else (Publicar)
+    |API · PostService|
+    :POST /v1/posts {contentType, title, subtitle, content,
+     ageRating, generationMode, art};
+    :RoleCapability.canPublish? · título 5–12 ·
+     LESAO_ALERTA ⇒ SENSÍVEL · marca APOSTAS ⇒ 18+;
+    :persiste Post + CardArt;
+    :fan-out feed_entries (Cassandra) quando ligado;
+    |Autor (SPA)|
+    :navega para a janela do tipo; card no feed;
+  endif
+}
+stop
+@enduml

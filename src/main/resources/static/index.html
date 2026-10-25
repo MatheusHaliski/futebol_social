@@ -199,7 +199,7 @@
     <button class="icon-btn" id="btnLgpd" aria-label="Privacidade LGPD"><svg class="ic"><use href="#ic-privacidade"/></svg></button>
     <button class="me" id="meBtn" aria-label="Meu perfil">
       <span class="avatar" data-initials="MA"><i class="dot dc-atleta"></i></span>
-      <span class="me-meta"><b>&lt;PREENCHER_NOME&gt;</b><small>@&lt;preencher_user&gt; · atleta · <svg class="ic tier t-legendary" role="img" aria-label="Tier Legendary"><title>Tier Legendary</title><use href="#ic-tier-legendary"/></svg></small></span>
+      <span class="me-meta"><b id="meName">&lt;PREENCHER_NOME&gt;</b><small><span id="meHandle">@&lt;preencher_user&gt;</span> · <span id="meRole">atleta</span> · <span id="meTier"><svg class="ic tier t-legendary" role="img" aria-label="Tier Legendary"><title>Tier Legendary</title><use href="#ic-tier-legendary"/></svg></span> <span class="src" id="srcBadge" title="fonte dos dados">DEMO</span></small></span>
     </button>
   </div>
 </header>
@@ -531,13 +531,14 @@
   <section class="window" data-window="flair" id="win-flair" hidden>
     <header class="win-head"><h2><span class="secnum">JOGAR</span> FLAIR <small>duelo semanal com os seus cards</small></h2>
       <nav class="segments"><a class="active" href="#/flair">Duelo 1×1</a><a href="#/flair?mode=liga">Liga de 8</a><a href="#/flair?mode=colecao">Coleção</a><a href="#/flair?mode=pacotes">Pacotes</a></nav>
-      <span class="points">🪙 1.240 PONTOS</span>
+      <span class="points" id="flairPoints">🪙 1.240 PONTOS</span>
     </header>
     <div class="flair">
+      <div class="flair-actions"><button class="btn ghost" id="packBtn">🎁 Abrir pacote do dia</button><button class="btn primary" id="flairStart">⚔️ Novo duelo vs sistema</button><small class="mono" id="flairOdds">odds · COMMON 55% · RARE 25% · EPIC 12% · LEGENDARY 6% · MYTHIC 2%</small></div>
       <div class="duel">
         <div class="deck-side"><h4>Sua escalação</h4><div class="deck" id="deckMe"></div></div>
-        <div class="versus"><div class="vs">VS</div><div class="round"><small>LANCE 2 DE 3 · VOCÊ ESCOLHE O EIXO</small><div class="axes"><button class="btn ghost" data-axis="fisico">PP · Físico 30</button><button class="btn primary" data-axis="tecnico">RP · Técnico 40</button><button class="btn ghost" data-axis="partidas">MP · Partidas 30</button></div><button class="btn snap" id="snapBtn">⚡ Snap (dobra)</button></div><div class="score-line">1 × 0</div></div>
-        <div class="deck-side"><h4>&lt;PREENCHER_OPONENTE&gt;</h4><div class="deck" id="deckOp"></div></div>
+        <div class="versus"><div class="vs">VS</div><div class="round"><small id="roundLabel">LANCE 1 DE 3 · VOCÊ ESCOLHE O EIXO</small><div class="axes"><button class="btn ghost" data-axis="PP">PP · Físico 30</button><button class="btn primary" data-axis="RP">RP · Técnico 40</button><button class="btn ghost" data-axis="MP">MP · Partidas 30</button></div><button class="btn snap" id="snapBtn" aria-pressed="false">⚡ Snap (dobra)</button></div><div class="score-line" id="scoreLine">0 × 0</div><ul class="flair-log" id="flairLog"></ul></div>
+        <div class="deck-side"><h4 id="deckOpName">&lt;PREENCHER_OPONENTE&gt;</h4><div class="deck" id="deckOp"></div></div>
       </div>
       <p class="hint legal">Sem dinheiro real · pacotes gratuitos com probabilidades visíveis (ECA Digital art. 20) · cards usam só stats consentidas; status médico nunca aparece (LGPD art. 11) · limite diário de partidas.</p>
     </div>
@@ -556,27 +557,82 @@
   <a href="#/alerta" data-win="alerta"><svg class="ic"><use href="#ic-alerta"/></svg><span>Alerta</span><b class="count">3</b></a>
 </nav>
 
-<!-- ===================== COMPOSER + COPILOT (título obrigatório · subtítulo teaser) ===================== -->
-<div class="sheet" id="composer" hidden>
-  <div class="sheet-card">
-    <header><h3>Criar card</h3><button class="icon-btn" data-close="composer">✕</button></header>
-    <div class="types">
-      <label class="type-opt cc-treino"><input type="radio" name="ct" value="TREINO" checked> ◇ TREINO</label>
-      <label class="type-opt cc-partida"><input type="radio" name="ct" value="PARTIDA_MOMENTO"> ◇ PARTIDA / MOMENTO</label>
-      <label class="type-opt cc-scouting" data-roles="STAFF,SCOUT,CLUBE"><input type="radio" name="ct" value="RELATORIO_TATICO"> ▭ SCOUTING REPORT</label>
-      <label class="type-opt cc-liga" data-roles="OFICIAL_LIGA,CLUBE,TORCIDA_ORGANIZADA"><input type="radio" name="ct" value="LIGA"> ⬢ LIGA / COMUNIDADE</label>
-      <label class="type-opt cc-institucional" data-roles="CLUBE,MARCA,OFICIAL_LIGA,STAFF_SAUDE,ATLETA"><input type="radio" name="ct" value="INSTITUCIONAL"> ▭ INSTITUCIONAL / LESÃO</label>
-      <label class="type-opt cc-especial" data-roles="OFICIAL_LIGA,ADMIN"><input type="radio" name="ct" value="ESPECIAL"> ✦ ESPECIAL / PRÊMIO</label>
-    </div>
-    <label class="t">Título · obrigatório · 5 a 12 palavras <input type="text" id="composerTitle" maxlength="90" placeholder="A headline que cria a lacuna de curiosidade"></label>
-    <label class="t">Subtítulo · teaser opcional (só em posts de texto) <input type="text" id="composerSub" maxlength="120" placeholder="Sugere, não entrega"></label>
-    <label class="t">Texto completo · aparece só ao abrir o card <textarea id="composerText" placeholder="O feed nunca exibe texto corrido."></textarea></label>
-    <div class="copilot" id="copilot">
-      <div class="cp-head">✨ Copilot <small>SUGERE · VOCÊ ACEITA</small></div>
-      <div class="cp-body" id="copilotBody"></div>
-      <div class="cp-actions"><button class="btn primary" id="cpAccept">Aceitar</button><button class="btn ghost" id="cpEdit">Editar</button><button class="btn ghost" id="cpDismiss">✕</button></div>
-    </div>
-    <footer><small><i class="dot xs dc-atleta"></i> AUTOR · ATLETA · BORDA PELO TIPO · <span class="age-chip age-safe">SAFE</span></small><button class="btn primary" id="publishBtn">Publicar</button></footer>
+<!-- ===================== CRIADOR DE CARDS · assistente em 4 etapas (modo → conteúdo → arte → revisar) ===================== -->
+<div class="sheet" id="composer" hidden role="dialog" aria-modal="true" aria-labelledby="wzTitle">
+  <div class="sheet-card wizard">
+    <header><h3 id="wzTitle">Criar card</h3><button class="icon-btn" data-close="composer" aria-label="Fechar">✕</button></header>
+    <ol class="wz-steps" id="wzSteps">
+      <li class="on" data-step="1"><b>1</b><span>Modo</span></li><li data-step="2"><b>2</b><span>Conteúdo</span></li><li data-step="3"><b>3</b><span>Arte</span></li><li data-step="4"><b>4</b><span>Revisar</span></li>
+    </ol>
+
+    <!-- etapa 1 · modo de geração -->
+    <section class="wz-pane" data-step="1">
+      <p class="hint">Como você quer criar este card?</p>
+      <div class="mode-opts">
+        <button type="button" class="mode-opt on" data-mode="MANUAL"><svg class="ic"><use href="#ic-criar"/></svg><b>Manual</b><small>Você escreve título, teaser e texto. Controle total.</small></button>
+        <button type="button" class="mode-opt" data-mode="AI"><svg class="ic"><use href="#ic-copilot"/></svg><b>Com IA · Copilot</b><small>Sugere tipo, título, teaser, badges e arte a partir dos seus dados. Você revisa tudo (Art. 20).</small></button>
+      </div>
+    </section>
+
+    <!-- etapa 2 · conteúdo -->
+    <section class="wz-pane" data-step="2" hidden>
+      <div class="types">
+        <label class="type-opt cc-treino"><input type="radio" name="ct" value="TREINO" checked> ◇ TREINO</label>
+        <label class="type-opt cc-partida"><input type="radio" name="ct" value="PARTIDA_MOMENTO"> ◇ PARTIDA / MOMENTO</label>
+        <label class="type-opt cc-scouting" data-roles="STAFF,SCOUT,IMPRENSA,AGENTE_IA"><input type="radio" name="ct" value="RELATORIO_TATICO"> ▭ SCOUTING REPORT</label>
+        <label class="type-opt cc-liga" data-roles="OFICIAL_LIGA,CLUBE,IMPRENSA"><input type="radio" name="ct" value="LIGA"> ⬢ LIGA / COMUNIDADE</label>
+        <label class="type-opt cc-institucional" data-roles="CLUBE,MARCA,OFICIAL_LIGA,STAFF,AGENTE"><input type="radio" name="ct" value="INSTITUCIONAL"> ▭ INSTITUCIONAL</label>
+        <label class="type-opt cc-institucional" data-roles="ATLETA,STAFF_SAUDE"><input type="radio" name="ct" value="LESAO_ALERTA"> 🩹 LESÃO / ALERTA</label>
+        <label class="type-opt cc-especial" data-roles="OFICIAL_LIGA,CLUBE,AGENTE_IA"><input type="radio" name="ct" value="ESPECIAL"> ✦ ESPECIAL / PRÊMIO</label>
+      </div>
+      <div class="copilot" id="copilot" hidden>
+        <div class="cp-head">✨ Copilot <small>SUGERE · VOCÊ ACEITA OU EDITA</small></div>
+        <div class="cp-body" id="copilotBody">Gerando sugestão…</div>
+        <div class="cp-actions"><button type="button" class="btn primary" id="cpAccept">Aceitar sugestão</button><button type="button" class="btn ghost" id="cpRefresh">Outra</button><button type="button" class="btn ghost" id="cpDismiss">Ignorar</button></div>
+      </div>
+      <label class="t">Título · obrigatório · 5 a 12 palavras <input type="text" id="composerTitle" maxlength="90" placeholder="A headline que cria a lacuna de curiosidade"><small class="mono" id="titleCount">0 palavras</small></label>
+      <label class="t">Subtítulo · teaser opcional (só em posts de texto) <input type="text" id="composerSub" maxlength="160" placeholder="Sugere, não entrega"></label>
+      <label class="t">Texto completo · aparece só ao abrir o card <textarea id="composerText" maxlength="5000" placeholder="O feed nunca exibe texto corrido."></textarea></label>
+      <label class="t">Fotografia · opcional · campo de upload do usuário (JPEG, PNG, WebP, GIF ou MP4 até 25 MB)
+        <span class="upload-row"><input type="file" id="composerPhoto" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4"><button type="button" class="btn ghost" id="photoClear" hidden>Remover</button><small class="mono" id="photoStatus">sem fotografia — o card usa só a arte de fundo</small></span>
+        <div class="photo-preview" id="photoPreview" hidden></div>
+      </label>
+      <label class="t">Classificação <select id="composerAge"><option value="SAFE">SAFE</option><option value="KIDS">KIDS</option><option value="AGE_12">12+</option><option value="AGE_16">16+</option><option value="AGE_18">18+</option></select></label>
+    </section>
+
+    <!-- etapa 3 · arte de fundo -->
+    <section class="wz-pane" data-step="3" hidden>
+      <div class="art-grid">
+        <div>
+          <p class="hint">A arte tinge o <b>fundo do card</b> (não a fotografia). Cor, material, layout e estilo mudam o painel atrás do título e do teaser.</p>
+          <label class="t">Cor de fundo <small class="mono" id="artColorHex">#00d47a</small></label>
+          <div class="swatches" id="artColors"></div>
+          <label class="t custom-color">Personalizada <input type="color" id="artCustom" value="#00d47a"></label>
+          <label class="t">Material</label><div class="optchips" id="artMaterials"></div>
+          <label class="t">Layout</label><div class="optchips" id="artLayouts"></div>
+          <label class="t">Estilo</label><div class="optchips" id="artStyles"></div>
+        </div>
+        <div class="art-preview-wrap"><label class="t">Prévia</label><div class="art-preview" id="artPreview"></div></div>
+      </div>
+    </section>
+
+    <!-- etapa 4 · revisar e salvar -->
+    <section class="wz-pane" data-step="4" hidden>
+      <div class="review-grid">
+        <div class="review-card" id="reviewCard"></div>
+        <ul class="review-summary" id="reviewSummary"></ul>
+      </div>
+    </section>
+
+    <footer class="wz-footer">
+      <small id="wzMeta"><i class="dot xs dc-atleta"></i> AUTOR · ATLETA · <span class="age-chip age-safe">SAFE</span></small>
+      <div class="wz-nav">
+        <button type="button" class="btn ghost" id="wzBack" disabled>← Voltar</button>
+        <button type="button" class="btn primary" id="wzNext">Avançar →</button>
+        <button type="button" class="btn ghost" id="saveDraftBtn" hidden>Salvar rascunho</button>
+        <button type="button" class="btn primary" id="publishBtn" hidden>Publicar card</button>
+      </div>
+    </footer>
   </div>
 </div>
 
@@ -590,11 +646,11 @@
       <header><h3 id="lgpdTitle">Central de Privacidade</h3><button class="icon-btn" data-close="lgpdModal">✕</button></header>
       <div class="lgpd-panel" data-lgpd="conta">
         <h4>Conta <span class="art">Art. 18, III · Correção</span></h4>
-        <label>Nome de exibição <input type="text" value="<PREENCHER_NOME>"></label>
-        <label>E-mail <span class="verified-tag">✓ VERIFICADO</span> <input type="email" value="<PREENCHER_EMAIL>"><span class="art">Art. 7º, V · Execução de contrato</span></label>
-        <label>Data de nascimento <input type="date" value="2003-05-12"><small>Usada só para verificar idade — necessidade (Art. 6º, III)</small></label>
-        <label>Posição / clube <input type="text" value="Meia · <PREENCHER_CLUBE>"></label>
-        <div class="filter-actions"><button class="btn primary">Salvar alterações</button><button class="btn ghost">Cancelar</button></div>
+        <label>Nome de exibição <input type="text" id="accName" value="<PREENCHER_NOME>"></label>
+        <label>Bio <input type="text" id="accBio" maxlength="280" placeholder="opcional"></label>
+        <label>Estado (UF) / cidade <span class="inline2"><input type="text" id="accState" maxlength="2" placeholder="UF"><input type="text" id="accCity" placeholder="<PREENCHER_CIDADE>"></span><small>Usados só para filtros regionais — necessidade (Art. 6º, III)</small></label>
+        <div class="filter-actions"><button class="btn primary" id="accSave">Salvar alterações</button><button class="btn ghost" id="logoutBtn">Sair desta sessão</button><button class="btn ghost" id="logoutAllBtn">Sair de todos os dispositivos</button></div>
+        <ul class="milestones" id="sessionList"></ul>
       </div>
       <div class="lgpd-panel" data-lgpd="privacidade" hidden>
         <h4>Quem pode ver seu perfil <span class="art">Art. 18, VII</span></h4>
@@ -605,20 +661,28 @@
         </div>
         <h4>Uso dos seus dados <span class="art">consentimento · opt-in · todos desligados</span></h4>
         <ul class="toggles" id="lgpdToggles"></ul>
+        <div class="stepup" id="stepUpBox" hidden><b>Confirme sua senha</b><small>Ações sensíveis (Art. 11) exigem reautenticação · válida por 5 min</small><span class="inline2"><input type="password" id="stepUpPass" placeholder="senha" autocomplete="current-password"><button class="btn primary" id="stepUpBtn">Confirmar</button></span></div>
       </div>
       <div class="lgpd-panel" data-lgpd="aparencia" hidden>
         <h4>Aparência <span class="art muted">preferência de interface — não é dado pessoal</span></h4>
         <label class="toggle-row"><span><b>Modo escuro</b><small>tema da interface</small></span><input type="checkbox" class="sw" id="darkToggle" checked></label>
-        <label>Tamanho da fonte <input type="range" min="0.8" max="1.4" step="0.1" value="1"></label>
+        <label>Tamanho da fonte <input type="range" id="fontScale" min="0.8" max="1.4" step="0.1" value="1"></label>
+        <div class="ap-grid">
+          <div class="ap-row"><b>Cor de destaque</b><small class="hint">Barras ativas, botões e brilhos. As cores de identidade dos papéis e das bordas de conteúdo nunca mudam.</small><div class="ap-swatches" id="apAccents"></div></div>
+          <div class="ap-row"><b>Tom das barras laterais e painéis</b><small class="hint">Grafite (padrão), Floresta, Marinho, Ameixa ou Areia (clara).</small><div class="ap-swatches" id="apSurfaces"></div></div>
+          <div class="ap-row"><b>Tela de fundo</b><small class="hint">Grade de ícones de futebol com holofote, em cinco paletas, ou um arquivo seu. Painéis ficam translúcidos sobre o fundo.</small><div class="ap-walls" id="apWalls"></div></div>
+        </div>
       </div>
       <div class="lgpd-panel" data-lgpd="idioma" hidden>
         <h4>Idioma <span class="art">Art. 6º, IV e VI · transparência</span></h4>
-        <label>Idioma da interface <select><option>Português (Brasil)</option><option>English (US)</option><option>Español</option></select></label>
+        <label>Idioma da interface <select id="langSelect"><option value="pt-BR">Português (Brasil)</option><option value="en-US">English (US)</option><option value="es">Español</option></select></label>
       </div>
       <div class="lgpd-panel" data-lgpd="dados" hidden>
         <h4>Seus dados <span class="art">Art. 18</span></h4>
         <div class="toggle-row"><span><b>Baixar seus dados</b><small>JSON completo: perfil, consentimentos, gêmeo, badges, telemetria, posts · link expira em 7 dias</small><span class="art">Art. 18, V · Portabilidade</span></span><button class="btn ghost" id="exportBtn">Exportar</button></div>
-        <div class="toggle-row"><span><b>Histórico de atividades</b><small>tudo o que foi tratado e quando</small><span class="art">Art. 18, I e II</span></span><button class="btn ghost">Ver</button></div>
+        <ul class="milestones" id="exportList"></ul>
+        <div class="toggle-row"><span><b>Histórico de consentimentos</b><small>tudo o que foi tratado, quando e com que base legal</small><span class="art">Art. 18, I e II</span></span><button class="btn ghost" id="historyBtn">Ver</button></div>
+        <ul class="milestones" id="consentHistory" hidden></ul>
         <div class="danger">
           <b>Excluir conta</b>
           <p>Sua conta entra em <b>PENDING_DELETE</b> por <b>30 dias</b> (soft-delete). Nesse período, basta fazer login para reativar. Depois, seus dados pessoais são anonimizados de forma irreversível.</p>
@@ -628,6 +692,42 @@
         </div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ===================== AUTENTICAÇÃO (RF1/RF2) ===================== -->
+<div class="modal" id="authModal" hidden role="dialog" aria-modal="true" aria-labelledby="authTitle">
+  <div class="modal-card auth">
+    <header><h3 id="authTitle">Entrar no Football AI · Social</h3><button class="icon-btn" data-close="authModal" aria-label="Fechar">✕</button></header>
+    <nav class="seg-mini auth-tabs"><button class="active" data-auth="login">Entrar</button><button data-auth="register">Criar conta</button></nav>
+    <form id="loginForm" class="auth-form">
+      <label>E-mail <input type="email" name="email" required autocomplete="username" placeholder="voce@exemplo.dev"></label>
+      <label>Senha <input type="password" name="password" required autocomplete="current-password" minlength="10"></label>
+      <button class="btn primary" type="submit">Entrar</button>
+      <small class="hint">Contas de exemplo (perfil local): <code>atleta1@exemplo.dev</code> · <code>scout@exemplo.dev</code> · <code>clube1@exemplo.dev</code> · senha <code>Senha@Forte123</code></small>
+    </form>
+    <form id="registerForm" class="auth-form" hidden>
+      <label>Papel <select name="role" id="regRole"><option value="ATLETA">Atleta</option><option value="STAFF">Comissão técnica</option><option value="STAFF_SAUDE">Staff de saúde</option><option value="CLUBE">Clube</option><option value="SCOUT">Scout</option><option value="AGENTE">Agente</option><option value="MARCA">Marca</option><option value="IMPRENSA">Imprensa</option><option value="OFICIAL_LIGA">Oficial de liga</option><option value="TORCEDOR">Torcedor</option></select></label>
+      <label>Nome de exibição <input type="text" name="displayName" required maxlength="80"></label>
+      <label>Username <input type="text" name="username" required pattern="[a-z0-9_.]{3,30}" placeholder="letras minúsculas, números, _ ."></label>
+      <label>E-mail <input type="email" name="email" required autocomplete="email"></label>
+      <label>Senha (≥ 10) <input type="password" name="password" required minlength="10" autocomplete="new-password"></label>
+      <label>Nascimento <input type="date" name="birthDate"><small>≥ 13 anos (Art. 14) · atletas: obrigatório</small></label>
+      <div class="inline2" id="regAthlete"><label>Posição <select name="position"><option value="">—</option><option>GOLEIRO</option><option>ZAGUEIRO</option><option>LATERAL</option><option>VOLANTE</option><option>MEIA</option><option>PONTA</option><option>ATACANTE</option></select></label><label>Clube atual <input type="text" name="clubName" placeholder="opcional"></label></div>
+      <label class="chip terms"><input type="checkbox" name="acceptTerms" required> Li e aceito os <a href="#" id="termsLink" target="_blank">Termos de Uso e a Política de Privacidade da Velion</a> <small id="termsVersion"></small></label>
+      <button class="btn primary" type="submit">Criar conta</button>
+      <small class="hint">Sua conta nasce com visibilidade <b>SOMENTE EU</b> e todos os consentimentos <b>desligados</b>.</small>
+    </form>
+    <p class="auth-error" id="authError" hidden></p>
+    <footer><button class="btn ghost" id="demoBtn">Continuar em modo demonstração (dados fictícios)</button></footer>
+  </div>
+</div>
+
+<!-- ===================== POST VIEW (texto completo só aqui) ===================== -->
+<div class="modal" id="postViewModal" hidden role="dialog" aria-modal="true">
+  <div class="modal-card postview">
+    <header><h3>Card</h3><button class="icon-btn" data-close="postViewModal" aria-label="Fechar">✕</button></header>
+    <div id="postViewBody"></div>
   </div>
 </div>
 
