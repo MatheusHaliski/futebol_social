@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.UUID;
 import com.footballai.social.model.enums.AccountStatus;
 import com.footballai.social.model.enums.ProfileVisibility;
+import com.footballai.social.service.FollowService;
 
 /** Perfil do usuário, card completo do atleta e histórico de badges (tap to expand). */
 @RestController
@@ -32,8 +33,9 @@ public class UserController {
     private final CardAssembler assembler;
     private final BadgeAwardService badges;
     private final UserLgpdPreferencesRepository prefs;
+    private final FollowService followService;
 
-    public UserController(UserService users, AthleteRepository athletes, CardAssembler assembler, BadgeAwardService badges, UserLgpdPreferencesRepository prefs) {
+    public UserController(UserService users, AthleteRepository athletes, CardAssembler assembler, BadgeAwardService badges, UserLgpdPreferencesRepository prefs, FollowService followService) { this.followService = followService;
         this.users = users; this.athletes = athletes; this.assembler = assembler; this.badges = badges; this.prefs = prefs;
     }
 
@@ -48,7 +50,9 @@ public class UserController {
         Athlete a = athletes.findById(id).orElseThrow(() -> ApiException.notFound("Atleta"));
         boolean owner = p != null && p.userId().equals(id);
         // mesma regra de FeedWindowService.athleteSpec: fora o dono, só perfil PUBLICO e conta ATIVA (404 para não revelar existência)
-        if (!owner && (a.getStatus() != AccountStatus.ACTIVE || a.getVisibility() != ProfileVisibility.PUBLICO)) throw ApiException.notFound("Atleta");
+        boolean visible = owner || (a.getStatus() == AccountStatus.ACTIVE && (a.getVisibility() == ProfileVisibility.PUBLICO
+                || (a.getVisibility() == ProfileVisibility.CONEXOES && p != null && followService.isConnection(p.userId(), id))));   // conexão = seguir mútuo
+        if (!visible) throw ApiException.notFound("Atleta");
         return assembler.athleteCard(a, p);
     }
 

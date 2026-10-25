@@ -33,6 +33,11 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.math.BigDecimal;
+import com.footballai.social.repository.FollowRepository;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.UUID;
+import java.util.List;
 
 /**
  * RF3 — as 4 janelas independentes de feed com filtros próprios, paginação por cursor e cache curto em Redis.
@@ -51,14 +56,21 @@ public class FeedWindowService {
     private final CardAssembler assembler;
     private final StringRedisTemplate redis;
     private final ObjectMapper mapper;
+    private final FollowRepository follows;
     private final Clock clock = Clock.systemUTC();
 
     public FeedWindowService(PostRepository posts, AthleteRepository athletes, ObjectProvider<FeedEntryRepository> feedEntries, CardAssembler assembler,
-                             StringRedisTemplate redis, ObjectMapper mapper) {
-        this.posts = posts; this.athletes = athletes; this.feedEntries = feedEntries; this.assembler = assembler; this.redis = redis; this.mapper = mapper;
+                             StringRedisTemplate redis, ObjectMapper mapper, FollowRepository follows) {
+        this.posts = posts; this.athletes = athletes; this.feedEntries = feedEntries; this.assembler = assembler; this.redis = redis; this.mapper = mapper; this.follows = follows;
     }
 
     public FeedPageDTO page(FeedQuery q, AuthPrincipal viewer) {
+        if (q.sort == FeedSort.FOLLOWING) {   // "Seguindo": só autores/atletas seguidos; sem cache para refletir o seguir na hora
+            Set<UUID> followed = viewer == null ? Set.of() : new HashSet<>(follows.findTargetIds(viewer.userId()));
+            if (followed.isEmpty()) return new FeedPageDTO(q.window.name(), q.sort.name(), List.of(), List.of(), null, q.applied(), "none");
+            FeedEntryRepository cassF = feedEntries.getIfAvailable();
+            return cassF != null ? fromCassandra(cassF, q, viewer, followed) : fromMysql(q, viewer, followed);
+        }
         String key = q.cacheKey(viewer == null ? null : viewer.userId());
         try {
             String cached = redis.opsForValue().get(key);
@@ -66,31 +78,32 @@ public class FeedWindowService {
         } catch (Exception e) { log.debug("cache miss/erro {}: {}", key, e.getMessage()); }
 
         FeedEntryRepository cass = feedEntries.getIfAvailable();
-        FeedPageDTO page = cass != null ? fromCassandra(cass, q, viewer) : fromMysql(q, viewer);
+        FeedPageDTO page = cass != null ? fromCassandra(cass, q, viewer, null) : fromMysql(q, viewer, null);
         try { redis.opsForValue().set(key, mapper.writeValueAsString(page), CACHE_TTL); } catch (Exception e) { log.debug("cache write falhou: {}", e.getMessage()); }
         return page;
     }
 
     /* ---------------- MySQL (Specification) ---------------- */
 
-    FeedPageDTO fromMysql(FeedQuery q, AuthPrincipal viewer) {
+    FeedPageDTO fromMysql(FeedQuery q, AuthPrincipal viewer, Set<UUID> followed) {
         Cursor before = decodeCursor(q.cursor, q.sort);
-        Specification<Post> spec = postSpec(q, before);
+        Specification<Post> spec = postSpec(q, before, followed);
         Sort sort = q.sort == FeedSort.TRENDING ? Sort.by(Sort.Order.desc("trendingScore"), Sort.Order.desc("publishedAt")) : Sort.by(Sort.Order.desc("publishedAt"));
         List<Post> found = posts.findAll(spec, PageRequest.of(0, q.size + 1, sort)).getContent();
         boolean more = found.size() > q.size;
         List<Post> pagePosts = more ? found.subList(0, q.size) : found;
         String next = more ? encodeCursor(pagePosts.get(pagePosts.size() - 1), q.sort) : null;
         List<PostCardDTO> cards = assembler.postCards(pagePosts, viewer);
-        List<AthleteCardDTO> ath = athleteCards(q, viewer);
+        List<AthleteCardDTO> ath = athleteCards(q, viewer, followed);
         return new FeedPageDTO(q.window.name(), q.sort.name(), cards, ath, next, q.applied(), "mysql");
     }
 
-    Specification<Post> postSpec(FeedQuery q, Cursor before) {
+    Specification<Post> postSpec(FeedQuery q, Cursor before, Set<UUID> followed) {
         return (root, cq, cb) -> {
             List<Predicate> ps = new ArrayList<>();
             ps.add(cb.equal(root.get("status"), PostStatus.PUBLISHED));
             ps.add(cb.equal(root.get("window"), q.window));
+            if (followed != null) ps.add(root.get("authorId").in(followed));
             if (before != null) {
                 if (before.score() == null) ps.add(cb.lessThan(root.get("publishedAt"), before.publishedAt()));
                 else ps.add(cb.or(cb.lessThan(root.get("trendingScore"), before.score()),               // continuação na mesma ordem do sort TRENDING
@@ -118,20 +131,26 @@ public class FeedWindowService {
     }
 
     /** Cards de atleta: PERFIL (descoberta) sempre; SCOUTING quando há atributos ou comparação. */
-    List<AthleteCardDTO> athleteCards(FeedQuery q, AuthPrincipal viewer) {
+    List<AthleteCardDTO> athleteCards(FeedQuery q, AuthPrincipal viewer, Set<UUID> followed) {
         boolean wants = q.window == FeedWindow.PERFIL || (q.window == FeedWindow.SCOUTING && (!q.attributes.isEmpty() || !q.compare.isEmpty()));
         if (!wants || q.cursor != null) return List.of();
         if (!q.roles.isEmpty() && !q.roles.contains(UserRole.ATLETA)) return List.of();
-        List<Athlete> found = athletes.findAll(athleteSpec(q, viewer), PageRequest.of(0, Math.min(q.size, 12), Sort.by(Sort.Order.asc("displayName")))).getContent();
+        List<Athlete> found = athletes.findAll(athleteSpec(q, viewer, followed), PageRequest.of(0, Math.min(q.size, 12), Sort.by(Sort.Order.asc("displayName")))).getContent();
         return assembler.athleteCards(found, viewer);
     }
 
-    Specification<Athlete> athleteSpec(FeedQuery q, AuthPrincipal viewer) {
+    Specification<Athlete> athleteSpec(FeedQuery q, AuthPrincipal viewer, Set<UUID> followed) {
         return (root, cq, cb) -> {
             List<Predicate> ps = new ArrayList<>();
             ps.add(cb.equal(root.get("status"), AccountStatus.ACTIVE));
             Predicate visible = cb.equal(root.get("visibility"), ProfileVisibility.PUBLICO);
-            ps.add(viewer == null ? visible : cb.or(visible, cb.equal(root.get("id"), viewer.userId())));
+            if (viewer == null) ps.add(visible);
+            else {   // PUBLICO, o próprio, ou CONEXOES para quem é conexão (seguir mútuo)
+                Set<UUID> conn = new HashSet<>(follows.findConnectionIds(viewer.userId()));
+                Predicate self = cb.equal(root.get("id"), viewer.userId());
+                ps.add(conn.isEmpty() ? cb.or(visible, self) : cb.or(visible, self, cb.and(cb.equal(root.get("visibility"), ProfileVisibility.CONEXOES), root.get("id").in(conn))));
+            }
+            if (followed != null) ps.add(root.get("id").in(followed));
             if (q.position != null) ps.add(cb.equal(root.get("position"), q.position));
             if (q.state != null) ps.add(cb.equal(root.get("stateCode"), q.state));
             if (q.clubId != null) ps.add(cb.equal(root.get("currentClubId"), q.clubId));
@@ -166,12 +185,12 @@ public class FeedWindowService {
 
     /* ---------------- Cassandra (fan-out) ---------------- */
 
-    FeedPageDTO fromCassandra(FeedEntryRepository repo, FeedQuery q, AuthPrincipal viewer) {
+    FeedPageDTO fromCassandra(FeedEntryRepository repo, FeedQuery q, AuthPrincipal viewer, Set<UUID> followed) {
         // lê exatamente `size` entradas: o paging state do driver continua após a última consumida (nada é lido e descartado)
         CassandraPageRequest pr = q.cursor == null ? CassandraPageRequest.first(q.size)
                 : CassandraPageRequest.of(PageRequest.of(0, q.size), ByteBuffer.wrap(Base64.getUrlDecoder().decode(q.cursor)));
         Slice<FeedEntry> slice = repo.findByKeyUserIdAndKeyFeedWindow(GLOBAL_FEED_USER, q.window.name(), pr);
-        List<FeedEntry> entries = slice.getContent().stream().filter(e -> matches(e, q)).toList();   // só campos imutáveis da projeção
+        List<FeedEntry> entries = slice.getContent().stream().filter(e -> matches(e, q)).filter(e -> followed == null || followed.contains(e.getAuthorId())).toList();   // só campos imutáveis da projeção
         Map<UUID, Post> byId = posts.findAllByIdIn(entries.stream().map(FeedEntry::getPostId).toList()).stream().collect(Collectors.toMap(Post::getId, Function.identity()));
         List<Post> ordered = entries.stream().map(e -> byId.get(e.getPostId())).filter(Objects::nonNull)
                 .filter(p -> p.getStatus() == PostStatus.PUBLISHED).filter(p -> matchesText(p, q)).toList();   // título/teaser vêm do MySQL (fonte da verdade após edição)
@@ -180,7 +199,7 @@ public class FeedWindowService {
             ByteBuffer st = n.getPagingState(); byte[] b = new byte[st.remaining()]; st.duplicate().get(b);
             next = Base64.getUrlEncoder().withoutPadding().encodeToString(b);
         }
-        return new FeedPageDTO(q.window.name(), q.sort.name(), assembler.postCards(ordered, viewer), athleteCards(q, viewer), next, q.applied(), "cassandra");
+        return new FeedPageDTO(q.window.name(), q.sort.name(), assembler.postCards(ordered, viewer), athleteCards(q, viewer, followed), next, q.applied(), "cassandra");
     }
 
     static boolean matches(FeedEntry e, FeedQuery q) {

@@ -155,7 +155,7 @@
   const fromAthlete = d => {
     const r = d.rarity || {}, ph = d.physical, attrs = d.attributes || [];
     const find = k => (attrs.find(a => a.kind === k) || {}).label;
-    return { id:d.athleteId, name:d.name, handle:d.handle, ini:ini(d.name), role:'ATLETA', pos:find('pos') || '—', age:parseInt(find('age')) || null, club:find('club') || '', state:find('state'),
+    return { following: !!d.followedByMe, id:d.athleteId, name:d.name, handle:d.handle, ini:ini(d.name), role:'ATLETA', pos:find('pos') || '—', age:parseInt(find('age')) || null, club:find('club') || '', state:find('state'),
       status:attrs.some(a => a.kind === 'free') ? 'AGENTE_LIVRE' : 'CONTRATADO', tier:r.tier || 'COMMON', score:r.score || 0, pp:r.pp || 0, rp:r.rp || 0, s:[Math.round((r.pp || 0) / 15), Math.round((r.rp || 0) / 10), r.mp || 0],
       attrs:attrs.map(a => [a.icon, a.label, a.kind]), badges:(d.topBadges || []).map(b => [b.label, b.type === 'PRONTO_PRA_JOGO' ? 'green' : b.type === 'DEPARTAMENTO_MEDICO' ? 'red' : b.type === 'RISCO_FADIGA' ? 'yellow' : '']),
       season:d.season, avgRating:d.season && d.season.avgRating, phys: ph ? { readiness:ph.readiness, acwr:ph.acwr, status:PHYS_MAP[ph.status] || 'READY', injury: ph.injury ? { type:ph.injury.type, ret: ph.injury.expectedReturn || '—' } : null } : null,
@@ -243,6 +243,7 @@
         <button class="act like" data-act="like"><span class="i">♡</span>Curtir<b>${fmt(a.likes)}</b></button>
         <button class="act" data-act="comment"><span class="i">💬</span>Comentar<b>${fmt(a.comments)}</b></button>
         <button class="act" data-act="share"><span class="i">↗</span>Compartilhar<b>${fmt(a.shares)}</b></button>
+        ${API.user && API.user.id !== a.id ? `<button class="act follow${a.following ? ' on' : ''}" data-act="follow" data-user="${esc(a.id)}"><span class="i">${a.following ? '✓' : '＋'}</span>${a.following ? 'Seguindo' : 'Seguir'}</button>` : ''}
         <a class="act go" href="#/gemeo/evolucao?athleteId=${esc(a.id)}">Gêmeo →</a>
       </div>`;
     const sens = a.phys && a.phys.status === 'INJURED';
@@ -347,7 +348,7 @@
   }
   const filteredAthletes = p => athletes.filter(a => (!p.tier || p.tier.split(',').includes(a.tier)) && (!p.position || a.pos.toUpperCase() === p.position)
     && (!p.ageMin || a.age >= +p.ageMin) && (!p.ageMax || a.age <= +p.ageMax) && (!p.state || a.state === p.state) && (!p.contractStatus || a.status === p.contractStatus) && (!p.role || p.role.split(',').includes(a.role)));
-  const empty = (msg = 'Nada por aqui com esses filtros.') => `<p class="hint">${msg}</p>`;
+  const empty = msg => `<p class="hint">${msg || (sortBy === 'FOLLOWING' ? 'Você ainda não segue ninguém — use ＋ Seguir nos cards de atletas e clubes para montar este feed.' : 'Nada por aqui com esses filtros.')}</p>`;
   const cards = (list, fn = postCard, msg) => list.length ? list.map(x => fn(x)).join('') : empty(msg);
   async function tryApi(fn, fallback) {
     if (!live()) return fallback();
@@ -761,6 +762,7 @@
     $('#meTier').innerHTML = u.tier ? chip(u.tier) : ''; const av = $('#meBtn .avatar'); av.dataset.initials = ini(u.displayName); av.innerHTML = `<i class="dot dc-${roleOf(u.role).dc}"></i>`;
     $('#srcBadge').textContent = 'API'; $('#srcBadge').classList.add('api');
     $$('.sidebar a[data-roles]').forEach(a => a.hidden = !a.dataset.roles.split(',').includes(ROLE));
+    if (typeof startNotifPolling === 'function') setTimeout(startNotifPolling, 0);
   }
   function openAuth() { $('#authModal').hidden = false; $('#authError').hidden = true; if (API.online && !API.terms) API.call('/v1/terms/current', { auth: false }).then(t => { API.terms = t; $('#termsVersion').textContent = `versão ${t.version} · ${t.owner}`; $('#termsLink').href = t.documentUrl || '#'; }).catch(() => {}); }
   $$('.auth-tabs button').forEach(b => b.addEventListener('click', () => { $$('.auth-tabs button').forEach(x => x.classList.toggle('active', x === b)); $('#loginForm').hidden = b.dataset.auth !== 'login'; $('#registerForm').hidden = b.dataset.auth !== 'register'; }));
@@ -789,8 +791,70 @@
     const m = $('#postViewModal'); m.hidden = false;
     $('#postViewBody').innerHTML = fallbackCard || '';
     if (!live() || !id) { $('#postViewBody').insertAdjacentHTML('beforeend', '<p class="content hint">Texto completo disponível no PostView (demo).</p>'); return; }
-    try { const v = await API.call(`/v1/posts/${id}`); $('#postViewBody').innerHTML = postCard(fromPost(v.card)) + `<div class="content">${esc(v.content || '(sem texto completo)')}</div>`; } catch (e) { toast(e.message); }
+    try { const v = await API.call(`/v1/posts/${id}`); const d = fromPost(v.card); $('#postViewBody').innerHTML = postCard(d) + `<div class="content">${esc(v.content || '(sem texto completo)')}</div>` + commentsBlock(d); await loadComments(d.id); } catch (e) { toast(e.message); }
   }
+
+  /* ---------- camada social: seguir · comentários · notificações ---------- */
+  const setFollowBtn = (btn, on) => { btn.classList.toggle('on', on); btn.innerHTML = `<span class="i">${on ? '✓' : '＋'}</span>${on ? 'Seguindo' : 'Seguir'}`; };
+  let CM = { postId: null, parentId: null };
+  const commentsBlock = d => `<section class="comments" data-post="${esc(d.id)}"><h4>Comentários <b id="cmTotal">${fmt(d.comments)}</b>${API.user && !d.mine ? `<button class="act follow" data-act="follow" data-user="${esc(d.authorId)}" id="cmFollow"><span class="i">＋</span>Seguir</button>` : ''}</h4>
+    <ul class="cm-list" id="cmList"><li class="hint">carregando…</li></ul>
+    <form class="cm-form" id="cmForm"><div class="cm-replying" id="cmReplying" hidden></div><textarea id="cmBody" maxlength="500" placeholder="Comente com respeito."></textarea><button class="btn primary" type="submit">Enviar</button><small>1–500 caracteres · menores de 13 não comentam (ECA Digital) · o dono do card e a liga podem remover.</small></form></section>`;
+  const cmItem = c => { const a = c.author; const r = roleOf(a ? a.role : 'TORCEDOR'); return `<li class="cm${c.parentId ? ' reply' : ''}" data-cid="${esc(c.id)}"><span class="dot sm dc-${r.dc}"></span><div>
+      <div class="cm-head"><b>${esc(a ? a.handle : '@removido')}</b><span>· ${esc(r.label)}${a && a.verified ? ' ✦' : ''}</span><small>${esc(c.timeLabel)}</small></div>
+      <div class="cm-body">${esc(c.body)}</div>
+      <div class="cm-actions">${c.parentId ? '' : `<button type="button" data-cm="reply" data-cid="${esc(c.id)}" data-handle="${esc(a ? a.handle : '')}">Responder</button>`}${c.canDelete ? `<button type="button" data-cm="delete" data-cid="${esc(c.id)}">Remover</button>` : ''}</div></div></li>`; };
+  function renderComments(page) {
+    const rootIds = new Set(page.items.filter(c => !c.parentId).map(c => c.id));
+    const roots = page.items.filter(c => !c.parentId || !rootIds.has(c.parentId)).map(c => rootIds.has(c.parentId) ? c : { ...c, parentId: null });   // órfã vira raiz
+    const replies = page.items.filter(c => c.parentId && rootIds.has(c.parentId));
+    const ordered = roots.flatMap(r => [r, ...replies.filter(x => x.parentId === r.id)]);
+    $('#cmList').innerHTML = ordered.length ? ordered.map(cmItem).join('') : '<li class="hint">Seja o primeiro a comentar.</li>';
+    $('#cmTotal').textContent = fmt(page.total);
+    $$(`.pcard[data-id="${page.postId}"] .act[data-act=comment] b`).forEach(b => b.textContent = fmt(page.total));
+  }
+  async function loadComments(postId) {
+    CM = { postId, parentId: null };
+    if (!live()) { $('#cmList').innerHTML = '<li class="hint">Comentários chegam com a API ligada.</li>'; return; }
+    try {
+      const fb = $('#cmFollow');
+      const [page, fs] = await Promise.all([API.call(`/v1/posts/${postId}/comments?size=50`), fb ? API.call(`/v1/users/${fb.dataset.user}/follow`).catch(() => null) : null]);
+      renderComments(page); if (fs && fb) setFollowBtn(fb, fs.following);
+    } catch (e) { $('#cmList').innerHTML = `<li class="hint">${esc(e.message)}</li>`; }
+  }
+  document.addEventListener('submit', async e => {
+    if (e.target.id !== 'cmForm') return; e.preventDefault();
+    if (!live()) { toast('COMENTÁRIOS DISPONÍVEIS COM A API'); return; }
+    const body = $('#cmBody').value.trim(); if (!body) return;
+    try { await API.call(`/v1/posts/${CM.postId}/comments`, { method: 'POST', body: { body, parentId: CM.parentId } }); $('#cmBody').value = ''; CM.parentId = null; $('#cmReplying').hidden = true; await loadComments(CM.postId); toast('COMENTÁRIO PUBLICADO'); } catch (err) { toast(err.message); }
+  });
+  document.addEventListener('click', async e => {
+    const b = e.target.closest('[data-cm]'); if (!b) return;
+    if (b.dataset.cm === 'reply') { CM.parentId = b.dataset.cid; $('#cmReplying').hidden = false; $('#cmReplying').innerHTML = `Respondendo a <b>${esc(b.dataset.handle)}</b> <button type="button" data-cm="cancel">✕ cancelar</button>`; $('#cmBody').focus(); }
+    else if (b.dataset.cm === 'cancel') { CM.parentId = null; $('#cmReplying').hidden = true; }
+    else if (b.dataset.cm === 'delete') { try { await API.call(`/v1/posts/${CM.postId}/comments/${b.dataset.cid}`, { method: 'DELETE' }); await loadComments(CM.postId); toast('COMENTÁRIO REMOVIDO'); } catch (err) { toast(err.message); } }
+  });
+  const NT = { unread: 0, timer: null };
+  function renderNotifCount(n) { NT.unread = n; ['#notifCount', '#navAlertCount'].forEach(sel => { const el = $(sel); if (!el) return; el.textContent = n > 99 ? '99+' : String(n); el.hidden = !n; }); }
+  async function refreshNotifCount() { if (!live()) { renderNotifCount(0); return; } try { const r = await API.call('/v1/me/notifications/unread-count'); renderNotifCount(r.unread); } catch { } }
+  const notifItem = n => `<li class="notif${n.unread ? ' unread' : ''}" data-nid="${esc(n.id)}" data-ref="${esc(n.refType || '')}" data-refid="${esc(n.refId || '')}"><span class="glyph">${esc(n.glyph)}</span><div><b>${esc(n.title)}</b>${n.body ? `<span>${esc(n.body)}</span>` : ''}</div><small>${esc(n.timeLabel)}</small></li>`;
+  async function openNotifications() {
+    if (!API.user) { openAuth(); return; }
+    $('#notifModal').hidden = false; $('#notifList').innerHTML = '<li class="hint">carregando…</li>';
+    if (!live()) { $('#notifList').innerHTML = '<li class="hint">Notificações chegam com a API ligada.</li>'; return; }
+    try { const page = await API.call('/v1/me/notifications'); $('#notifList').innerHTML = page.items.length ? page.items.map(notifItem).join('') : '<li class="hint">Nada por aqui ainda — curtidas, comentários, seguidores, duelos FLAIR e mudanças de tier aparecem aqui.</li>'; renderNotifCount(page.unreadCount); }
+    catch (e) { $('#notifList').innerHTML = `<li class="hint">${esc(e.message)}</li>`; }
+  }
+  $('#btnNotif').addEventListener('click', openNotifications);
+  $('#notifReadAll').addEventListener('click', async () => { if (!live()) return; try { const page = await API.call('/v1/me/notifications/read', { method: 'POST', body: { all: true } }); $('#notifList').innerHTML = page.items.map(notifItem).join(''); renderNotifCount(page.unreadCount); } catch (e) { toast(e.message); } });
+  $('#notifList').addEventListener('click', async e => {
+    const li = e.target.closest('.notif'); if (!li) return;
+    if (li.classList.contains('unread')) { try { const page = await API.call('/v1/me/notifications/read', { method: 'POST', body: { ids: [li.dataset.nid] } }); li.classList.remove('unread'); renderNotifCount(page.unreadCount); } catch { } }
+    if (li.dataset.ref === 'POST' && li.dataset.refid) { $('#notifModal').hidden = true; openPostView(li.dataset.refid, ''); }
+    else if (li.dataset.ref === 'MATCH') { $('#notifModal').hidden = true; location.hash = '#/flair'; }
+    else if (li.dataset.ref === 'TWIN') { $('#notifModal').hidden = true; location.hash = '#/gemeo/evolucao'; }
+  });
+  function startNotifPolling() { refreshNotifCount(); clearInterval(NT.timer); NT.timer = setInterval(refreshNotifCount, 60000); }
 
   /* ---------- sidebar por papel, menu, hide-on-scroll, swipe, ações sociais ---------- */
   $$('.sidebar a[data-roles]').forEach(a => a.hidden = !a.dataset.roles.split(',').includes(ROLE) && ROLE !== 'ADMIN');
@@ -804,6 +868,11 @@
     if (act) {
       const card = act.closest('article'); const id = card && card.dataset.id; const isPost = card && !card.dataset.athlete; const n = act.querySelector('b'); const kind = act.dataset.act;
       const bump = d => { if (n) n.textContent = fmt(parseInt(n.textContent.replace(/\./g, '')) + d); };
+      if (kind === 'follow') {
+        if (!live()) { toast('SEGUIR DISPONÍVEL COM A API'); return; }
+        try { const f = await API.call(`/v1/users/${act.dataset.user}/follow`, { method: 'POST' }); setFollowBtn(act, f.following); toast(f.following ? (f.connection ? 'SEGUINDO · CONEXÃO MÚTUA' : 'SEGUINDO') : 'DEIXOU DE SEGUIR'); } catch (err) { toast(err.message); }
+        return;
+      }
       if (kind === 'comment') { openPostView(isPost ? id : null, card ? card.outerHTML : ''); return; }
       if (kind === 'edit') {
         if (!live() || !id) { toast('EDIÇÃO DISPONÍVEL COM A API'); return; }

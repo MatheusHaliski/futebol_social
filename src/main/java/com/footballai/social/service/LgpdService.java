@@ -58,6 +58,9 @@ public class LgpdService {
     private final FlairCardRepository flairCards;
     private final FlairMatchRepository flairMatches;
     private final TransactionTemplate tx;
+    private final FollowService followService;
+    private final CommentService commentService;
+    private final NotificationService notificationService;
     private final ObjectMapper mapper;
     private final AppProperties props;
     private final Clock clock;
@@ -66,18 +69,18 @@ public class LgpdService {
     public LgpdService(UserRepository users, UserLgpdPreferencesRepository prefs, ConsentAuditLogRepository consents, TermsAcceptanceRepository terms,
                        DigitalTwinRepository twins, WeeklyScoreSnapshotRepository snapshots, AthleteBadgeRepository badges, InjuryRecordRepository injuries,
                        PostRepository posts, PostReactionRepository reactions, TechnicalEvaluationRepository evaluations, TrainingSummaryRepository training,
-                       DataExportRequestRepository exports, RedisSessionService sessions, StorageService storage, FlairCardRepository flairCards, FlairMatchRepository flairMatches, TransactionTemplate tx, ObjectMapper mapper, AppProperties props) {
-        this(users, prefs, consents, terms, twins, snapshots, badges, injuries, posts, reactions, evaluations, training, exports, sessions, storage, flairCards, flairMatches, tx, mapper, props, Clock.systemUTC());
+                       DataExportRequestRepository exports, RedisSessionService sessions, StorageService storage, FlairCardRepository flairCards, FlairMatchRepository flairMatches, TransactionTemplate tx, FollowService followService, CommentService commentService, NotificationService notificationService, ObjectMapper mapper, AppProperties props) {
+        this(users, prefs, consents, terms, twins, snapshots, badges, injuries, posts, reactions, evaluations, training, exports, sessions, storage, flairCards, flairMatches, tx, followService, commentService, notificationService, mapper, props, Clock.systemUTC());
     }
 
     LgpdService(UserRepository users, UserLgpdPreferencesRepository prefs, ConsentAuditLogRepository consents, TermsAcceptanceRepository terms,
                 DigitalTwinRepository twins, WeeklyScoreSnapshotRepository snapshots, AthleteBadgeRepository badges, InjuryRecordRepository injuries,
                 PostRepository posts, PostReactionRepository reactions, TechnicalEvaluationRepository evaluations, TrainingSummaryRepository training,
                 DataExportRequestRepository exports, RedisSessionService sessions, StorageService storage, FlairCardRepository flairCards, FlairMatchRepository flairMatches, TransactionTemplate tx,
-                ObjectMapper mapper, AppProperties props, Clock clock) {
+                FollowService followService, CommentService commentService, NotificationService notificationService, ObjectMapper mapper, AppProperties props, Clock clock) {
         this.users = users; this.prefs = prefs; this.consents = consents; this.terms = terms; this.twins = twins; this.snapshots = snapshots; this.badges = badges;
         this.injuries = injuries; this.posts = posts; this.reactions = reactions; this.evaluations = evaluations; this.training = training; this.exports = exports;
-        this.sessions = sessions; this.storage = storage; this.flairCards = flairCards; this.flairMatches = flairMatches; this.tx = tx; this.mapper = mapper; this.props = props; this.clock = clock;
+        this.sessions = sessions; this.storage = storage; this.flairCards = flairCards; this.flairMatches = flairMatches; this.tx = tx; this.followService = followService; this.commentService = commentService; this.notificationService = notificationService; this.mapper = mapper; this.props = props; this.clock = clock;
     }
 
     /* ---------------- privacidade ---------------- */
@@ -163,6 +166,9 @@ public class LgpdService {
         out.put("telemetry", training.findAllByAthleteIdOrderByIsoWeekDesc(u.getId()).stream().map(t -> Map.of("isoWeek", t.getIsoWeek(), "sessionsPlanned", t.getSessionsPlanned(), "sessionsDone", t.getSessionsDone(), "loadAu", t.getLoadAu(), "acwr", t.acwr(), "readiness", t.getReadiness())).toList());
         out.put("posts", posts.findAllByAuthorId(u.getId()).stream().map(p -> Map.of("id", p.getId(), "contentType", p.getContentType(), "window", p.getWindow(), "title", p.getTitle(), "subtitle", String.valueOf(p.getSubtitle()), "content", String.valueOf(p.getContent()), "publishedAt", p.getPublishedAt(), "likes", p.getLikeCount())).toList());
         out.put("evaluationsReceived", evaluations.findAllByAthleteId(u.getId()).stream().map(e -> Map.of("dimension", e.getDimension(), "rating", e.getRating(), "weight", e.getWeight(), "weekOf", e.getWeekOf(), "evaluatorRole", e.getEvaluatorRole())).toList());
+        out.put("follows", followService.export(u.getId()));
+        out.put("comments", commentService.export(u.getId()));
+        out.put("notifications", notificationService.export(u.getId()));
         out.put("generatedAt", clock.instant());
         out.put("format", "application/json");
         out.put("legalBasis", "LGPD Art. 18, V — portabilidade");
@@ -216,6 +222,7 @@ public class LgpdService {
         for (Post p : posts.findAllByAuthorId(userId)) { p.anonymizeContent(); posts.save(p); }
         reactions.deleteAllByUserId(userId);
         scrubFlairSnapshots(userId, u.getDisplayName());    // cópias do nome em cards FLAIR de terceiros e em decks/lances de partidas
+        followService.forget(userId); commentService.forget(userId); notificationService.forget(userId);   // camada social
         injuries.deleteAllByAthleteId(userId);              // dado de saúde: remoção física
         training.deleteAll(training.findAllByAthleteIdOrderByIsoWeekDesc(userId));
         preferences(userId).revokeAll(now);

@@ -1,0 +1,36 @@
+@startuml sequence_social
+' RF3 — camada social: comentário em card → notificação → leitura no sino
+skinparam shadowing false
+skinparam sequenceMessageAlign center
+actor "Torcedor" as fan
+participant "SPA (PostView)" as spa
+participant "SocialController" as ctl
+participant "CommentService" as cs
+participant "NotificationService" as ns
+database "MySQL" as db
+actor "Atleta (dono do card)" as owner
+
+fan -> spa : abre card (Comentar)
+spa -> ctl : GET /v1/posts/{id}/comments?size=50
+ctl -> cs : list(viewer, postId)
+cs -> db : post PUBLICADO? · comentários VISIBLE por cursor
+cs --> spa : CommentPageDTO {items, total, nextCursor}
+
+fan -> spa : escreve e envia
+spa -> ctl : POST /v1/posts/{id}/comments {body, parentId?}
+ctl -> cs : create(viewer, postId, body)
+cs -> cs : regras: idade ≥ 13 · idade ≥ AgeRating.minAge · 1–500 caracteres · pai do mesmo card (1 nível)
+cs -> db : insert post_comments · posts.comment_count + 1
+cs -> ns : notify(dono, COMMENT, ator, POST, postId, "@fan comentou no seu card", trecho)
+ns -> db : insert notifications (ignora se ator == destinatário)
+cs --> spa : 201 CommentDTO {mine, canDelete}
+spa -> spa : atualiza contador "Comentar N" do card
+
+owner -> spa : abre o sino
+spa -> ctl : GET /v1/me/notifications/unread-count (polling 60 s) · GET /v1/me/notifications
+ctl -> ns : list(owner)
+ns --> spa : NotificationPageDTO {items, unreadCount}
+owner -> spa : clica na notificação
+spa -> ctl : POST /v1/me/notifications/read {ids:[id]}
+spa -> spa : abre PostView do card (refType POST)
+@enduml

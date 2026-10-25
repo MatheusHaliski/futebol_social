@@ -573,3 +573,33 @@ html[data-wallpaper]:not([data-wallpaper=NONE]) .bottom-nav{background:color-mix
 .ap-wall span{display:block;padding:6px 8px;font-family:var(--font-mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase}
 .ap-wall.on{border-color:var(--green);box-shadow:0 0 0 1px var(--green) inset}
 .ap-wall.custom input{display:block;width:100%;font-size:.7rem;padding:6px}
+
+/* ===== camada social: seguir · comentários · notificações ===== */
+.act.follow{border-color:color-mix(in srgb,var(--green) 45%,var(--line));color:var(--green-hi)}
+.act.follow.on{background:color-mix(in srgb,var(--green) 16%,transparent);border-color:var(--green);color:var(--text)}
+.vcard .actbar .act.follow{margin-left:auto}.vcard .actbar .act.follow + .act.go{margin-left:0}
+.comments{margin-top:14px;border-top:1px solid var(--line-soft);padding-top:12px;display:grid;gap:10px}
+.comments h4{margin:0;font-family:var(--font-mono);font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;color:var(--text-3);display:flex;align-items:center;gap:10px}
+.comments h4 .act{margin-left:auto}
+.cm-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.cm{display:grid;grid-template-columns:auto 1fr;gap:8px;padding:9px 11px;border:1px solid var(--line-soft);border-radius:12px;background:var(--panel-2)}
+.cm.reply{margin-left:28px;background:color-mix(in srgb,var(--panel-2) 70%,transparent)}
+.cm .dot{margin-top:4px}
+.cm-head{display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--text-2)}.cm-head b{color:var(--text)}.cm-head small{font-family:var(--font-mono);font-size:.58rem;letter-spacing:.08em;color:var(--text-3);margin-left:auto}
+.cm-body{font-size:.86rem;line-height:1.4;margin:3px 0 4px;white-space:pre-wrap;word-break:break-word}
+.cm-actions{display:flex;gap:6px}.cm-actions button{background:none;border:0;color:var(--text-3);font-family:var(--font-mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;padding:2px 4px}.cm-actions button:hover{color:var(--green-hi)}
+.cm-form{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}
+.cm-form textarea{min-height:44px;resize:vertical;font:inherit;font-size:.86rem;padding:9px 11px;border-radius:12px;border:1px solid var(--line);background:var(--panel-2);color:var(--text)}
+.cm-form small{grid-column:1/-1;font-family:var(--font-mono);font-size:.58rem;letter-spacing:.08em;color:var(--text-3)}
+.cm-replying{grid-column:1/-1;font-size:.72rem;color:var(--text-2);display:flex;gap:8px;align-items:center}.cm-replying button{background:none;border:0;color:var(--c-red);cursor:pointer}
+.icon-btn{position:relative}.icon-btn .count{position:absolute;top:-4px;right:-4px;margin:0;min-width:16px;text-align:center}
+.notif-list{list-style:none;margin:0;padding:0;display:grid;gap:6px;max-height:60vh;overflow:auto}
+.notif{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:start;padding:10px 12px;border:1px solid var(--line-soft);border-radius:12px;background:var(--panel-2);cursor:pointer}
+.notif.unread{border-color:color-mix(in srgb,var(--green) 50%,var(--line));background:color-mix(in srgb,var(--green) 7%,var(--panel-2))}
+.notif .glyph{font-size:1.1rem;line-height:1.2;text-align:center}
+.notif b{display:block;font-size:.84rem;color:var(--text)}.notif span{display:block;font-size:.76rem;color:var(--text-2);margin-top:2px}
+.notif small{font-family:var(--font-mono);font-size:.56rem;letter-spacing:.08em;color:var(--text-3);white-space:nowrap}
+.notif-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}.notif-head .hint{margin:0}.notif-head .btn{margin-left:auto}
+/* PostView e Notificações: cartão de modal com painel, cabeçalho em linha e rolagem interna */
+.modal-card.postview{background:var(--panel);border:1px solid var(--line);border-radius:18px;max-height:92vh;overflow:auto;align-content:start}
+.modal-card.postview header{display:flex;align-items:center;justify-content:space-between}.modal-card.postview h3{margin:0;font-size:1.05rem}

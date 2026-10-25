@@ -30,6 +30,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import com.footballai.social.model.enums.NotificationType;
 
 /** Publicação via FAB/Copilot com classificação estrita (bolinha + borda), regras do título e fan-out para o feed. */
 @Service
@@ -42,10 +43,11 @@ public class PostService {
     private final UserService users;
     private final CardAssembler assembler;
     private final ObjectProvider<FeedEntryRepository> feedEntries;
+    private final NotificationService notifications;
     private final Clock clock = Clock.systemUTC();
 
-    public PostService(PostRepository posts, PostReactionRepository reactions, UserService users, CardAssembler assembler, ObjectProvider<FeedEntryRepository> feedEntries) {
-        this.posts = posts; this.reactions = reactions; this.users = users; this.assembler = assembler; this.feedEntries = feedEntries;
+    public PostService(PostRepository posts, PostReactionRepository reactions, UserService users, CardAssembler assembler, ObjectProvider<FeedEntryRepository> feedEntries, NotificationService notifications) {
+        this.posts = posts; this.reactions = reactions; this.users = users; this.assembler = assembler; this.feedEntries = feedEntries; this.notifications = notifications;
     }
 
     public static int wordCount(String title) { return title == null ? 0 : (int) java.util.Arrays.stream(title.trim().split("\\s+")).filter(w -> !w.isBlank()).count(); }
@@ -116,6 +118,10 @@ public class PostService {
         else { reactions.save(new PostReaction(id, p.userId(), kind, Instant.now(clock))); on = true; }
         if (kind == PostReaction.Kind.LIKE) post.like(on ? 1 : -1); else post.save(on ? 1 : -1);
         posts.save(post);
+        if (kind == PostReaction.Kind.LIKE && on) {   // dono do card sabe quem curtiu (nunca o próprio)
+            User me = users.require(p.userId());
+            notifications.notify(post.getAuthorId(), NotificationType.LIKE, p.userId(), "POST", id, "@" + me.getUsername() + " curtiu seu card", post.getTitle());
+        }
         boolean liked = kind == PostReaction.Kind.LIKE ? on : reactions.findByPostIdAndUserIdAndKind(id, p.userId(), PostReaction.Kind.LIKE).isPresent();
         boolean saved = kind == PostReaction.Kind.SAVE ? on : reactions.findByPostIdAndUserIdAndKind(id, p.userId(), PostReaction.Kind.SAVE).isPresent();
         return new ReactionDTO(id, liked, saved, post.getLikeCount(), post.getSaveCount(), post.getShareCount());
