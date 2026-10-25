@@ -218,7 +218,7 @@ public class PerformanceService {
 
     boolean canSeeMedical(AuthPrincipal viewer, UUID athleteId) {
         if (viewer.userId().equals(athleteId)) return true;
-        if (viewer.role() == UserRole.STAFF_SAUDE) return true; // staff de saúde verificado opera sob Art. 11, II (tutela da saúde)
+        if (viewer.role() == UserRole.STAFF_SAUDE && users.require(viewer.userId()) instanceof HealthStaff hs && hs.canOriginateInjuryRecord()) return true; // só staff de saúde VERIFICADO/HOMOLOGADO (Art. 11, II); cadastro COMUNIDADE não basta
         return prefs.findById(athleteId).map(UserLgpdPreferences::isShareMedicalData).orElse(false);
     }
 

@@ -32,6 +32,7 @@ import java.time.LocalDate;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.math.BigDecimal;
 
 /**
  * RF3 — as 4 janelas independentes de feed com filtros próprios, paginação por cursor e cache curto em Redis.
@@ -73,24 +74,28 @@ public class FeedWindowService {
     /* ---------------- MySQL (Specification) ---------------- */
 
     FeedPageDTO fromMysql(FeedQuery q, AuthPrincipal viewer) {
-        Instant before = decodeTimeCursor(q.cursor);
+        Cursor before = decodeCursor(q.cursor, q.sort);
         Specification<Post> spec = postSpec(q, before);
         Sort sort = q.sort == FeedSort.TRENDING ? Sort.by(Sort.Order.desc("trendingScore"), Sort.Order.desc("publishedAt")) : Sort.by(Sort.Order.desc("publishedAt"));
         List<Post> found = posts.findAll(spec, PageRequest.of(0, q.size + 1, sort)).getContent();
         boolean more = found.size() > q.size;
         List<Post> pagePosts = more ? found.subList(0, q.size) : found;
-        String next = more ? encodeTimeCursor(pagePosts.get(pagePosts.size() - 1).getPublishedAt()) : null;
+        String next = more ? encodeCursor(pagePosts.get(pagePosts.size() - 1), q.sort) : null;
         List<PostCardDTO> cards = assembler.postCards(pagePosts, viewer);
         List<AthleteCardDTO> ath = athleteCards(q, viewer);
         return new FeedPageDTO(q.window.name(), q.sort.name(), cards, ath, next, q.applied(), "mysql");
     }
 
-    Specification<Post> postSpec(FeedQuery q, Instant before) {
+    Specification<Post> postSpec(FeedQuery q, Cursor before) {
         return (root, cq, cb) -> {
             List<Predicate> ps = new ArrayList<>();
             ps.add(cb.equal(root.get("status"), PostStatus.PUBLISHED));
             ps.add(cb.equal(root.get("window"), q.window));
-            if (before != null) ps.add(cb.lessThan(root.get("publishedAt"), before));
+            if (before != null) {
+                if (before.score() == null) ps.add(cb.lessThan(root.get("publishedAt"), before.publishedAt()));
+                else ps.add(cb.or(cb.lessThan(root.get("trendingScore"), before.score()),               // continuação na mesma ordem do sort TRENDING
+                        cb.and(cb.equal(root.get("trendingScore"), before.score()), cb.lessThan(root.get("publishedAt"), before.publishedAt()))));
+            }
             if (!q.roles.isEmpty()) ps.add(root.get("authorRole").in(q.roles));
             if (q.state != null) ps.add(cb.equal(root.get("stateCode"), q.state));
             if (q.clubId != null) ps.add(cb.equal(root.get("clubId"), q.clubId));
@@ -162,12 +167,14 @@ public class FeedWindowService {
     /* ---------------- Cassandra (fan-out) ---------------- */
 
     FeedPageDTO fromCassandra(FeedEntryRepository repo, FeedQuery q, AuthPrincipal viewer) {
-        CassandraPageRequest pr = q.cursor == null ? CassandraPageRequest.first(q.size * 2)
-                : CassandraPageRequest.of(PageRequest.of(0, q.size * 2), ByteBuffer.wrap(Base64.getUrlDecoder().decode(q.cursor)));
+        // lê exatamente `size` entradas: o paging state do driver continua após a última consumida (nada é lido e descartado)
+        CassandraPageRequest pr = q.cursor == null ? CassandraPageRequest.first(q.size)
+                : CassandraPageRequest.of(PageRequest.of(0, q.size), ByteBuffer.wrap(Base64.getUrlDecoder().decode(q.cursor)));
         Slice<FeedEntry> slice = repo.findByKeyUserIdAndKeyFeedWindow(GLOBAL_FEED_USER, q.window.name(), pr);
-        List<FeedEntry> entries = slice.getContent().stream().filter(e -> matches(e, q)).limit(q.size).toList();
+        List<FeedEntry> entries = slice.getContent().stream().filter(e -> matches(e, q)).toList();   // só campos imutáveis da projeção
         Map<UUID, Post> byId = posts.findAllByIdIn(entries.stream().map(FeedEntry::getPostId).toList()).stream().collect(Collectors.toMap(Post::getId, Function.identity()));
-        List<Post> ordered = entries.stream().map(e -> byId.get(e.getPostId())).filter(Objects::nonNull).filter(p -> p.getStatus() == PostStatus.PUBLISHED).toList();
+        List<Post> ordered = entries.stream().map(e -> byId.get(e.getPostId())).filter(Objects::nonNull)
+                .filter(p -> p.getStatus() == PostStatus.PUBLISHED).filter(p -> matchesText(p, q)).toList();   // título/teaser vêm do MySQL (fonte da verdade após edição)
         String next = null;
         if (slice.hasNext() && slice.nextPageable() instanceof CassandraPageRequest n && n.getPagingState() != null) {
             ByteBuffer st = n.getPagingState(); byte[] b = new byte[st.remaining()]; st.duplicate().get(b);
@@ -187,10 +194,34 @@ public class FeedWindowService {
             boolean ok = q.eventTypes.stream().anyMatch(ev -> (ev == EventType.TREINO ? "TREINO" : "PARTIDA_MOMENTO").equals(e.getContentType()));
             if (!ok) return false;
         }
-        return q.q == null || (e.getTitle() != null && e.getTitle().toLowerCase().contains(q.q.toLowerCase()));
+        return true; // texto (título/teaser) é conferido no Post do MySQL em matchesText(): a projeção pode estar desatualizada após edição
+    }
+
+    static boolean matchesText(Post p, FeedQuery q) {
+        if (q.q == null) return true;
+        String needle = q.q.toLowerCase();
+        return (p.getTitle() != null && p.getTitle().toLowerCase().contains(needle)) || (p.getSubtitle() != null && p.getSubtitle().toLowerCase().contains(needle));
     }
 
     /* ---------------- cursores ---------------- */
+
+    /** Cursor de paginação: só tempo (RECENT) ou score|tempo (TRENDING), para a continuação seguir a mesma ordem do sort. */
+    record Cursor(BigDecimal score, Instant publishedAt) { }
+
+    static String encodeCursor(Post last, FeedSort sort) {
+        String raw = sort == FeedSort.TRENDING ? last.getTrendingScore().toPlainString() + "|" + last.getPublishedAt().toEpochMilli() : Long.toString(last.getPublishedAt().toEpochMilli());
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(raw.getBytes());
+    }
+
+    static Cursor decodeCursor(String c, FeedSort sort) {
+        if (c == null) return null;
+        try {
+            String raw = new String(Base64.getUrlDecoder().decode(c));
+            int bar = raw.indexOf('|');
+            if (sort == FeedSort.TRENDING && bar > 0) return new Cursor(new BigDecimal(raw.substring(0, bar)), Instant.ofEpochMilli(Long.parseLong(raw.substring(bar + 1))));
+            return new Cursor(null, Instant.ofEpochMilli(Long.parseLong(bar > 0 ? raw.substring(bar + 1) : raw)));
+        } catch (RuntimeException e) { throw ApiException.badRequest("CURSOR_INVALID", "Cursor inválido"); }
+    }
 
     static String encodeTimeCursor(Instant t) { return Base64.getUrlEncoder().withoutPadding().encodeToString(Long.toString(t.toEpochMilli()).getBytes()); }
     static Instant decodeTimeCursor(String c) {

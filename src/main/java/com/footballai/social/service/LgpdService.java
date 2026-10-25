@@ -20,6 +20,16 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
+import com.footballai.social.controller.dto.FlairDtos.FlairCardDTO;
+import com.footballai.social.model.entity.FlairCard;
+import com.footballai.social.model.entity.FlairMatch;
+import com.footballai.social.repository.FlairCardRepository;
+import com.footballai.social.repository.FlairMatchRepository;
+import com.fasterxml.jackson.core.type.TypeReference;
+import org.springframework.transaction.support.TransactionTemplate;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * RF5/RF23 — Central de Compliance LGPD (Lei 13.709/2018), privacy by design:
@@ -45,6 +55,9 @@ public class LgpdService {
     private final DataExportRequestRepository exports;
     private final RedisSessionService sessions;
     private final StorageService storage;
+    private final FlairCardRepository flairCards;
+    private final FlairMatchRepository flairMatches;
+    private final TransactionTemplate tx;
     private final ObjectMapper mapper;
     private final AppProperties props;
     private final Clock clock;
@@ -53,17 +66,18 @@ public class LgpdService {
     public LgpdService(UserRepository users, UserLgpdPreferencesRepository prefs, ConsentAuditLogRepository consents, TermsAcceptanceRepository terms,
                        DigitalTwinRepository twins, WeeklyScoreSnapshotRepository snapshots, AthleteBadgeRepository badges, InjuryRecordRepository injuries,
                        PostRepository posts, PostReactionRepository reactions, TechnicalEvaluationRepository evaluations, TrainingSummaryRepository training,
-                       DataExportRequestRepository exports, RedisSessionService sessions, StorageService storage, ObjectMapper mapper, AppProperties props) {
-        this(users, prefs, consents, terms, twins, snapshots, badges, injuries, posts, reactions, evaluations, training, exports, sessions, storage, mapper, props, Clock.systemUTC());
+                       DataExportRequestRepository exports, RedisSessionService sessions, StorageService storage, FlairCardRepository flairCards, FlairMatchRepository flairMatches, TransactionTemplate tx, ObjectMapper mapper, AppProperties props) {
+        this(users, prefs, consents, terms, twins, snapshots, badges, injuries, posts, reactions, evaluations, training, exports, sessions, storage, flairCards, flairMatches, tx, mapper, props, Clock.systemUTC());
     }
 
     LgpdService(UserRepository users, UserLgpdPreferencesRepository prefs, ConsentAuditLogRepository consents, TermsAcceptanceRepository terms,
                 DigitalTwinRepository twins, WeeklyScoreSnapshotRepository snapshots, AthleteBadgeRepository badges, InjuryRecordRepository injuries,
                 PostRepository posts, PostReactionRepository reactions, TechnicalEvaluationRepository evaluations, TrainingSummaryRepository training,
-                DataExportRequestRepository exports, RedisSessionService sessions, StorageService storage, ObjectMapper mapper, AppProperties props, Clock clock) {
+                DataExportRequestRepository exports, RedisSessionService sessions, StorageService storage, FlairCardRepository flairCards, FlairMatchRepository flairMatches, TransactionTemplate tx,
+                ObjectMapper mapper, AppProperties props, Clock clock) {
         this.users = users; this.prefs = prefs; this.consents = consents; this.terms = terms; this.twins = twins; this.snapshots = snapshots; this.badges = badges;
         this.injuries = injuries; this.posts = posts; this.reactions = reactions; this.evaluations = evaluations; this.training = training; this.exports = exports;
-        this.sessions = sessions; this.storage = storage; this.mapper = mapper; this.props = props; this.clock = clock;
+        this.sessions = sessions; this.storage = storage; this.flairCards = flairCards; this.flairMatches = flairMatches; this.tx = tx; this.mapper = mapper; this.props = props; this.clock = clock;
     }
 
     /* ---------------- privacidade ---------------- */
@@ -187,7 +201,8 @@ public class LgpdService {
         Instant now = clock.instant();
         int n = 0;
         for (User u : users.findAllByStatusAndScheduledPurgeAtBefore(AccountStatus.PENDING_DELETE, now)) {
-            try { anonymize(u.getId()); n++; } catch (RuntimeException e) { log.error("Anonimização falhou para {}: {}", u.getId(), e.getMessage()); }
+            // chamada interna não passa pelo proxy @Transactional: a transação por conta é aberta explicitamente (tudo ou nada por usuário)
+            try { tx.executeWithoutResult(st -> anonymize(u.getId())); n++; } catch (RuntimeException e) { log.error("Anonimização falhou para {}: {}", u.getId(), e.getMessage()); }
         }
         if (n > 0) log.info("LGPD: {} contas anonimizadas", n);
         expireExports(now);
@@ -200,6 +215,7 @@ public class LgpdService {
         Instant now = clock.instant();
         for (Post p : posts.findAllByAuthorId(userId)) { p.anonymizeContent(); posts.save(p); }
         reactions.deleteAllByUserId(userId);
+        scrubFlairSnapshots(userId, u.getDisplayName());    // cópias do nome em cards FLAIR de terceiros e em decks/lances de partidas
         injuries.deleteAllByAthleteId(userId);              // dado de saúde: remoção física
         training.deleteAll(training.findAllByAthleteIdOrderByIsoWeekDesc(userId));
         preferences(userId).revokeAll(now);
@@ -209,6 +225,24 @@ public class LgpdService {
         sessions.revokeAllSessions(userId);
         u.anonymize(now); users.save(u);
         // ConsentAuditLog e TermsAcceptance permanecem (accountability, Art. 6º, X) ligados ao id pseudonimizado.
+    }
+
+    static final String FLAIR_ANON_NAME = "Atleta removido";
+
+    /** FLAIR guarda cópias desnormalizadas do nome do atleta (cards de outros donos, deck_json e rounds_json): são pseudonimizadas junto com a conta. */
+    void scrubFlairSnapshots(UUID athleteId, String displayName) {
+        for (FlairCard c : flairCards.findAllByAthleteId(athleteId)) { c.setAthleteName(FLAIR_ANON_NAME); flairCards.save(c); }
+        for (FlairMatch m : flairMatches.findAllByDeckJsonContaining(athleteId.toString())) {
+            try {
+                Map<String, List<FlairCardDTO>> deck = mapper.readValue(m.getDeckJson(), new TypeReference<Map<String, List<FlairCardDTO>>>() { });
+                Map<String, List<FlairCardDTO>> out = new LinkedHashMap<>();
+                deck.forEach((side, cards) -> out.put(side, cards.stream().map(c -> athleteId.equals(c.athleteId())
+                        ? new FlairCardDTO(c.id(), c.athleteId(), FLAIR_ANON_NAME, c.position(), c.tier(), c.crestIcon(), c.color(), c.pp(), c.rp(), c.mp(), c.scoreTotal(), c.power(), c.captain(), c.source(), c.acquiredAt()) : c).toList()));
+                m.setDeckJson(mapper.writeValueAsString(out));
+                if (displayName != null && !displayName.isBlank()) m.setRoundsJson(m.getRoundsJson().replace(mapper.writeValueAsString(displayName), mapper.writeValueAsString(FLAIR_ANON_NAME)));
+                flairMatches.save(m);
+            } catch (Exception e) { log.warn("Deck FLAIR da partida {} não pôde ser pseudonimizado: {}", m.getId(), e.getMessage()); }
+        }
     }
 
     void expireExports(Instant now) {

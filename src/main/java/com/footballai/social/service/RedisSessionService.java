@@ -74,6 +74,7 @@ public class RedisSessionService {
         redis.opsForHash().put(sessionKey(userId, sid), "refreshTokenId", nextId);
         redis.opsForHash().put(sessionKey(userId, sid), "lastSeenAt", now.toString());
         redis.expire(sessionKey(userId, sid), refreshTtl());
+        redis.expire(userSetKey(userId), refreshTtl()); // o índice acompanha a renovação: logout-all e exclusão LGPD continuam alcançando a sessão
         return Optional.of(new Session(sid, userId, next, exp));
     }
 

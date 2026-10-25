@@ -41,6 +41,7 @@ public class FlairCard {
     public UUID getOwnerId() { return ownerId; }
     public UUID getAthleteId() { return athleteId; }
     public String getAthleteName() { return athleteName; }
+    public void setAthleteName(String athleteName) { this.athleteName = athleteName; }
     public String getAthletePosition() { return athletePosition; }
     public RarityTier getTier() { return tier; }
     public int getPp() { return pp; }

@@ -188,7 +188,7 @@ public class FlairService {
 
     @Transactional
     public MatchDTO playRound(AuthPrincipal p, UUID matchId, RoundRequest r) {
-        FlairMatch m = matches.findById(matchId).orElseThrow(() -> ApiException.notFound("Partida"));
+        FlairMatch m = matches.findByIdForUpdate(matchId).orElseThrow(() -> ApiException.notFound("Partida")); // lock: dois lances simultâneos não jogam o mesmo round
         if (!m.getChallengerId().equals(p.userId())) throw ApiException.forbidden("NOT_PLAYER", "Partida de outro jogador");
         if (m.getStatus() == FlairMatch.Status.FINISHED) throw ApiException.conflict("MATCH_FINISHED", "Partida encerrada");
         Map<String, List<FlairCardDTO>> deck = readDeck(m);
