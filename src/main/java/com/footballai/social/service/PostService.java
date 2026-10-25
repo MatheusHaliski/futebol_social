@@ -15,6 +15,7 @@ import com.footballai.social.model.entity.PostReaction;
 import com.footballai.social.model.entity.User;
 import com.footballai.social.model.enums.AgeRating;
 import com.footballai.social.model.enums.FeedWindow;
+import com.footballai.social.model.enums.PostContentType;
 import com.footballai.social.model.enums.PostStatus;
 import com.footballai.social.model.enums.UserRole;
 import com.footballai.social.repository.PostReactionRepository;
@@ -74,7 +75,7 @@ public class PostService {
         post.setStateCode(r.stateCode() == null ? author.getStateCode() : r.stateCode().toUpperCase());
         post.setGenerationMode(r.generationMode());
         if (r.art() != null) {
-            try { post.setArt(new CardArt(r.art().color(), r.art().material(), r.art().layout(), r.art().style())); }
+            try { post.setArt(art(r.art(), post.getContentType())); }
             catch (IllegalArgumentException e) { throw ApiException.badRequest("ART_INVALID", e.getMessage()); }
         }
         if (Boolean.TRUE.equals(r.draft())) post.setStatus(PostStatus.DRAFT);
@@ -161,12 +162,16 @@ public class PostService {
         if (r.ageRating() != null && !post.getContentType().sensitive()) post.setAgeRating(r.ageRating());
         if (users.require(p.userId()) instanceof Brand b && b.isBettingBrand()) post.setAgeRating(AgeRating.AGE_18); // Lei 14.790/2023: a edição não rebaixa a classificação de marca de apostas
         if (r.art() != null) {
-            try { post.setArt(new CardArt(r.art().color(), r.art().material(), r.art().layout(), r.art().style())); }
+            try { post.setArt(art(r.art(), post.getContentType())); }
             catch (IllegalArgumentException e) { throw ApiException.badRequest("ART_INVALID", e.getMessage()); }
         }
         if (post.hasMedia()) post.setSubtitle(null);
         post = posts.save(post);
         return assembler.postCards(List.of(post), p).get(0);
+    }
+
+    private static CardArt art(com.footballai.social.controller.dto.PostDtos.ArtRequest a, PostContentType type) {
+        return new CardArt(a.color(), a.color2(), a.gradient(), a.material(), a.layout(), a.style()).validateFor(type);
     }
 
     /** "Meus cards": publicados e rascunhos do autor, mais recentes primeiro. */

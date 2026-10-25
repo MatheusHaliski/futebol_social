@@ -75,12 +75,25 @@ public class CopilotService {
                 rationale + " Você revisa antes de publicar (LGPD Art. 20).", "copilot", true);
     }
 
-    /** Arte sugerida: cor da borda do tipo, material pelo tier, layout pelo tipo, estilo pelo tier. */
+    /**
+     * Arte sugerida: cor da borda do tipo; gradiente e padronagem pelo tipo (gramado no treino, rede na partida, prancheta no relatório…);
+     * material pelo tier. Alertas (lesão, institucional) recebem sempre arte sóbria.
+     */
     static CardArtDTO suggestArt(PostContentType type, RarityTier tier) {
-        CardMaterial material = switch (tier) { case MYTHIC -> CardMaterial.HOLOGRAFICO; case LEGENDARY -> CardMaterial.METALICO; case EPIC -> CardMaterial.VIDRO; case RARE -> CardMaterial.CARBONO; default -> CardMaterial.FOSCO; };
-        CardLayout layout = switch (type) { case PARTIDA_MOMENTO, ESPECIAL -> CardLayout.HERO; case RELATORIO_TATICO -> CardLayout.SPLIT; case INSTITUCIONAL, LESAO_ALERTA -> CardLayout.MINIMAL; default -> CardLayout.CLASSICO; };
-        CardStyle style = switch (tier) { case MYTHIC, LEGENDARY -> CardStyle.OURO; case EPIC -> CardStyle.VITRAL; case RARE -> CardStyle.NEON; default -> CardStyle.GRAFITE; };
-        return new CardArtDTO(type.borderColor(), material.name(), material.label(), layout.name(), layout.label(), style.name(), style.label());
+        if (CardArt.soberType(type)) return CardArtDTO.of(new CardArt(type.borderColor(), null, CardGradient.SOLIDO, CardMaterial.FOSCO, CardLayout.MINIMAL, CardStyle.GRAFITE));
+        CardMaterial material = switch (tier) {
+            case MYTHIC -> CardMaterial.PRISMA; case LEGENDARY -> CardMaterial.CROMO; case EPIC -> CardMaterial.HOLOGRAFICO; case RARE -> CardMaterial.CETIM;
+            default -> type == PostContentType.TREINO ? CardMaterial.MALHA : CardMaterial.FOSCO;
+        };
+        CardLayout layout = switch (type) { case PARTIDA_MOMENTO, ESPECIAL -> CardLayout.HERO; case RELATORIO_TATICO -> CardLayout.SPLIT; default -> CardLayout.CLASSICO; };
+        CardGradient gradient = switch (type) { case PARTIDA_MOMENTO -> CardGradient.RADIAL; case LIGA -> CardGradient.DEGRADE; case ESPECIAL -> CardGradient.DIAGONAL; default -> CardGradient.SUAVE; };
+        CardStyle style = switch (type) {
+            case TREINO -> CardStyle.GRAMADO; case PARTIDA_MOMENTO -> CardStyle.REDE; case RELATORIO_TATICO -> CardStyle.PRANCHETA;
+            case LIGA -> CardStyle.LISTRAS; case ESPECIAL -> CardStyle.MOSAICO; default -> CardStyle.GRAFITE;
+        };
+        String color2 = switch (type) { case PARTIDA_MOMENTO -> "#22d3ee"; case LIGA -> "#3b82f6"; case ESPECIAL -> "#ff9f43"; default -> null; };
+        if (tier == RarityTier.MYTHIC || tier == RarityTier.LEGENDARY) color2 = type == PostContentType.ESPECIAL ? "#ff9f43" : "#f5c542";
+        return CardArtDTO.of(new CardArt(type.borderColor(), color2, gradient, material, layout, style));
     }
 
     static PostContentType inferType(UserRole role, String draft) {

@@ -57,7 +57,12 @@ Convenções: tabelas `snake_case` plural; PK `id BINARY(16)`; timestamps `TIMES
 | `fontScale` | Decimal(2,1) | 0.8–1.4 | N |
 | `uiAccent` | `UiAccent` | cor de destaque da UI (`GREEN` default) — não altera cores de identidade | N |
 | `uiSurface` | `UiSurface` | tom das barras laterais e painéis (`GRAPHITE` default; `SAND` é claro) | N |
-| `wallpaper` / `wallpaperKey` | `Wallpaper` / String(255) | tela de fundo (paletas `VERDE`…`VERDE_VIVO` em `/brand/wallpapers`, ou `CUSTOM` com chave em `fas-media`) | N |
+| `wallpaper` / `wallpaperKey` | `Wallpaper` / String(255) | tela de fundo (paletas `VERDE`…`VERDE_VIVO` em `/brand/wallpapers`, ou `CUSTOM` com chave em `fas-media` da própria conta) | N |
+| `uiMaterial` | `UiMaterial` | material da navegação: `FOSCO` (default) · `VIDRO` · `METALICO` · `CARBONO` · `GRAMADO` | N |
+| `uiGradient` | `UiGradient` | gradiente ambiente do layout: `NENHUM` · `HOLOFOTE` (default) · `ARQUIBANCADA` · `CREPUSCULO` | N |
+| `uiFont` | `UiFont` | fonte: `PADRAO` (default) · `LEGIVEL` · `PLACAR` · `EDITORIAL` · `SISTEMA` | N |
+| `uiDensity` | `UiDensity` | densidade: `COMPACTA` · `CONFORTAVEL` (default) · `ESPACOSA` | N |
+| `uiContrast` | `UiContrast` | contraste: `PADRAO` (default) · `ALTO` | N |
 | `countryCode` | String(2) | ISO-3166 | P |
 | `city` | String(80) | opcional | P |
 | `createdAt` / `updatedAt` | Instant | auditoria | — |
@@ -221,7 +226,7 @@ Access JWT (HS512) — claims: `sub` (userId), `role`, `sid`, `jti`, `iat`, `exp
 | `aiGenerated` | boolean | `true` obrigatório para `AGENTE_IA`/Autopilot | N |
 | `badgeLabel` | String(24) | rótulo curto da pill do tipo (`TREINO`, `LESÃO`, `SCOUTING`…) | N |
 | `generationMode` | `GenerationMode` | `MANUAL` \| `AI` (etapa 1 do criador); `AI` exibe “GERADO COM IA · REVISADO” | N |
-| `art` (embeddable `CardArt`) | `artColor` String(7) hex · `artMaterial` `CardMaterial` · `artLayout` `CardLayout` · `artStyle` `CardStyle` | etapa 3 do criador (arte de fundo); nulos = sem arte | N |
+| `art` (embeddable `CardArt`) | `artColor` String(7) hex · `artColor2` String(7) hex · `artGradient` `CardGradient` · `artMaterial` `CardMaterial` · `artLayout` `CardLayout` · `artStyle` `CardStyle` | etapa 3 do criador (arte de fundo); nulos = sem arte; segunda cor = principal quando o gradiente/estilo é bicolor e ela não vem; alertas (`LESAO_ALERTA`, `INSTITUCIONAL`) só aceitam arte sóbria (`ART_INVALID`) | N |
 | `status` | `PostStatus` | default `PUBLISHED` | N |
 | `severity` | `AlertSeverity` | só para janela ALERTA | N |
 | `alertType` | `AlertType` | só para janela ALERTA | N |

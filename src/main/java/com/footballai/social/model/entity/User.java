@@ -4,6 +4,11 @@ import com.footballai.social.config.CryptoConverter;
 import com.footballai.social.model.enums.AccountStatus;
 import com.footballai.social.model.enums.ProfileVisibility;
 import com.footballai.social.model.enums.UiAccent;
+import com.footballai.social.model.enums.UiContrast;
+import com.footballai.social.model.enums.UiDensity;
+import com.footballai.social.model.enums.UiFont;
+import com.footballai.social.model.enums.UiGradient;
+import com.footballai.social.model.enums.UiMaterial;
 import com.footballai.social.model.enums.UiSurface;
 import com.footballai.social.model.enums.UserRole;
 import com.footballai.social.model.enums.Wallpaper;
@@ -87,6 +92,11 @@ public abstract class User {
     @Enumerated(EnumType.STRING) @Column(name = "ui_surface", nullable = false, length = 12) private UiSurface uiSurface = UiSurface.GRAPHITE;
     @Enumerated(EnumType.STRING) @Column(name = "wallpaper", nullable = false, length = 16) private Wallpaper wallpaper = Wallpaper.NONE;
     @Column(name = "wallpaper_key") private String wallpaperKey;
+    @Enumerated(EnumType.STRING) @Column(name = "ui_material", nullable = false, length = 12) private UiMaterial uiMaterial = UiMaterial.FOSCO;
+    @Enumerated(EnumType.STRING) @Column(name = "ui_gradient", nullable = false, length = 16) private UiGradient uiGradient = UiGradient.HOLOFOTE;
+    @Enumerated(EnumType.STRING) @Column(name = "ui_font", nullable = false, length = 12) private UiFont uiFont = UiFont.PADRAO;
+    @Enumerated(EnumType.STRING) @Column(name = "ui_density", nullable = false, length = 12) private UiDensity uiDensity = UiDensity.CONFORTAVEL;
+    @Enumerated(EnumType.STRING) @Column(name = "ui_contrast", nullable = false, length = 8) private UiContrast uiContrast = UiContrast.PADRAO;
 
     @Column(name = "country_code", length = 2)
     private String countryCode = "BR";
@@ -214,6 +224,16 @@ public abstract class User {
     public void setWallpaper(Wallpaper wallpaper) { this.wallpaper = wallpaper; }
     public String getWallpaperKey() { return wallpaperKey; }
     public void setWallpaperKey(String wallpaperKey) { this.wallpaperKey = wallpaperKey; }
+    public UiMaterial getUiMaterial() { return uiMaterial; }
+    public void setUiMaterial(UiMaterial uiMaterial) { this.uiMaterial = uiMaterial; }
+    public UiGradient getUiGradient() { return uiGradient; }
+    public void setUiGradient(UiGradient uiGradient) { this.uiGradient = uiGradient; }
+    public UiFont getUiFont() { return uiFont; }
+    public void setUiFont(UiFont uiFont) { this.uiFont = uiFont; }
+    public UiDensity getUiDensity() { return uiDensity; }
+    public void setUiDensity(UiDensity uiDensity) { this.uiDensity = uiDensity; }
+    public UiContrast getUiContrast() { return uiContrast; }
+    public void setUiContrast(UiContrast uiContrast) { this.uiContrast = uiContrast; }
     public String getCountryCode() { return countryCode; }
     public void setCountryCode(String countryCode) { this.countryCode = countryCode; }
     public String getStateCode() { return stateCode; }

@@ -39,14 +39,19 @@ public final class AuthDtos {
 
     public record UserSummaryDTO(UUID id, String username, String displayName, String role, String roleLabel, String ringColor, String dotClass,
                                  String status, String visibility, boolean verified, String tier, String crestIcon, String locale, boolean darkMode, BigDecimal fontScale,
-                                 String uiAccent, String uiSurface, String wallpaper, String wallpaperUrl) { }
+                                 String uiAccent, String uiSurface, String wallpaper, String wallpaperUrl,
+                                 String uiMaterial, String uiGradient, String uiFont, String uiDensity, String uiContrast, String avatarUrl) { }
 
     public record AuthResponse(String tokenType, String accessToken, long expiresIn, String refreshToken, String sessionId, UserSummaryDTO user) { }
 
     public record TermsDTO(String version, String owner, String documentUrl, String privacyPolicyUrl, Instant effectiveFrom) { }
 
-    /** Conta + Aparência (tema, fonte, cor de destaque, tom das barras/painéis, tela de fundo) + Idioma + visibilidade. */
+    /**
+     * Conta + Aparência (tema, escala de fonte, cor de destaque, tom das barras/painéis, tela de fundo, material das barras, gradiente ambiente,
+     * família tipográfica, densidade, contraste) + foto do perfil + Idioma + visibilidade. {@code avatarKey} vazio remove a foto.
+     */
     public record UpdateMeRequest(@Size(max = 80) String displayName, @Size(max = 280) String bio, @Size(max = 5) String locale, Boolean darkMode,
                                   @DecimalMin("0.8") @DecimalMax("1.4") BigDecimal fontScale, ProfileVisibility visibility, @Size(max = 2) String stateCode, @Size(max = 80) String city,
-                                  UiAccent uiAccent, UiSurface uiSurface, Wallpaper wallpaper, @Size(max = 255) String wallpaperKey) { }
+                                  UiAccent uiAccent, UiSurface uiSurface, Wallpaper wallpaper, @Size(max = 255) String wallpaperKey,
+                                  UiMaterial uiMaterial, UiGradient uiGradient, UiFont uiFont, UiDensity uiDensity, UiContrast uiContrast, @Size(max = 255) String avatarKey) { }
 }

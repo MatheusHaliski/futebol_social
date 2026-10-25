@@ -32,12 +32,14 @@ public class UserService {
         return new UserSummaryDTO(u.getId(), u.getUsername(), u.getDisplayName(), u.getRole().name(), u.getRole().label(), u.getRole().ringColor(),
                 u.getRole().dotClass(), u.getStatus().name(), u.getVisibility().name(), u.isVerified(),
                 twin.map(t -> t.getRarityTier().name()).orElse(null), twin.map(t -> t.getRarityTier().crestIcon()).orElse(null),
-                u.getLocale(), u.isDarkMode(), u.getFontScale(), u.getUiAccent().name(), u.getUiSurface().name(), u.getWallpaper().name(), wallpaperUrl(u));
+                u.getLocale(), u.isDarkMode(), u.getFontScale(), u.getUiAccent().name(), u.getUiSurface().name(), u.getWallpaper().name(), wallpaperUrl(u),
+                u.getUiMaterial().name(), u.getUiGradient().name(), u.getUiFont().name(), u.getUiDensity().name(), u.getUiContrast().name(),
+                u.getAvatarKey() == null ? null : storage.mediaUrl(u.getAvatarKey()));
     }
 
     public UserSummaryDTO me(AuthPrincipal p) { return summary(require(p.userId())); }
 
-    /** Preferências de interface (Aparência · Idioma) e dados básicos — nunca o papel (imutável). */
+    /** Preferências de interface (Aparência · Idioma), foto do perfil e dados básicos — nunca o papel (imutável). */
     @Transactional
     public UserSummaryDTO update(AuthPrincipal p, UpdateMeRequest r) {
         User u = require(p.userId());
@@ -52,8 +54,22 @@ public class UserService {
         if (r.uiAccent() != null) u.setUiAccent(r.uiAccent());
         if (r.uiSurface() != null) u.setUiSurface(r.uiSurface());
         if (r.wallpaper() != null) { u.setWallpaper(r.wallpaper()); if (r.wallpaper() != Wallpaper.CUSTOM) u.setWallpaperKey(null); }
-        if (r.wallpaperKey() != null) { u.setWallpaperKey(r.wallpaperKey()); u.setWallpaper(Wallpaper.CUSTOM); }
+        if (r.wallpaperKey() != null) { u.setWallpaperKey(ownMedia(u, r.wallpaperKey())); u.setWallpaper(Wallpaper.CUSTOM); }
+        if (r.uiMaterial() != null) u.setUiMaterial(r.uiMaterial());
+        if (r.uiGradient() != null) u.setUiGradient(r.uiGradient());
+        if (r.uiFont() != null) u.setUiFont(r.uiFont());
+        if (r.uiDensity() != null) u.setUiDensity(r.uiDensity());
+        if (r.uiContrast() != null) u.setUiContrast(r.uiContrast());
+        if (r.avatarKey() != null) u.setAvatarKey(r.avatarKey().isBlank() ? null : ownMedia(u, r.avatarKey()));
         return summary(users.save(u));
+    }
+
+    /** Só aceita mídia enviada pelo próprio usuário (POST /v1/media grava em media/{userId}/): impede apontar para o arquivo de outra pessoa. */
+    static String ownMedia(User u, String key) {
+        String k = key.trim();
+        if (!k.startsWith("media/" + u.getId() + "/") || k.contains("..") || !k.matches("^[A-Za-z0-9/._-]+$"))
+            throw ApiException.forbidden("MEDIA_NOT_OWNED", "Use uma imagem enviada pela sua conta");
+        return k;
     }
 
     /** URL da tela de fundo: asset público das paletas ou mídia do usuário (pré-assinada). */
