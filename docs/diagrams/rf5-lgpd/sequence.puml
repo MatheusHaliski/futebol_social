@@ -1,0 +1,76 @@
+@startuml rf5_sequence
+title RF5 — Sequência: revogar consentimento, exportar dados e excluir conta com graça
+autonumber
+
+actor "Titular" as T
+participant "Central de Privacidade (SPA)" as UI
+participant "PrivacyController" as PC
+participant "DataRightsController" as DC
+participant "StepUpUseCase (RF1)" as SU
+participant "UpdatePrivacyUseCase" as UP
+participant "ExportUserDataUseCase" as EX
+participant "DeleteAccountUseCase" as DEL
+participant "LgpdComplianceService" as LS
+participant "Repos (JPA)" as R
+participant "SessionRevoker (Redis)" as RS
+participant "ExportStorage (S3)" as S3
+participant "AnonymizeDueAccountsJob" as JOB
+
+== Revogar consentimento (Art. 18, IX · 8º §5º) ==
+T -> UI : desliga "Compartilhar telemetria com scouts"
+UI -> PC : PUT /v1/me/privacy { shareTelemetryWithScouts: false }
+PC -> UP : execute(userId, changes, ctx{ip, ua})
+UP -> LS : changeConsent(prefs, key, false, ctx)
+LS --> UP : ConsentAuditLog(true → false, "Art. 18, IX")
+UP -> R : save(prefs) ; append(auditLog)
+UP --> PC : PrivacySettingsDTO
+PC --> UI : 200 (toggle OFF, 1 clique)
+
+== Exportar dados (Art. 18, V) ==
+T -> UI : "Baixar seus dados"
+UI -> SU : POST /v1/auth/step-up { password }
+SU --> UI : StepUpToken (5 min)
+UI -> DC : POST /v1/me/data-export (X-StepUp)
+DC -> EX : request(userId)
+EX -> R : save(DataExportRequest REQUESTED)
+DC --> UI : 202 { id }
+EX -> EX : async process(id) → PROCESSING
+EX -> R : load user, prefs, consents, terms, twin,\nscores, badges, injuries, telemetry, posts
+EX -> LS : buildExportPayload(...)
+LS --> EX : ExportPayload (JSON)
+EX -> S3 : put(exports/{userId}/{id}.json, expira 7 d)
+EX -> R : status = READY, readyAt, expiresAt
+EX -> UI : notificação ALERTA "Seu arquivo está pronto"
+T -> DC : GET /v1/me/data-export/{id}
+DC -> S3 : presignDownload(key, 24 h)
+DC --> T : 200 { status: READY, downloadUrl }
+
+== Excluir conta (Art. 18, VI) ==
+T -> UI : "Excluir conta" → digita EXCLUIR
+UI -> SU : step-up (reautenticação)
+SU --> UI : StepUpToken
+UI -> DC : DELETE /v1/me { confirmation: "EXCLUIR" } (X-StepUp)
+DC -> DEL : request(userId, confirmation, token)
+DEL -> LS : scheduleDeletion(user, twin, now)
+LS --> DEL : scheduledPurgeAt = now + 30 d\nuser/twin → PENDING_DELETE
+DEL -> R : save(user, twin) ; hide posts
+DEL -> RS : revokeAll(userId)
+DEL --> DC : DeletionScheduled
+DC --> UI : 202 { scheduledPurgeAt }
+
+== Dia 12: arrependimento ==
+T -> UI : login (RF1)
+UI -> DC : POST /v1/me/cancel-deletion
+DC -> DEL : cancel(userId)
+DEL -> LS : cancelDeletion(user, twin)
+LS --> DEL : ACTIVE restaurado
+DC --> T : 200 conta restaurada
+
+== Dia 31 (sem cancelamento) ==
+JOB -> R : findDue(scheduledPurgeAt ≤ now)
+R --> JOB : [user…]
+JOB -> LS : anonymize(user, twin, posts)
+LS -> R : PII → hash · status ANONYMIZED
+LS -> S3 : delete mídias + exports do usuário
+JOB -> R : append audit "ANONYMIZED"
+@enduml

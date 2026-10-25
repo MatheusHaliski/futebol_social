@@ -1,0 +1,41 @@
+@startuml rf1_state
+title RF1 — Máquina de Estados da Sessão e do Refresh Token
+
+state "Session" as S {
+  [*] --> ACTIVE : login OK\n(session:{userId}:{sessionId} salvo)
+  ACTIVE --> ACTIVE : request autenticado\n/ touch() lastSeenAt
+  ACTIVE --> ACTIVE : refresh válido\n/ rotate(refreshId)
+  ACTIVE --> REVOKED : logout\n| revoke via /sessions/{id}\n| reuso de refresh detectado\n| SessionPolicy evict (> 5)\n| DELETE /v1/me (RF5)
+  ACTIVE --> EXPIRED : TTL Redis (7 d) sem refresh
+  REVOKED --> [*]
+  EXPIRED --> [*]
+
+  ACTIVE : access válido por 15 min
+  ACTIVE : refresh válido por 7 d
+  REVOKED : jti do access na blacklist até exp
+  REVOKED : todas as abas recebem 401
+}
+
+state "RefreshToken" as R {
+  [*] --> ISSUED : issueRefresh(session)
+  ISSUED --> ROTATED : POST /auth/refresh\n/ novo token emitido, rotatedTo = next
+  ISSUED --> REVOKED_RT : logout | revoke
+  ISSUED --> EXPIRED_RT : expiresAt atingido
+  ROTATED --> REUSE_DETECTED : apresentado novamente\n(token antigo)
+  REUSE_DETECTED --> [*] : revoga sessão inteira\n+ evento de segurança
+  ROTATED --> [*]
+  REVOKED_RT --> [*]
+  EXPIRED_RT --> [*]
+}
+
+state "Access JWT" as A {
+  [*] --> VALID : emitido (exp = +15 min)
+  VALID --> BLACKLISTED : logout / revoke\n(jti salvo com TTL restante)
+  VALID --> EXPIRED_AT : exp atingido
+  BLACKLISTED --> [*]
+  EXPIRED_AT --> [*]
+}
+
+S -[hidden]-> R
+R -[hidden]-> A
+@enduml

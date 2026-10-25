@@ -1,0 +1,59 @@
+@startuml rf4_1_sequence
+title RF4.1 — Sequência: card do atleta com privacidade e "Tap to Expand"
+autonumber
+
+actor "Scout (viewer)" as V
+participant "Card do Atleta (SPA)" as UI
+participant "AthleteCardController" as C
+participant "BuildAthleteCardUseCase" as UC
+participant "LgpdPreferencesRepository" as LP
+participant "AthleteBadgeRepository" as BR
+participant "DigitalTwinRepository" as TR
+participant "BadgeAwardService" as BS
+participant "BadgeHistoryUseCase" as HU
+participant "MatchRepository / InjuryRecordRepository" as Src
+
+== Abrir card ==
+V -> UI : abre perfil do atleta
+UI -> C : GET /v1/athletes/{id}/card
+C -> UC : execute(athleteId, viewerId)
+UC -> TR : findByUser(athleteId)
+TR --> UC : twin (tier LEGENDARY, physicalStatus INJURED)
+UC -> BR : findActiveBySeason(athleteId, 2026)
+BR --> UC : [🚑 DM, ⚽ 14, 🎯 7, 🏆 3, 🔥 5, 🛡️]
+UC -> LP : findByUser(athleteId)
+LP --> UC : prefs { shareMedicalData = false }
+UC -> BS : topBadges(badges, INJURED)
+BS --> UC : [🚑, ⚽ 14, 🏆 3]
+UC -> UC : applyPrivacy(): viewer ≠ dono && !shareMedicalData\n→ remove 🚑 e physicalStatus
+UC -> BS : topBadges(badgesSemMedico, null)
+BS --> UC : [⚽ 14, 🏆 3, 🔥 5]
+UC --> C : AthleteCardDTO
+C --> UI : 200 { topBadges: [⚽14, 🏆3, 🔥5], physicalStatus: null }
+UI -> V : micro-badges no topo do card
+
+== Dono vê o próprio card ==
+actor "Atleta (dono)" as O
+O -> C : GET /v1/athletes/{id}/card
+C -> UC : execute(athleteId, athleteId)
+UC --> C : topBadges [🚑 DM (retorno 12/11), ⚽ 14, 🏆 3]
+C --> O : 200 (status médico visível ao dono)
+
+== Tap to Expand ==
+V -> UI : toque em ⚽ ARTILHEIRO
+UI -> C : GET /v1/athletes/{id}/badges/ARTILHEIRO/history?size=30
+C -> HU : execute(athleteId, ARTILHEIRO, cursor)
+HU -> Src : goalsByMatch(athleteId, season)
+Src --> HU : [(date, goals, adversário)…]
+HU --> C : CursorPage<BadgeHistoryPointDTO>
+C --> UI : 200 série temporal
+UI -> V : Bottom Sheet com gráfico de evolução de gols
+
+== Tentativa de histórico médico por terceiro ==
+V -> C : GET /v1/athletes/{id}/badges/DEPARTAMENTO_MEDICO/history
+C -> HU : execute(...)
+HU -> LP : shareMedicalData?
+LP --> HU : false
+HU --> C : AccessDenied (Art. 11)
+C --> V : 403
+@enduml

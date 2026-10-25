@@ -1,0 +1,50 @@
+@startuml rf3_state
+title RF3 — Máquinas de Estado: Bottom Bar, Janela ativa e Post
+
+state "Bottom Navigation (UI)" as Nav {
+  [*] --> VISIBLE
+  VISIBLE --> HIDDEN : scroll ↓ > 24 px
+  HIDDEN --> VISIBLE : scroll ↑ | topo da lista | troca de janela
+  VISIBLE : 4 abas + FAB visíveis
+  VISIBLE : contraste ≥ 3:1 · rótulos completos
+  HIDDEN : maximiza área de leitura
+  HIDDEN : FAB permanece acessível (mini)
+}
+
+state "Janela ativa (FeedWindow)" as Win {
+  [*] --> PERFIL
+  PERFIL --> GEMEO : swipe ← | tap
+  GEMEO --> SCOUTING : swipe ← | tap
+  SCOUTING --> ALERTA : swipe ← | tap
+  ALERTA --> SCOUTING : swipe → | tap
+  SCOUTING --> GEMEO : swipe → | tap
+  GEMEO --> PERFIL : swipe → | tap
+  PERFIL --> SCOUTING : tap
+  PERFIL --> ALERTA : tap
+  GEMEO --> ALERTA : tap
+  ALERTA --> PERFIL : tap
+  ALERTA --> GEMEO : tap
+  SCOUTING --> PERFIL : tap
+  PERFIL : cursor e scroll próprios
+  GEMEO : cursor e scroll próprios
+  SCOUTING : cursor e scroll próprios
+  ALERTA : cursor e scroll próprios · badge de não lidos
+}
+
+state "Post" as P {
+  [*] --> DRAFT : FAB → formulário
+  DRAFT --> PUBLISHED : POST /v1/posts OK\n/ classify + fan-out
+  DRAFT --> [*] : cancelado
+  PUBLISHED --> HIDDEN : autor oculta | visibilidade reduzida
+  HIDDEN --> PUBLISHED : autor reexibe
+  PUBLISHED --> REMOVED : moderação | autor exclui
+  HIDDEN --> REMOVED : moderação
+  REMOVED --> [*]
+  PUBLISHED : visível na janela do contentType
+  PUBLISHED : borda = contentType.borderColor
+  PUBLISHED : bolinha = authorRole.ringColor
+}
+
+Nav -[hidden]-> Win
+Win -[hidden]-> P
+@enduml

@@ -1,0 +1,63 @@
+@startuml rf4_state
+title RF4 — Máquina de Estados do Gêmeo Digital (TwinStatus) com sub-estados de Tier
+
+[*] --> DRAFT : RegisterUserUseCase (RF2)
+
+DRAFT : scoreTotal = 0 · tier COMMON
+DRAFT : invisível nas janelas públicas
+DRAFT --> ACTIVE : conta ACTIVE\n+ 1ª telemetria ou 1ª avaliação
+
+state ACTIVE {
+  state "Tier (derivado do score)" as Tier {
+    [*] --> COMMON
+    COMMON --> RARE : total ≥ 401
+    RARE --> EPIC : total ≥ 901
+    EPIC --> LEGENDARY : total ≥ 1601
+    LEGENDARY --> MYTHIC : total ≥ 2401
+    MYTHIC --> LEGENDARY : total ≤ 2400
+    LEGENDARY --> EPIC : total ≤ 1600
+    EPIC --> RARE : total ≤ 900
+    RARE --> COMMON : total ≤ 400
+  }
+  state "PhysicalStatus (RF4.1)" as Phys {
+    [*] --> READY
+    READY --> FATIGUE_RISK : ACWR > 1.5
+    FATIGUE_RISK --> READY : carga normalizada
+    READY --> INJURED : InjuryRecord aberto
+    FATIGUE_RISK --> INJURED : InjuryRecord aberto
+    INJURED --> READY : clearedAt preenchido
+  }
+  ACTIVE : recálculo toda segunda 03:00
+  ACTIVE : snapshot único por (twin, isoWeek)
+}
+
+ACTIVE --> ACTIVE : WeeklyRarityJob\n/ applyScore(snapshot)
+
+ACTIVE --> SUSPENDED : conta SUSPENDED
+SUSPENDED --> ACTIVE : reativação
+SUSPENDED : score congelado · card oculto
+SUSPENDED : job ignora o twin
+
+ACTIVE --> PENDING_DELETE : DELETE /v1/me (RF5)
+SUSPENDED --> PENDING_DELETE : DELETE /v1/me
+PENDING_DELETE : 30 dias de graça
+PENDING_DELETE : snapshots preservados
+PENDING_DELETE --> ACTIVE : cancel-deletion\n(restaura tier anterior)
+PENDING_DELETE --> ANONYMIZED : purge diário ≥ 30 d
+PENDING_DELETE --> DELETED : purga total
+
+ANONYMIZED : userId → pseudônimo
+ANONYMIZED : agregados estatísticos mantidos
+ANONYMIZED --> [*]
+DELETED --> [*]
+
+note left of ANONYMIZED
+  TwinStatus.allowedNext():
+  DRAFT → {ACTIVE}
+  ACTIVE → {SUSPENDED, PENDING_DELETE}
+  SUSPENDED → {ACTIVE, PENDING_DELETE}
+  PENDING_DELETE → {ACTIVE, ANONYMIZED, DELETED}
+  ANONYMIZED / DELETED → {}
+  Qualquer outra transição lança InvalidTwinTransitionException.
+end note
+@enduml

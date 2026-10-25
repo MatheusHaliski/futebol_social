@@ -1,0 +1,142 @@
+@startuml rf1_class
+title RF1 — Autenticação JWT, Sessão Redis e Segurança de Fronteira · Diagrama de Classes
+skinparam classAttributeIconSize 0
+hide empty fields
+
+package "web" {
+  class AuthController <<@RestController /v1/auth>> {
+    +login(req : LoginRequest) : TokenPairResponse
+    +refresh(req : RefreshRequest) : TokenPairResponse
+    +logout(authz : String) : void
+    +sessions() : List<SessionDTO>
+    +revokeSession(sessionId : UUID) : void
+    +stepUp(req : StepUpRequest) : StepUpToken
+  }
+}
+
+package "application" {
+  class AuthenticationUseCase {
+    +login(cmd : LoginCommand) : TokenPair
+    +refresh(cmd : RefreshCommand) : TokenPair
+    +logout(jti : String, sessionId : UUID) : void
+    +revokeAll(userId : UUID) : void
+  }
+  class StepUpUseCase {
+    +verify(userId : UUID, password : String) : StepUpToken
+    +require(token : StepUpToken, action : SensitiveAction) : void
+  }
+  class "record TokenPair" as TokenPair {
+    +accessToken : String
+    +refreshToken : String
+    +expiresIn : long
+    +sessionId : UUID
+  }
+  class "record LoginCommand" as LoginCommand {
+    +email : String
+    +password : String
+    +deviceInfo : DeviceInfo
+    +ip : String
+  }
+  enum SensitiveAction {
+    CHANGE_EMAIL
+    CHANGE_PASSWORD
+    DELETE_ACCOUNT
+    EXPORT_DATA
+  }
+}
+
+package "domain.auth" {
+  class Session {
+    -id : UUID
+    -userId : UUID
+    -device : DeviceInfo
+    -createdAt : Instant
+    -lastSeenAt : Instant
+    -refreshTokenId : UUID
+    -state : SessionState
+    --
+    +touch() : void
+    +rotate(newRefreshId : UUID) : void
+    +revoke() : void
+  }
+  class RefreshToken <<Value Object>> {
+    -id : UUID
+    -sessionId : UUID
+    -userId : UUID
+    -issuedAt : Instant
+    -expiresAt : Instant
+    -rotatedTo : UUID
+    -revoked : boolean
+    --
+    +isReused() : boolean
+  }
+  class "record DeviceInfo" as DeviceInfo {
+    +userAgent : String
+    +platform : String
+    +ip : String
+  }
+  enum SessionState {
+    ACTIVE
+    REVOKED
+    EXPIRED
+  }
+  class SessionPolicy <<Domain Service>> {
+    -maxConcurrentSessions : int = 5
+    +enforce(userId : UUID, sessions : List<Session>) : List<Session> evicted
+  }
+}
+
+package "infrastructure.security" {
+  class JwtTokenService {
+    -secret : Key
+    -accessTtl : Duration = 15min
+    -refreshTtl : Duration = 7d
+    +issueAccess(user, sessionId) : String  (claims: sub, role, sid, jti)
+    +issueRefresh(session) : RefreshToken
+    +parse(token : String) : Claims
+  }
+  class RedisSessionService {
+    +save(session : Session) : void   (key session:{userId}:{sessionId}, TTL = refreshTtl)
+    +find(userId, sessionId) : Optional<Session>
+    +listByUser(userId) : List<Session>
+    +delete(userId, sessionId) : void
+    +blacklistJti(jti : String, ttl : Duration) : void
+    +isBlacklisted(jti : String) : boolean
+  }
+  class JwtAuthenticationFilter <<OncePerRequestFilter>> {
+    +doFilterInternal(req, res, chain) : void
+  }
+  class RateLimitFilter <<OncePerRequestFilter>> {
+    -ipBucket : Bucket4j (100 req/min)
+    -userBucket : Bucket4j (300 req/min)
+    +doFilterInternal(req, res, chain) : void
+  }
+  class SecurityConfig <<@Configuration>> {
+    +filterChain(http) : SecurityFilterChain
+    +passwordEncoder() : BCryptPasswordEncoder(12)
+  }
+  class RefreshTokenRepository <<Redis>> {
+    +save(token : RefreshToken) : void
+    +findById(id : UUID) : Optional<RefreshToken>
+    +markRotated(id, next) : void
+  }
+}
+
+AuthController --> AuthenticationUseCase
+AuthController --> StepUpUseCase
+AuthenticationUseCase --> JwtTokenService
+AuthenticationUseCase --> RedisSessionService
+AuthenticationUseCase --> RefreshTokenRepository
+AuthenticationUseCase --> SessionPolicy
+AuthenticationUseCase ..> TokenPair
+AuthenticationUseCase ..> LoginCommand
+StepUpUseCase ..> SensitiveAction
+Session --> SessionState
+Session --> DeviceInfo
+Session "1" --> "1" RefreshToken : current
+JwtAuthenticationFilter --> JwtTokenService
+JwtAuthenticationFilter --> RedisSessionService : isBlacklisted / find
+RateLimitFilter --> RedisSessionService : buckets
+SecurityConfig ..> JwtAuthenticationFilter
+SecurityConfig ..> RateLimitFilter
+@enduml

@@ -1,0 +1,66 @@
+@startuml twin_state_machine
+title Gêmeo Digital — Ciclo de vida, progressão de Tiers e exclusão com graça (RF4 + RF5)
+
+[*] --> DRAFT : cadastro concluído\n(RF2) — twin criado junto do User
+
+state DRAFT {
+  DRAFT : scoreTotal = 0
+  DRAFT : rarityTier = COMMON
+  DRAFT : sem feed GEMEO público
+}
+
+DRAFT --> ACTIVE : e-mail verificado\n+ termos Velion aceitos\n+ 1ª telemetria registrada
+
+state ACTIVE {
+  [*] --> COMMON
+  COMMON    --> RARE      : score ≥ 401
+  RARE      --> EPIC      : score ≥ 901
+  EPIC      --> LEGENDARY : score ≥ 1601
+  LEGENDARY --> MYTHIC    : score ≥ 2401
+
+  MYTHIC    --> LEGENDARY : score ≤ 2400
+  LEGENDARY --> EPIC      : score ≤ 1600
+  EPIC      --> RARE      : score ≤ 900
+  RARE      --> COMMON    : score ≤ 400
+
+  COMMON    : borda padrão simples
+  RARE      : glow azul suave
+  EPIC      : partículas roxas + destaque de estatística
+  LEGENDARY : moldura Branco + Dourado
+  MYTHIC    : aura dinâmica reativa + badges MVP
+  --
+  ACTIVE : recálculo semanal determinístico
+  ACTIVE : Score_Total = 0.30·físico + 0.40·técnico + 0.30·partidas
+  ACTIVE : idempotente por (userId, isoWeek)
+}
+
+ACTIVE --> SUSPENDED : violação de termos\nou decisão administrativa
+SUSPENDED --> ACTIVE : reativação administrativa
+SUSPENDED : score congelado
+SUSPENDED : card oculto nos feeds
+
+ACTIVE --> PENDING_DELETE : DELETE /v1/me\n(confirmação dupla + step-up)
+SUSPENDED --> PENDING_DELETE : DELETE /v1/me
+
+state PENDING_DELETE {
+  PENDING_DELETE : scheduledPurgeAt = requestedAt + 30 dias  (Art. 18, VI)
+  PENDING_DELETE : sessões revogadas · card invisível
+  PENDING_DELETE : dados preservados (soft-delete)
+}
+
+PENDING_DELETE --> ACTIVE : login no período de graça\nPOST /v1/me/cancel-deletion
+PENDING_DELETE --> ANONYMIZED : job diário · now ≥ scheduledPurgeAt\nPII → hash irreversível · mídias removidas
+PENDING_DELETE --> DELETED : purga total solicitada\n(sem obrigação legal de retenção)
+
+ANONYMIZED : snapshots agregados mantidos sem PII
+ANONYMIZED --> [*]
+DELETED --> [*]
+
+note right of ACTIVE
+  Transições de tier são efeito do recálculo,
+  nunca editadas manualmente.
+  DigitalTwin.transitionTo() valida apenas
+  as setas deste diagrama; qualquer outra
+  lança InvalidTwinTransitionException.
+end note
+@enduml

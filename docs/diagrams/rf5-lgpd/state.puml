@@ -1,0 +1,43 @@
+@startuml rf5_state
+title RF5 — Máquinas de Estado: Exclusão com graça, Exportação de dados e Consentimento
+
+state "Conta (exclusão — Art. 18, VI)" as Del {
+  [*] --> ACTIVE
+  ACTIVE --> PENDING_DELETE : DELETE /v1/me\n(confirmação dupla + step-up)\n/ scheduledPurgeAt = now + 30 d\n/ revoga sessões · oculta posts
+  PENDING_DELETE --> ACTIVE : login ou POST /cancel-deletion\n(≤ 30 dias) / restaura twin e posts
+  PENDING_DELETE --> ANONYMIZED : job diário · now ≥ scheduledPurgeAt\n/ PII → hash · mídias removidas
+  ANONYMIZED --> [*]
+
+  ACTIVE : dados íntegros · tratamento normal
+  PENDING_DELETE : soft-delete · nada apagado fisicamente
+  PENDING_DELETE : notificações de lembrete (D-7, D-1)
+  ANONYMIZED : irreversível · agregados sem PII
+}
+
+state "DataExportRequest (Art. 18, V)" as Exp {
+  [*] --> REQUESTED : POST /v1/me/data-export (step-up)
+  REQUESTED --> PROCESSING : worker assume
+  PROCESSING --> READY : JSON gravado no S3\n/ expiresAt = +7 d · notifica ALERTA
+  PROCESSING --> FAILED : erro / timeout
+  FAILED --> REQUESTED : retry (máx. 3)
+  READY --> EXPIRED : expiresAt atingido\n/ objeto removido do S3
+  READY --> READY : download (URL pré-assinada 24 h)
+  EXPIRED --> [*]
+  FAILED --> [*] : após 3 tentativas
+
+  READY : formato legível por máquina
+  READY : inclui perfil, prefs, consentimentos, twin, badges, telemetria, posts
+}
+
+state "Toggle de consentimento (por finalidade)" as Con {
+  [*] --> OFF : padrão — Privacy by Default
+  OFF --> ON : opt-in explícito (1 clique)\n[sensível Art. 11 → confirmação destacada]\n/ ConsentAuditLog(false → true)
+  ON --> OFF : revogação (1 clique, mesmo lugar)\n/ ConsentAuditLog(true → false)\n/ cessa tratamento daquela finalidade
+  ON --> OFF : conta → PENDING_DELETE
+  OFF : nenhum dado dessa finalidade é compartilhado
+  ON : base legal = consentimento (Art. 7º, I)
+}
+
+Del -[hidden]-> Exp
+Exp -[hidden]-> Con
+@enduml

@@ -1,0 +1,194 @@
+@startuml rf5_class
+title RF5 — Central de Compliance LGPD / Privacy by Design · Diagrama de Classes
+skinparam classAttributeIconSize 0
+hide empty fields
+
+package "web" {
+  class ProfileController <<@RestController /v1/me/profile>> {
+    +get() : ProfileSettingsDTO
+    +update(req : UpdateProfileRequest) : ProfileSettingsDTO   <<Art. 18, III>>
+  }
+  class PrivacyController <<@RestController /v1/me/privacy>> {
+    +get() : PrivacySettingsDTO
+    +update(req : UpdatePrivacyRequest) : PrivacySettingsDTO   <<Art. 7º, I · 18, VII · 18, IX>>
+  }
+  class PreferencesController <<@RestController /v1/me/preferences>> {
+    +ui(req : UiPreferencesRequest) : void        (darkMode, fontScale)
+    +locale(req : LocaleRequest) : void           (pt-BR | en-US | es)
+  }
+  class DataRightsController <<@RestController /v1/me>> {
+    +requestExport() : DataExportRequestDTO       <<Art. 18, V>>
+    +exportStatus(id : UUID) : DataExportRequestDTO
+    +requestDeletion(req : DeleteAccountRequest) : DeletionScheduledDTO   <<Art. 18, VI>>
+    +cancelDeletion() : void
+    +activityHistory(cursor) : CursorPage<ActivityDTO>   <<Art. 18, I/II>>
+  }
+  class "record PrivacySettingsDTO" as PSDTO {
+    +visibility : ProfileVisibility
+    +toggles : List<ConsentToggleDTO>
+  }
+  class "record ConsentToggleDTO" as CTDTO {
+    +key : String
+    +enabled : boolean  (default false)
+    +label : String
+    +description : String
+    +lgpdArticle : String   (ex.: "Art. 7º, I · Consentimento revogável")
+    +sensitive : boolean    (Art. 11 → pill rosa)
+  }
+}
+
+package "application" {
+  class UpdatePrivacyUseCase {
+    +execute(userId, changes : Map<String,Boolean>, visibility, ctx : RequestContext) : PrivacySettingsDTO
+  }
+  class ExportUserDataUseCase {
+    +request(userId) : DataExportRequest
+    +process(requestId) : void   (assíncrono)
+  }
+  class DeleteAccountUseCase {
+    +request(userId, confirmation : String, stepUp : StepUpToken) : DeletionScheduled
+    +cancel(userId) : void
+  }
+  class AnonymizeDueAccountsJob <<@Scheduled(cron = "0 30 2 * * *")>> {
+    +run() : void
+  }
+  class "record RequestContext" as RC {
+    +ip : String
+    +userAgent : String
+    +locale : String
+  }
+}
+
+package "domain.lgpd" {
+  class LgpdComplianceService <<Domain Service>> {
+    +changeConsent(prefs, key, value, ctx) : ConsentAuditLog
+    +buildExportPayload(user, prefs, twin, badges, telemetry, posts, terms) : ExportPayload
+    +scheduleDeletion(user, twin, now) : Instant   (now + 30 d)
+    +cancelDeletion(user, twin) : void
+    +anonymize(user, twin, posts) : void   (hash irreversível de PII, remove mídias)
+    +assertNoDarkPatterns(req) : void
+  }
+  class UserLgpdPreferences <<@Entity @Table(user_lgpd_preferences)>> {
+    -userId : UUID
+    -shareTelemetryWithClubs : boolean = false
+    -shareTelemetryWithScouts : boolean = false
+    -shareMedicalData : boolean = false      <<Art. 11>>
+    -shareBiometricData : boolean = false    <<Art. 11>>
+    -locationHistory : boolean = false
+    -shareWithBrands : boolean = false
+    -personalizedAds : boolean = false
+    -aiAgentProcessing : boolean = false
+    -updatedAt : Instant
+    --
+    +isSensitive(key) : boolean
+    +get(key) : boolean
+    +set(key, value) : void
+  }
+  class ConsentAuditLog <<@Entity append-only>> {
+    -id : UUID
+    -userId : UUID
+    -preference : String
+    -oldValue : boolean
+    -newValue : boolean
+    -lgpdArticle : String
+    -ipAddress : String
+    -userAgent : String
+    -changedAt : Instant
+  }
+  class DataExportRequest <<@Entity>> {
+    -id : UUID
+    -userId : UUID
+    -status : ExportStatus
+    -requestedAt : Instant
+    -readyAt : Instant
+    -expiresAt : Instant  (+7 d)
+    -s3ObjectKey : String
+    -sizeBytes : long
+  }
+  class "record ExportPayload" as EP {
+    +profile : Map
+    +lgpdPreferences : Map
+    +consentHistory : List
+    +termsAcceptances : List
+    +digitalTwin : Map
+    +weeklyScores : List
+    +badges : List
+    +injuries : List
+    +telemetry : List
+    +posts : List
+    +generatedAt : Instant
+    +format : String = "application/json"
+  }
+  class "record DeletionScheduled" as DS {
+    +requestedAt : Instant
+    +scheduledPurgeAt : Instant
+    +graceDays : int = 30
+  }
+  enum ExportStatus {
+    REQUESTED
+    PROCESSING
+    READY
+    EXPIRED
+    FAILED
+  }
+  enum ProfileVisibility {
+    SOMENTE_EU
+    CONEXOES
+    PUBLICO
+  }
+  enum LgpdArticle {
+    ART_6_III_NECESSIDADE
+    ART_6_IV_LIVRE_ACESSO
+    ART_6_VI_TRANSPARENCIA
+    ART_6_X_RESPONSABILIZACAO
+    ART_7_I_CONSENTIMENTO
+    ART_7_V_CONTRATO
+    ART_8_P5_REVOGACAO
+    ART_11_SENSIVEL
+    ART_18_I_II_ACESSO
+    ART_18_III_CORRECAO
+    ART_18_V_PORTABILIDADE
+    ART_18_VI_ELIMINACAO
+    ART_18_VII_COMPARTILHAMENTO
+    ART_18_IX_REVOGACAO
+  }
+}
+
+package "infrastructure" {
+  class LgpdPreferencesRepository <<JPA>>
+  class ConsentAuditRepository <<JPA>>
+  class DataExportRepository <<JPA>>
+  class ExportStorage <<S3>> {
+    +put(key, json) : void
+    +presignDownload(key, ttl 24h) : URL
+  }
+  class PiiCryptoConverter <<AttributeConverter AES-256>>
+  class SessionRevoker <<Redis>> {
+    +revokeAll(userId) : void
+  }
+}
+
+ProfileController ..> LgpdArticle
+PrivacyController --> UpdatePrivacyUseCase
+PrivacyController ..> PSDTO
+PSDTO *-- CTDTO
+DataRightsController --> ExportUserDataUseCase
+DataRightsController --> DeleteAccountUseCase
+UpdatePrivacyUseCase --> LgpdComplianceService
+UpdatePrivacyUseCase --> LgpdPreferencesRepository
+UpdatePrivacyUseCase --> ConsentAuditRepository
+UpdatePrivacyUseCase ..> RC
+ExportUserDataUseCase --> LgpdComplianceService
+ExportUserDataUseCase --> DataExportRepository
+ExportUserDataUseCase --> ExportStorage
+DeleteAccountUseCase --> LgpdComplianceService
+DeleteAccountUseCase --> SessionRevoker
+AnonymizeDueAccountsJob --> LgpdComplianceService
+LgpdComplianceService ..> EP
+LgpdComplianceService ..> DS
+LgpdComplianceService ..> ConsentAuditLog
+UserLgpdPreferences "1" --> "0..*" ConsentAuditLog
+DataExportRequest --> ExportStatus
+CTDTO ..> LgpdArticle
+UserLgpdPreferences ..> PiiCryptoConverter
+@enduml

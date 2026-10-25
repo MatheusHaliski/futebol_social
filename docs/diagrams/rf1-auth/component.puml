@@ -1,0 +1,63 @@
+@startuml rf1_component
+title RF1 — Componentes de Autenticação, Sessão e Borda
+skinparam componentStyle rectangle
+left to right direction
+
+actor Usuário as U
+
+package "SPA / Mobile" {
+  component "AuthStore\n(tokens em memória +\nrefresh silencioso)" as Store
+  component "BroadcastChannel\n'auth' (sync entre abas)" as BC
+  component "HTTP Interceptor\n(Bearer + retry 401 → refresh)" as Intc
+}
+
+node "Edge / Gateway" {
+  component "RateLimitFilter\nBucket4j (IP 100/min · user 300/min)" as RL
+  component "JwtAuthenticationFilter\n(assinatura · exp · jti blacklist · sid existe)" as JF
+}
+
+node "Spring Boot Core" {
+  component "AuthController\n/v1/auth/**" as AC
+  component "AuthenticationUseCase" as UC
+  component "StepUpUseCase\n(reautenticação p/ ações sensíveis)" as SU
+  component "SessionPolicy\n(máx. 5 sessões)" as SP
+  component "JwtTokenService\n(HS512 · 15 min / 7 d)" as JWT
+  component "RedisSessionService" as RS
+  component "RefreshTokenRepository" as RTR
+  component "UserRepository (JPA)" as UR
+  component "SecurityEventPublisher" as SEP
+}
+
+database "Redis 7" as Redis {
+  component "session:{userId}:{sid}" as K1
+  component "rt:{refreshId}" as K2
+  component "bl:{jti}" as K3
+  component "bucket:{ip} / bucket:{userId}" as K4
+}
+database "MySQL 8\nusers · login_attempts" as MySQL
+queue "Eventos de segurança\n(reuso de refresh, lockout)" as Q
+
+U --> Store
+Store --> Intc
+Store <--> BC
+Intc --> RL
+RL --> JF
+JF --> AC
+AC --> UC
+AC --> SU
+UC --> SP
+UC --> JWT
+UC --> RS
+UC --> RTR
+UC --> UR
+UC --> SEP
+SU --> UR
+JF --> RS
+RL --> Redis
+RS --> K1
+RS --> K3
+RTR --> K2
+RL --> K4
+UR --> MySQL
+SEP --> Q
+@enduml

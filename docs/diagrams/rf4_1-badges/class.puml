@@ -1,0 +1,182 @@
+@startuml rf4_1_class
+title RF4.1 — Athletic Persona: Badges Gamificados e Status Físico · Diagrama de Classes
+skinparam classAttributeIconSize 0
+hide empty fields
+
+package "web" {
+  class AthleteCardController <<@RestController /v1/athletes>> {
+    +card(athleteId : UUID) : AthleteCardDTO
+    +badgeHistory(athleteId : UUID, type : BadgeType, cursor : String) : CursorPage<BadgeHistoryPointDTO>
+  }
+  class "record AthleteCardDTO" as CardDTO {
+    +athleteId : UUID
+    +displayName : String
+    +ringColor : String
+    +rarityTier : RarityTier
+    +physicalStatus : PhysicalStatus  (null se shareMedicalData=false e viewer ≠ dono)
+    +topBadges : List<BadgeDTO>  <<máx. 3>>
+    +allBadges : List<BadgeDTO>
+  }
+  class "record BadgeDTO" as BadgeDTO {
+    +type : BadgeType
+    +category : BadgeCategory
+    +emoji : String
+    +color : String
+    +counter : Integer
+    +label : String
+    +detail : String  (ex.: "retorno previsto 12/11")
+    +expandable : boolean = true
+  }
+  class "record BadgeHistoryPointDTO" as HistDTO {
+    +date : LocalDate
+    +value : BigDecimal
+    +note : String
+  }
+}
+
+package "application" {
+  class BuildAthleteCardUseCase {
+    +execute(athleteId : UUID, viewerId : UUID) : AthleteCardDTO
+    -applyPrivacy(card, prefs : UserLgpdPreferences) : AthleteCardDTO
+  }
+  class BadgeHistoryUseCase {
+    +execute(athleteId, type, cursor) : CursorPage<BadgeHistoryPointDTO>
+  }
+  class "BadgeRecalcListener\n(@EventListener TrainingLogged,\nMatchRecorded, EvaluationSubmitted,\nInjuryOpened/Cleared)" as Listener {
+    +on(event) : void
+  }
+}
+
+package "domain.badge" {
+  class BadgeAwardService <<Domain Service · determinístico>> {
+    +evaluate(ctx : BadgeContext) : List<BadgeDecision>
+    +derivePhysicalStatus(ctx : BadgeContext) : PhysicalStatus
+    +topBadges(badges : List<AthleteBadge>, status : PhysicalStatus) : List<AthleteBadge>  (≤ 3)
+    -acwr(ctx) : BigDecimal   (carga aguda 7d / crônica 28d)
+  }
+  class TopBadgePolicy <<Policy>> {
+    +rank(b : AthleteBadge, status : PhysicalStatus) : int
+    ' 1) status médico ativo (INJURED > FATIGUE_RISK > READY)
+    ' 2) BadgeType.priority
+    ' 3) counter desc
+  }
+  class "record BadgeContext" as Ctx {
+    +athleteId : UUID
+    +season : String
+    +telemetry28d : List<TelemetryData>
+    +matches : List<MatchPerformance>
+    +evaluations : List<TechnicalEvaluation>
+    +openInjury : Optional<InjuryRecord>
+    +attendanceStreak : int
+    +highRatingStreak : int
+    +cards : int (amarelos+vermelhos)
+    +isCaptain : boolean
+    +peerApproval : BigDecimal
+    +tacticalCompliance : BigDecimal
+  }
+  class "record BadgeDecision" as Decision {
+    +type : BadgeType
+    +action : AWARD | UPDATE_COUNTER | DEACTIVATE
+    +counter : Integer
+    +reason : String
+  }
+  class AthleteBadge <<@Entity @Table(athlete_badges)\n@UniqueConstraint(athlete_id, badge_type, season)>> {
+    -id : UUID
+    -athleteId : UUID
+    -badgeType : BadgeType
+    -counter : int
+    -season : String
+    -awardedAt : Instant
+    -awardedBy : UUID  (null = sistema)
+    -active : boolean
+    --
+    +increment(n : int) : void
+    +deactivate(reason) : void
+  }
+  class InjuryRecord <<@Entity @Table(injury_records) · Art. 11>> {
+    -id : UUID
+    -athleteId : UUID
+    -injuryType : String
+    -startedAt : LocalDate
+    -expectedReturnDate : LocalDate
+    -clearedAt : LocalDate
+    -reportedBy : UUID
+    --
+    +isOpen() : boolean
+  }
+  class BadgeAuditLog <<@Entity append-only>> {
+    -athleteId : UUID
+    -badgeType : BadgeType
+    -action : String
+    -reason : String
+    -at : Instant
+  }
+  enum BadgeCategory {
+    SEASON_STATS
+    PHYSICAL_STATUS
+    SOCIAL_TACTICAL
+  }
+  enum BadgeType {
+    ARTILHEIRO(SEASON_STATS, "⚽", 40, true)
+    GARCOM(SEASON_STATS, "🎯", 38, true)
+    PAREDAO(SEASON_STATS, "🧱", 36, true)
+    XERIFAO(SEASON_STATS, "🧱", 36, true)
+    MOTORZINHO(SEASON_STATS, "⏱️", 30, true)
+    PRONTO_PRA_JOGO(PHYSICAL_STATUS, "⚡", 90, false)
+    DEPARTAMENTO_MEDICO(PHYSICAL_STATUS, "🚑", 100, false)
+    RISCO_FADIGA(PHYSICAL_STATUS, "⚠️", 95, false)
+    MVP(SOCIAL_TACTICAL, "🏆", 50, true)
+    MESTRE_TATICO(SOCIAL_TACTICAL, "🧠", 45, false)
+    EM_CHAMAS(SOCIAL_TACTICAL, "🔥", 48, true)
+    LIDER_CAPITAO(SOCIAL_TACTICAL, "👑", 44, false)
+    FAIR_PLAY(SOCIAL_TACTICAL, "🛡️", 35, false)
+    --
+    +category : BadgeCategory
+    +emoji : String
+    +color : String
+    +priority : int
+    +quantitative : boolean
+    +appliesTo(position : String) : boolean
+  }
+  enum PhysicalStatus {
+    READY → PRONTO_PRA_JOGO
+    FATIGUE_RISK → RISCO_FADIGA
+    INJURED → DEPARTAMENTO_MEDICO
+    --
+    +badge() : BadgeType
+    +blocksCallUp() : boolean  (INJURED = true)
+  }
+}
+
+package "infrastructure" {
+  class AthleteBadgeRepository <<JPA>>
+  class InjuryRecordRepository <<JPA>>
+  class BadgeAuditRepository <<JPA>>
+  class TelemetryRepository <<Cassandra>>
+  class CallUpGuard <<Policy adapter>> {
+    +canBeCalledUp(athleteId) : boolean
+  }
+}
+
+AthleteCardController --> BuildAthleteCardUseCase
+AthleteCardController --> BadgeHistoryUseCase
+AthleteCardController ..> CardDTO
+CardDTO *-- BadgeDTO
+BadgeHistoryUseCase ..> HistDTO
+BuildAthleteCardUseCase --> BadgeAwardService : topBadges()
+BuildAthleteCardUseCase --> AthleteBadgeRepository
+Listener --> BadgeAwardService
+Listener --> AthleteBadgeRepository
+Listener --> BadgeAuditRepository
+Listener --> TelemetryRepository
+Listener --> InjuryRecordRepository
+BadgeAwardService --> TopBadgePolicy
+BadgeAwardService ..> Ctx
+BadgeAwardService ..> Decision
+BadgeAwardService ..> PhysicalStatus
+AthleteBadge --> BadgeType
+BadgeType --> BadgeCategory
+PhysicalStatus ..> BadgeType
+CallUpGuard --> PhysicalStatus
+Decision --> BadgeType
+@enduml

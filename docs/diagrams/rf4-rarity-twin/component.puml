@@ -1,0 +1,66 @@
+@startuml rf4_component
+title RF4 — Componentes do Rarity Engine e do Gêmeo Digital
+skinparam componentStyle rectangle
+left to right direction
+
+actor "Atleta / Scout / Treinador" as U
+component "Scheduler\n(cron MON 03:00)" as Sched
+
+package "SPA" {
+  component "Card do Perfil / Gêmeo\n(efeito por tier)" as Card
+  component "Janela GEMEO\n(gráfico semanal, breakdown 30/40/30)" as WG
+}
+
+node "Spring Boot Core" {
+  component "TwinController\n/v1/twins" as TC
+  component "WeeklyRarityJob" as Job
+  component "RecalculateTwinUseCase" as UC
+  component "ScoreInputCollector" as IC
+  component "RarityCalculationService\n(puro · determinístico)" as RC
+  component "DigitalTwin (aggregate)\ntransitionTo · applyScore" as Twin
+  component "TwinEventPublisher" as EP
+  component "DigitalTwinRepository" as DR
+  component "WeeklyScoreSnapshotRepository" as SR
+  component "EvaluationRepository" as ER
+  component "MatchRepository" as MR
+  component "TelemetryRepository" as TR
+  component "BadgeAwardService (RF4.1)" as BS
+  component "AgentClient\n(sugestões de peso / anomalias)" as AC
+}
+
+database "MySQL 8\ndigital_twins\nweekly_score_snapshots\ntechnical_evaluations\nmatch_performances" as MySQL
+database "Cassandra 4\ntelemetry_data" as Cass
+database "Redis 7\ncache twin card (TTL 5 min)" as Redis
+node "Agentes de IA (Python)\nmodelos de carga / detecção de anomalia" as Agents
+queue "TierChanged\nTwinStatusChanged" as Q
+component "Feed RF3 · Notificações ALERTA\nBadges RF4.1 · LGPD RF5" as Consumers
+
+U --> Card
+U --> WG
+Card --> TC
+WG --> TC
+TC --> DR
+TC --> SR
+TC --> Redis
+Sched --> Job
+Job --> UC
+UC --> IC
+UC --> RC
+UC --> Twin
+UC --> SR
+UC --> DR
+UC --> EP
+IC --> TR
+IC --> ER
+IC --> MR
+IC --> BS
+IC --> AC
+AC --> Agents
+DR --> MySQL
+SR --> MySQL
+ER --> MySQL
+MR --> MySQL
+TR --> Cass
+EP --> Q
+Q --> Consumers
+@enduml

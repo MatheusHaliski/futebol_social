@@ -1,0 +1,56 @@
+@startuml rf4_sequence
+title RF4 — Sequência: recálculo semanal e promoção de tier
+autonumber
+
+participant "Scheduler" as S
+participant "WeeklyRarityJob" as Job
+participant "RecalculateTwinUseCase" as UC
+participant "WeeklyScoreSnapshotRepository" as SR
+participant "ScoreInputCollector" as IC
+participant "TelemetryRepository\n(Cassandra)" as TR
+participant "EvaluationRepository\n(MySQL)" as ER
+participant "MatchRepository\n(MySQL)" as MR
+participant "BadgeAwardService (RF4.1)" as BS
+participant "RarityCalculationService" as RC
+participant "DigitalTwin" as Twin
+participant "DigitalTwinRepository" as DR
+participant "TwinEventPublisher" as EP
+participant "Feed / ALERTA (RF3)" as Feed
+
+S -> Job : cron MON 03:00
+Job -> DR : findAllByStatus(ACTIVE, page)
+DR --> Job : [twin…]
+loop para cada twin
+  Job -> UC : execute(userId, "2026-W43")
+  UC -> SR : existsByTwinAndWeek(twinId, W43)?
+  SR --> UC : false
+  UC -> IC : collect(userId, W43)
+  IC -> TR : weekly(athleteId, W43)
+  TR --> IC : sessões, loadAu, rpe
+  IC -> ER : findByUserAndWeek(userId, W43)
+  ER --> IC : avaliações (peso por papel)
+  IC -> MR : findByUserAndWeek(userId, W43)
+  MR --> IC : partidas (min, rating, oficial)
+  IC -> BS : activeBadgeBonus(userId)
+  BS --> IC : bônus
+  IC --> UC : ScoreInputs (+ hash)
+  UC -> RC : calculate(inputs)
+  RC -> RC : physical×0.30 + technical×0.40 + match×0.30\nnormalize · HALF_EVEN
+  RC --> UC : ScoreResult{total=1 650, tier=LEGENDARY}
+  UC -> SR : save(WeeklyScoreSnapshot)
+  SR --> UC : ok (unique twin_id+iso_week)
+  UC -> Twin : applyScore(snapshot)
+  Twin --> UC : TierChange{EPIC → LEGENDARY, promoted}
+  UC -> DR : save(twin)
+  UC -> EP : tierChanged(change)
+  EP -> Feed : card do perfil: moldura Branco+Dourado\n+ notificação na janela ALERTA
+end
+Job -> S : métricas (processados, duração, tiers)
+
+== Reexecução no mesmo dia (idempotência) ==
+S -> Job : run() manual
+Job -> UC : execute(userId, W43)
+UC -> SR : existsByTwinAndWeek?
+SR --> UC : true
+UC --> Job : skip (sem novo snapshot, sem evento)
+@enduml

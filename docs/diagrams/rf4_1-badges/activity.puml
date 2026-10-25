@@ -1,0 +1,79 @@
+@startuml rf4_1_activity
+title RF4.1 — Concessão de badges e derivação do status físico após evento · Diagrama de Atividades
+
+|Evento de domínio|
+start
+:Recebe evento\nTrainingLogged | MatchRecorded |\nEvaluationSubmitted | InjuryOpened | InjuryCleared;
+
+|BadgeRecalcListener|
+:Monta BadgeContext\n(telemetria 28 d, partidas da temporada,\navaliações, lesão aberta, streaks, cartões);
+
+|BadgeAwardService|
+partition "Status físico (exclusivo)" {
+  if (há InjuryRecord aberto?) then (sim)
+    :physicalStatus = INJURED;
+    :Badge 🚑 DEPARTAMENTO_MEDICO ativo\n(detail = tipo + retorno previsto);
+    :CallUpGuard bloqueia convocações automáticas;
+  else (não)
+    :ACWR = carga aguda 7 d / carga crônica 28 d;
+    if (ACWR > 1.5 OU RPE médio 7 d ≥ 8?) then (sim)
+      :physicalStatus = FATIGUE_RISK;
+      :Badge ⚠️ RISCO_FADIGA ativo;
+    else (não)
+      if (assiduidade 7 d ≥ 80%?) then (sim)
+        :physicalStatus = READY;
+        :Badge ⚡ PRONTO_PRA_JOGO ativo;
+      else (não)
+        :physicalStatus = READY (sem badge ⚡);
+      endif
+    endif
+  endif
+  :Desativa os outros badges de PHYSICAL_STATUS;
+}
+
+partition "Estatísticas da temporada" {
+  :⚽ ARTILHEIRO.counter = Σ gols;
+  :🎯 GARCOM.counter = Σ assistências;
+  if (posição == GOLEIRO?) then (sim)
+    :🧱 PAREDAO.counter = Σ clean sheets;
+  else (defensor)
+    :🧱 XERIFAO.counter = Σ desarmes limpos;
+  endif
+  :⏱️ MOTORZINHO.counter = Σ minutos;
+}
+
+partition "Sociais, táticos e gamificados" {
+  if (eleito melhor da partida?) then (sim)
+    :🏆 MVP.counter++;
+  endif
+  if (tacticalCompliance ≥ 0.85 na prancheta?) then (sim)
+    :🧠 MESTRE_TATICO ativo (concedido pelo treinador);
+  endif
+  if (highRatingStreak ≥ 3 OU attendanceStreak ≥ 10?) then (sim)
+    :🔥 EM_CHAMAS ativo (counter = streak);
+  else (não)
+    :🔥 desativa se existia;
+  endif
+  if (isCaptain OU peerApproval ≥ 0.8?) then (sim)
+    :👑 LIDER_CAPITAO ativo;
+  endif
+  if (cartões ≤ 1 em ≥ 10 jogos?) then (sim)
+    :🛡️ FAIR_PLAY ativo;
+  endif
+}
+
+|BadgeRecalcListener|
+:Aplica BadgeDecisions\n(upsert athlete_badges, unique por tipo+temporada);
+:Grava BadgeAuditLog por decisão;
+:Atualiza DigitalTwin.physicalStatus;
+:Publica BadgesUpdated → bônus do Rarity Engine (RF4)\ne invalidação do cache do card;
+
+|SPA (Card do Atleta)|
+:topBadges = ranking(status médico > priority > counter) ≤ 3;
+if (viewer ≠ dono E shareMedicalData == false?) then (sim)
+  :Oculta badges de PHYSICAL_STATUS\ne InjuryRecord (Art. 11);
+endif
+:Renderiza micro-badges no topo do card;
+:Toque em badge → Bottom Sheet\nGET /v1/athletes/{id}/badges/{type}/history;
+stop
+@enduml

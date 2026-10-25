@@ -1,0 +1,74 @@
+@startuml rf1_sequence
+title RF1 — Sequência: Login → Refresh com rotação → Logout propagado
+autonumber
+
+actor "Aba A (principal)" as A
+actor "Aba B (anônima)" as B
+participant "RateLimitFilter" as RL
+participant "AuthController" as AC
+participant "AuthenticationUseCase" as UC
+participant "JwtTokenService" as JWT
+participant "RedisSessionService" as RS
+database "Redis" as Redis
+database "MySQL" as DB
+
+== Login ==
+A -> RL : POST /v1/auth/login
+RL -> Redis : tryConsume(bucket:ip)
+Redis --> RL : ok
+RL -> AC : forward
+AC -> UC : login(cmd)
+UC -> DB : findByEmail(email)
+DB --> UC : User
+UC -> UC : BCrypt.matches()\n+ termos vigentes aceitos?
+UC -> RS : listByUser(userId)
+RS -> Redis : SCAN session:{userId}:*
+Redis --> RS : sessions
+UC -> UC : SessionPolicy.enforce()
+UC -> JWT : issueRefresh(session)
+JWT --> UC : RefreshToken(id=r1)
+UC -> JWT : issueAccess(user, sid)
+JWT --> UC : access(jti=a1)
+UC -> RS : save(session) TTL 7d
+RS -> Redis : SET session:{uid}:{sid}
+UC --> AC : TokenPair
+AC --> A : 200 {access a1, refresh r1}
+
+== Aba B reutiliza a sessão ==
+B -> RL : GET /v1/feeds/PERFIL (Bearer a1)
+RL -> RS : isBlacklisted(a1)?
+RS -> Redis : EXISTS bl:a1
+Redis --> RS : 0
+RL --> B : 200 feed
+
+== Refresh com rotação ==
+A -> AC : POST /v1/auth/refresh {r1}
+AC -> UC : refresh(r1)
+UC -> Redis : GET rt:r1
+Redis --> UC : {issued, rotatedTo=null}
+UC -> JWT : issueRefresh(session) → r2
+UC -> Redis : SET rt:r1.rotatedTo=r2 ; SET rt:r2
+UC -> JWT : issueAccess() → a2
+AC --> A : 200 {a2, r2}
+
+== Reuso do refresh antigo (ataque) ==
+B -> AC : POST /v1/auth/refresh {r1}
+AC -> UC : refresh(r1)
+UC -> Redis : GET rt:r1
+Redis --> UC : rotatedTo = r2  → REUSE
+UC -> RS : revoke session + blacklist a2
+UC --> AC : SecurityEvent
+AC --> B : 401
+
+== Logout em tempo real ==
+A -> AC : POST /v1/auth/logout (Bearer a2)
+AC -> UC : logout(jti=a2, sid)
+UC -> RS : blacklistJti(a2, ttl restante)
+UC -> RS : delete(uid, sid)
+RS -> Redis : DEL session:{uid}:{sid}
+AC --> A : 204
+B -> RL : GET /v1/feeds/GEMEO (Bearer a2)
+RL -> RS : isBlacklisted(a2)?
+Redis --> RS : 1
+RL --> B : 401 → aba B limpa estado local
+@enduml

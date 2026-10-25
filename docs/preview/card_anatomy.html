@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anatomia dos Cards — Football AI · Social</title>
+<style>
+:root{
+  --bg:#0F1115; --panel:#171A21; --panel-2:#1E222B; --line:#2A2F3A; --ink:#E8EAF0; --muted:#9AA3B2;
+  /* Anéis de identidade (UserRole) */
+  --ring-atleta:#15805C; --ring-tecnico:#5BA3E6; --ring-clube:#4C6EF5; --ring-scout:#D4A017;
+  --ring-marca:#7C3AED; --ring-imprensa:#EA580C; --ring-liga:#C9A227;
+  /* Bordas de conteúdo (PostContentType) */
+  --b-treino:#15805C; --b-partida:#2B5CB8; --b-tatico:#D4A017; --b-inst:#6B7280; --b-lesao:#C0376B;
+  /* Tiers */
+  --rare:#3B82F6; --epic:#A855F7; --gold:#F5C542;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;padding:28px}
+h1{font-size:22px;margin:0 0 4px}
+.sub{color:var(--muted);font-size:13px;margin:0 0 22px}
+.grid{display:grid;grid-template-columns:repeat(3,340px);gap:22px;align-items:start}
+.zone-label{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
+
+/* ===== CARD BASE ===== */
+.card{position:relative;background:var(--panel);border-radius:18px;padding:16px;border:1px solid var(--line);overflow:hidden}
+.card .zone{position:absolute;right:10px;font-size:9px;color:#fff;background:rgba(255,255,255,.08);border:1px dashed rgba(255,255,255,.25);padding:1px 6px;border-radius:4px;letter-spacing:.08em}
+.header{display:flex;gap:12px;align-items:center}
+.avatar{width:56px;height:56px;border-radius:50%;background:#2B3140;display:grid;place-items:center;font-weight:700;font-size:18px;position:relative;flex:none}
+.avatar::after{content:"";position:absolute;inset:-4px;border-radius:50%;border:3px solid var(--ring)}
+.who{flex:1;min-width:0}
+.header{align-items:flex-start}
+.name{font-weight:700;font-size:16px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.role{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;margin-top:3px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--ring);display:inline-block;flex:none}
+.role{align-items:flex-start}
+.role .dot{margin-top:3px}
+.tierpill{font-size:10px;font-weight:700;letter-spacing:.08em;padding:3px 8px;border-radius:100px;border:1px solid}
+.badges{display:flex;gap:6px;margin:12px 0 0}
+.badge{flex:1;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:7px 6px;text-align:center;font-size:11px}
+.badge b{display:block;font-size:15px;line-height:1.1}
+.badge small{display:block;color:var(--muted);font-size:9.5px;margin-top:2px}
+.badge.red{border-color:#C0376B;background:rgba(192,55,107,.12)}
+.badge.green{border-color:#15805C;background:rgba(21,128,92,.12)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.stat{background:var(--panel-2);border-radius:10px;padding:8px}
+.stat small{display:block;color:var(--muted);font-size:9.5px;text-transform:uppercase;letter-spacing:.08em}
+.stat b{font-size:18px}
+.stat .bar{height:4px;border-radius:2px;background:#2A2F3A;margin-top:6px;overflow:hidden}
+.stat .bar i{display:block;height:100%;background:var(--ring)}
+.footer{display:flex;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.btn{flex:1;font-size:11.5px;font-weight:600;padding:8px;border-radius:9px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);text-align:center}
+.btn.primary{background:var(--ring);border-color:transparent;color:#fff}
+.score{text-align:right;flex:none;padding-left:6px}
+.score b{display:block;font-size:20px;line-height:1}
+.score small{font-size:9px;color:var(--muted);letter-spacing:.1em}
+
+/* ===== TIERS ===== */
+.tier-common{border-color:var(--line)}
+.tier-rare{border-color:var(--rare);box-shadow:0 0 0 1px rgba(59,130,246,.35),0 0 24px rgba(59,130,246,.35)}
+.tier-epic{border-color:var(--epic);box-shadow:0 0 28px rgba(168,85,247,.45)}
+.tier-epic::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(2px 2px at 20% 30%,rgba(216,180,254,.9),transparent 60%),
+             radial-gradient(2px 2px at 70% 20%,rgba(216,180,254,.8),transparent 60%),
+             radial-gradient(1.5px 1.5px at 85% 70%,rgba(216,180,254,.9),transparent 60%),
+             radial-gradient(2px 2px at 35% 80%,rgba(216,180,254,.7),transparent 60%),
+             radial-gradient(1.5px 1.5px at 55% 55%,rgba(216,180,254,.8),transparent 60%)}
+.tier-legendary{border:2px solid transparent;background:
+  linear-gradient(var(--panel),var(--panel)) padding-box,
+  linear-gradient(135deg,#FFFFFF 0%,var(--gold) 45%,#FFFFFF 70%,var(--gold) 100%) border-box;
+  box-shadow:0 0 30px rgba(245,197,66,.35)}
+.tier-mythic{border:2px solid transparent;background:
+  linear-gradient(var(--panel),var(--panel)) padding-box,
+  conic-gradient(from 0deg,#F5C542,#FF4D6D,#A855F7,#3B82F6,#22C55E,#F5C542) border-box;
+  animation:mythicAura 6s linear infinite;box-shadow:0 0 36px rgba(245,197,66,.45),0 0 60px rgba(168,85,247,.35)}
+@keyframes mythicAura{0%{filter:hue-rotate(0deg) saturate(1.1)}100%{filter:hue-rotate(360deg) saturate(1.1)}}
+.mvp{position:absolute;top:-1px;left:50%;transform:translateX(-50%);background:var(--gold);color:#1A1200;font-size:9px;font-weight:800;letter-spacing:.14em;padding:3px 10px;border-radius:0 0 8px 8px}
+
+/* ===== POST CARDS (borda de conteúdo) ===== */
+.posts{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:26px}
+.post{background:var(--panel);border-radius:14px;border:1px solid var(--line);border-left:5px solid var(--bc);padding:12px}
+.post .meta{display:flex;align-items:center;gap:8px;font-size:11px}
+.post .av{width:26px;height:26px;border-radius:50%;background:#2B3140;position:relative;flex:none}
+.post .av::after{content:"";position:absolute;inset:-3px;border-radius:50%;border:2px solid var(--ring)}
+.post .type{margin-left:auto;font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--bc)}
+.post p{font-size:12px;color:#C9CFDA;margin:10px 0 0;line-height:1.45}
+</style>
+</head>
+<body>
+<h1>Anatomia dos Cards — gramática visual (Anel do autor + Borda do conteúdo + Efeito de raridade)</h1>
+<p class="sub">Zonas numeradas: ① Header (avatar + anel + nome + papel) · ② Tier/Score · ③ Micro-badges (≤ 3, tap-to-expand) · ④ Estatísticas do papel · ⑤ Ações</p>
+
+<div class="grid">
+
+  <!-- ===== ATLETA · LEGENDARY ===== -->
+  <div>
+    <div class="zone-label">Card de Atleta · anel verde · tier LEGENDARY</div>
+    <div class="card tier-legendary" style="--ring:var(--ring-atleta)">
+      <div class="header">
+        <div class="avatar">MA</div>
+        <div class="who">
+          <div class="name">&lt;PREENCHER_NOME&gt;</div>
+          <div class="role"><span class="dot"></span> ATLETA · Meia · 22 anos · &lt;PREENCHER_CLUBE&gt;</div>
+          <div class="role" style="margin-top:6px"><span class="tierpill" style="border-color:var(--gold);color:var(--gold)">LEGENDARY</span><span style="color:var(--muted)">Contratado</span></div>
+        </div>
+      <div class="score"><b>1.650</b><small>SCORE SEMANAL</small></div></div>
+      
+      <div class="badges">
+        <div class="badge green"><b>⚡</b>Pronto<small>100% físico</small></div>
+        <div class="badge"><b>⚽ 14</b>Artilheiro<small>temporada</small></div>
+        <div class="badge"><b>🏆 3</b>MVP<small>acumulado</small></div>
+      </div>
+      <div class="stats">
+        <div class="stat"><small>Físico 30%</small><b>82</b><div class="bar"><i style="width:82%"></i></div></div>
+        <div class="stat"><small>Técnico 40%</small><b>88</b><div class="bar"><i style="width:88%"></i></div></div>
+        <div class="stat"><small>Partidas 30%</small><b>76</b><div class="bar"><i style="width:76%"></i></div></div>
+      </div>
+      <div class="footer"><div class="btn primary">Ver Gêmeo</div><div class="btn">Comparar</div><div class="btn">Seguir</div></div>
+    </div>
+  </div>
+
+  <!-- ===== TÉCNICO · EPIC ===== -->
+  <div>
+    <div class="zone-label">Card de Técnico/Staff · anel azul-claro · tier EPIC</div>
+    <div class="card tier-epic" style="--ring:var(--ring-tecnico)">
+      <div class="header">
+        <div class="avatar">TC</div>
+        <div class="who">
+          <div class="name">&lt;PREENCHER_NOME&gt;</div>
+          <div class="role"><span class="dot"></span> TÉCNICO · Licença &lt;PREENCHER_LICENCA&gt; · &lt;PREENCHER_CLUBE&gt;</div>
+          <div class="role" style="margin-top:6px"><span class="tierpill" style="border-color:var(--epic);color:#D8B4FE">EPIC</span><span style="color:var(--muted)">Staff principal</span></div>
+        </div>
+      <div class="score"><b>1.120</b><small>SCORE SEMANAL</small></div></div>
+      
+      <div class="badges">
+        <div class="badge"><b>🧠 27</b>Pranchetas<small>executadas</small></div>
+        <div class="badge"><b>📈 +9%</b>Evolução<small>elenco / mês</small></div>
+        <div class="badge"><b>🛡️ 0,8</b>Fair play<small>cartões/jogo</small></div>
+      </div>
+      <div class="stats">
+        <div class="stat"><small>Aproveit.</small><b>61%</b><div class="bar"><i style="width:61%"></i></div></div>
+        <div class="stat"><small>Aderência tática</small><b>85</b><div class="bar"><i style="width:85%"></i></div></div>
+        <div class="stat"><small>Atletas</small><b>26</b><div class="bar"><i style="width:70%"></i></div></div>
+      </div>
+      <div class="footer"><div class="btn primary">Pranchetas</div><div class="btn">Elenco</div><div class="btn">Seguir</div></div>
+    </div>
+  </div>
+
+  <!-- ===== CLUBE · MYTHIC ===== -->
+  <div>
+    <div class="zone-label">Card de Clube · anel azul #4C6EF5 · tier MYTHIC (aura dinâmica)</div>
+    <div class="card tier-mythic" style="--ring:var(--ring-clube)">
+      <div class="mvp">★ MVP DA RODADA ★</div>
+      <div class="header" style="margin-top:8px">
+        <div class="avatar">CL</div>
+        <div class="who">
+          <div class="name">&lt;PREENCHER_CLUBE&gt;</div>
+          <div class="role"><span class="dot"></span> CLUBE · Série A · &lt;PREENCHER_CIDADE&gt;</div>
+          <div class="role" style="margin-top:6px"><span class="tierpill" style="border-color:var(--gold);color:var(--gold)">MYTHIC</span><span style="color:var(--muted)">Verificado</span></div>
+        </div>
+      <div class="score"><b>2.480</b><small>SCORE SEMANAL</small></div></div>
+      
+      <div class="badges">
+        <div class="badge"><b>🏟️ 3</b>Vagas abertas<small>oportunidades</small></div>
+        <div class="badge red"><b>🚑 2</b>Dep. médico<small>atletas</small></div>
+        <div class="badge"><b>👥 31</b>Plantel<small>ativos</small></div>
+      </div>
+      <div class="stats">
+        <div class="stat"><small>Média tier</small><b>EPIC</b><div class="bar"><i style="width:65%"></i></div></div>
+        <div class="stat"><small>Prontos p/ jogo</small><b>27</b><div class="bar"><i style="width:87%"></i></div></div>
+        <div class="stat"><small>Comunicados</small><b>5</b><div class="bar"><i style="width:40%"></i></div></div>
+      </div>
+      <div class="footer"><div class="btn primary">Plantel</div><div class="btn">Oportunidades</div><div class="btn">Seguir</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="zone-label" style="margin-top:28px">Cards de post — borda esquerda = tipo de conteúdo · anel do avatar = papel do autor</div>
+<div class="posts">
+  <div class="post" style="--bc:var(--b-treino);--ring:var(--ring-atleta)"><div class="meta"><span class="av"></span>Atleta<span class="type">TREINO</span></div><p>Sessão de 72 min · 8,4 km · RPE 7 · carga 504 AU</p></div>
+  <div class="post" style="--bc:var(--b-partida);--ring:var(--ring-atleta)"><div class="meta"><span class="av"></span>Atleta<span class="type">PARTIDA / MOMENTO</span></div><p>Gol aos 78' — finalização de fora da área</p></div>
+  <div class="post" style="--bc:var(--b-tatico);--ring:var(--ring-tecnico)"><div class="meta"><span class="av"></span>Técnico<span class="type">RELATÓRIO TÁTICO</span></div><p>4-3-3 com pressão alta — drill de saída de bola</p></div>
+  <div class="post" style="--bc:var(--b-inst);--ring:var(--ring-clube)"><div class="meta"><span class="av"></span>Clube<span class="type">INSTITUCIONAL</span></div><p>Comunicado oficial: abertura de peneira sub-20</p></div>
+  <div class="post" style="--bc:var(--b-lesao);--ring:var(--ring-clube)"><div class="meta"><span class="av"></span>Clube<span class="type">LESÃO / ALERTA</span></div><p>Atleta #10 — lesão grau 2, retorno previsto em 3 semanas</p></div>
+</div>
+</body>
+</html>

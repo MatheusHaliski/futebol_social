@@ -1,0 +1,3 @@
+package com.footballai.social.model.enums;
+
+public enum StaffSpecialty { TREINADOR, AUXILIAR, TREINADOR_GOLEIROS, PREPARADOR_FISICO, FISIOLOGISTA, ANALISTA_DESEMPENHO, GESTAO, OUTRO }

@@ -1,0 +1,44 @@
+@startuml rf4_1_state
+title RF4.1 — Máquinas de Estado: PhysicalStatus (exclusivo) e ciclo de um Badge
+
+state "PhysicalStatus do atleta" as PS {
+  [*] --> READY : twin ACTIVE
+  READY --> FATIGUE_RISK : ACWR > 1.5\nou RPE médio 7 d ≥ 8
+  FATIGUE_RISK --> READY : ACWR ≤ 1.3 por 3 sessões
+  READY --> INJURED : InjuryRecord aberto
+  FATIGUE_RISK --> INJURED : InjuryRecord aberto
+  INJURED --> READY : clearedAt preenchido\n(alta do departamento médico)
+
+  READY : badge ⚡ PRONTO_PRA_JOGO (se assiduidade ≥ 80%)
+  READY : convocações liberadas
+  FATIGUE_RISK : badge ⚠️ RISCO_FADIGA (amarelo)
+  FATIGUE_RISK : alerta na janela ALERTA para o staff
+  INJURED : badge 🚑 DEPARTAMENTO_MEDICO (vermelho)
+  INJURED : detail = tipo + retorno previsto
+  INJURED : CallUpGuard.canBeCalledUp() = false
+  INJURED : visível a terceiros só com shareMedicalData
+}
+
+state "AthleteBadge (por tipo e temporada)" as B {
+  [*] --> NOT_EARNED
+  NOT_EARNED --> ACTIVE : critério atingido\n/ AWARD (counter inicial)
+  ACTIVE --> ACTIVE : evento relevante\n/ UPDATE_COUNTER (quantitativo)
+  ACTIVE --> INACTIVE : critério deixou de valer\n(streak quebrado, status mudou)\n/ DEACTIVATE
+  INACTIVE --> ACTIVE : critério atingido novamente
+  ACTIVE --> ARCHIVED : fim da temporada\n(season rollover)
+  INACTIVE --> ARCHIVED : fim da temporada
+  ARCHIVED --> [*]
+
+  ACTIVE : elegível ao topBadges (≤ 3)
+  ACTIVE : expandable → Bottom Sheet com histórico
+  ARCHIVED : mantido no histórico do atleta
+  ARCHIVED : conta para badges acumulativos (🏆 MVP)
+}
+
+PS -[hidden]-> B
+note right of PS
+  Exatamente um PhysicalStatus por vez.
+  Os três badges de PHYSICAL_STATUS são
+  projeções do estado — nunca editados à mão.
+end note
+@enduml

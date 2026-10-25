@@ -1,0 +1,61 @@
+@startuml rf4_activity
+title RF4 — Job semanal determinístico do Rarity Engine · Diagrama de Atividades
+
+|Scheduler|
+start
+:Segunda-feira 03:00 (America/Sao_Paulo)\nWeeklyRarityJob.run();
+:isoWeek = semana anterior (ex.: 2026-W43);
+:Carrega twins com status ACTIVE\n(paginado, 500 por lote);
+
+|RecalculateTwinUseCase|
+while (há twin no lote?) is (sim)
+  if (snapshot (twinId, isoWeek) já existe?) then (sim)
+    :Pula — idempotência;
+  else (não)
+    :ScoreInputCollector.collect(userId, isoWeek);
+    fork
+      :Telemetria da semana (Cassandra)\nsessões, carga AU, RPE;
+    fork again
+      :Avaliações técnicas da semana (MySQL)\ncomissão peso 1.0 · comunidade 0.5;
+    fork again
+      :Partidas da semana (MySQL)\nminutos, rating, oficial?;
+    fork again
+      :Bônus de badges ativos (RF4.1);
+    end fork
+    :inputsHash = SHA-256(inputs canônicos);
+
+    |RarityCalculationService|
+    :physical = normalize(assiduidade × carga) × 0.30;
+    :technical = normalize(média ponderada 0–10) × 0.40;
+    :match = normalize(minutos + rating + oficiais) × 0.30;
+    :total = round((physical + technical + match) × 3000, HALF_EVEN)\n+ badgeBonus (cap 3000+);
+    :tier = RarityTier.fromScore(total);
+
+    |RecalculateTwinUseCase|
+    :Persiste WeeklyScoreSnapshot\n(unique twin_id + iso_week);
+    :twin.applyScore(snapshot) → TierChange;
+    if (tier mudou?) then (sim)
+      :Publica TierChanged\n(card do perfil, notificação ALERTA,\nefeito visual atualizado);
+      if (promovido para MYTHIC?) then (sim)
+        :Concede badge MVP de temporada;
+      endif
+    endif
+    :twin.lastCalculatedWeek = isoWeek;
+  endif
+endwhile (não)
+
+|Scheduler|
+:Registra métricas (twins processados,\nduração, distribuição por tier);
+if (falhas > 0?) then (sim)
+  :Reenfileira apenas os twins com erro\n(retry com backoff);
+endif
+stop
+
+note right
+  Determinismo garantido por:
+  · sem Random / Instant.now() dentro do cálculo
+  · BigDecimal escala 4, HALF_EVEN
+  · inputs ordenados canonicamente antes do hash
+  · mesma (inputs) ⇒ mesmo (total, tier)
+end note
+@enduml

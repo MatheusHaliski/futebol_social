@@ -1,0 +1,122 @@
+@startuml component_diagram
+title Football AI · Social — Arquitetura de Componentes e Persistência Poliglota
+skinparam componentStyle rectangle
+left to right direction
+
+actor "Atleta / Staff / Clube /\nScout / Marca / Imprensa / Liga" as Users
+
+package "Front-end SPA / Mobile" {
+  component "Topbar + Sidebar (desktop)" as Topbar
+  component "Bottom Navigation (4 abas)\n+ FAB central" as BottomNav
+  component "Janela PERFIL" as WPerfil
+  component "Janela GEMEO" as WGemeo
+  component "Janela SCOUTING" as WScout
+  component "Janela ALERTA" as WAlerta
+  component "Central de Privacidade\n(Conta · Privacidade · Aparência · Idioma · Seus dados)" as Privacy
+  component "Card do Atleta\n(anel · borda · tier · badges)" as Card
+}
+
+node "API Gateway / Edge" {
+  component "JwtAuthenticationFilter" as JwtFilter
+  component "RateLimitFilter\n(Bucket4j)" as RateLimit
+}
+
+node "Spring Boot 3 Core API (Java 17)" {
+  package "web (REST v1)" {
+    component "AuthController"
+    component "UserController"
+    component "FeedController"
+    component "TwinController"
+    component "PrivacyController"
+    component "GlobalExceptionHandler"
+  }
+  package "application (use cases)" {
+    component "AuthenticationUseCase"
+    component "RegisterUserUseCase"
+    component "PublishPostUseCase"
+    component "WeeklyRarityJob"
+    component "LgpdUseCases"
+  }
+  package "domain" {
+    component "Identity\n(User, Roles, Terms)" as DIdentity
+    component "Feed\n(Post, FeedWindow)" as DFeed
+    component "Rarity Engine\n(RarityCalculationService)" as DRarity
+    component "Badges\n(BadgeAwardService)" as DBadge
+    component "LGPD\n(LgpdComplianceService)" as DLgpd
+  }
+  package "infrastructure" {
+    component "JPA Adapters" as JPA
+    component "Cassandra Adapters" as CassAd
+    component "Redis Adapters\n(sessions · cache · buckets)" as RedisAd
+    component "S3 Client" as S3Ad
+    component "Agent Client\n(gRPC/REST)" as AgentAd
+    component "Flyway" as Flyway
+  }
+}
+
+database "MySQL 8\n(users, twins, badges,\nlgpd prefs, posts)" as MySQL
+database "Redis 7\n(session:* · jti blacklist\nfeed cache · rate limit)" as Redis
+database "Cassandra 4\n(feed_entries, telemetry)" as Cassandra
+cloud "S3 / MinIO\n(mídias · exports LGPD)" as S3
+node "Agentes de IA (Python)\n(telemetria, scouting,\nnovos papéis)" as Agents
+component "Scheduler\n(weekly rarity · daily anonymize)" as Scheduler
+
+Users --> Topbar
+Users --> BottomNav
+BottomNav --> WPerfil
+BottomNav --> WGemeo
+BottomNav --> WScout
+BottomNav --> WAlerta
+Topbar --> Privacy
+WPerfil --> Card
+WGemeo --> Card
+
+WPerfil --> JwtFilter : HTTPS /v1/feeds/PERFIL
+WGemeo --> JwtFilter : /v1/feeds/GEMEO
+WScout --> JwtFilter : /v1/feeds/SCOUTING
+WAlerta --> JwtFilter : /v1/feeds/ALERTA
+Privacy --> JwtFilter : /v1/me/**
+JwtFilter --> RateLimit
+RateLimit --> AuthController
+RateLimit --> UserController
+RateLimit --> FeedController
+RateLimit --> TwinController
+RateLimit --> PrivacyController
+
+AuthController --> AuthenticationUseCase
+UserController --> RegisterUserUseCase
+FeedController --> PublishPostUseCase
+PrivacyController --> LgpdUseCases
+Scheduler --> WeeklyRarityJob
+Scheduler --> LgpdUseCases : anonymize due accounts
+
+AuthenticationUseCase --> DIdentity
+RegisterUserUseCase --> DIdentity
+PublishPostUseCase --> DFeed
+WeeklyRarityJob --> DRarity
+DRarity --> DBadge
+LgpdUseCases --> DLgpd
+
+DIdentity --> JPA
+DFeed --> JPA
+DFeed --> CassAd
+DRarity --> JPA
+DRarity --> CassAd : telemetria
+DBadge --> JPA
+DLgpd --> JPA
+DLgpd --> S3Ad : export JSON
+AuthenticationUseCase --> RedisAd
+JwtFilter --> RedisAd : jti blacklist
+RateLimit --> RedisAd : buckets
+DFeed --> RedisAd : cache por janela
+PublishPostUseCase --> S3Ad : mídia
+DRarity --> AgentAd
+DBadge --> AgentAd
+
+JPA --> MySQL
+Flyway --> MySQL
+CassAd --> Cassandra
+RedisAd --> Redis
+S3Ad --> S3
+AgentAd --> Agents
+@enduml

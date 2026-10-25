@@ -1,0 +1,182 @@
+@startuml rf2_class
+title RF2 — Cadastro Polimórfico, Termos Velion e Identidade Visual · Diagrama de Classes
+skinparam classAttributeIconSize 0
+hide empty fields
+
+package "web" {
+  class UserController <<@RestController /v1/users>> {
+    +register(req : RegisterUserRequest) : UserCreatedResponse
+    +me() : ProfileDTO
+    +verifyEmail(token : String) : void
+  }
+  class TermsController <<@RestController /v1/terms>> {
+    +current() : TermsVersionDTO
+    +accept(req : AcceptTermsRequest) : void
+  }
+  class "record ProfileDTO" as ProfileDTO {
+    +id : UUID
+    +displayName : String
+    +role : UserRole
+    +ringColor : String
+    +visibility : ProfileVisibility
+    +rarityTier : RarityTier
+  }
+}
+
+package "application" {
+  class RegisterUserUseCase {
+    -capabilities : List<RoleCapability>
+    +execute(cmd : RegisterUserCommand) : User
+  }
+  class AcceptTermsUseCase {
+    +execute(userId : UUID, version : String, ctx : RequestContext) : void
+  }
+  class "record RegisterUserCommand" as Cmd {
+    +role : UserRole
+    +email : String
+    +password : String
+    +displayName : String
+    +birthDate : LocalDate
+    +termsVersion : String
+    +roleSpecific : Map<String,Object>
+  }
+  class RoleRegistry {
+    -capabilities : Map<UserRole, RoleCapability>
+    +register(cap : RoleCapability) : void
+    +resolve(role : UserRole) : RoleCapability
+  }
+}
+
+package "domain.identity" {
+  abstract class User <<@Entity @Inheritance(JOINED)>> {
+    -id : UUID
+    -email : String
+    -passwordHash : String
+    -username : String
+    -displayName : String
+    -birthDate : LocalDate
+    -role : UserRole
+    -status : AccountStatus
+    -visibility : ProfileVisibility = SOMENTE_EU
+    -locale : String = "pt-BR"
+    --
+    +ringColor() : String
+    +activate() : void
+    +hasAcceptedCurrentTerms(v) : boolean
+  }
+  class Athlete <<@Entity @Table(user_athletes)>>
+  class Staff <<@Entity @Table(user_staff)>>
+  class HealthStaff <<@Entity @Table(user_health_staff)>>
+  class Agent <<@Entity @Table(user_agents)>>
+  class Supporter <<@Entity @Table(user_supporters)>>
+  class AiAgent <<@Entity @Table(user_ai_agents)>>
+  class Club <<@Entity @Table(user_clubs)>>
+  class Scout <<@Entity @Table(user_scouts)>>
+  class Brand <<@Entity @Table(user_brands)>>
+  class Press <<@Entity @Table(user_press)>>
+  class LeagueOfficial <<@Entity @Table(user_league_officials)>>
+
+  enum UserRole {
+    ATLETA("#15805C")
+    STAFF("#5BA3E6")
+    STAFF_SAUDE("#E11D48")
+    CLUBE("#4C6EF5")
+    SCOUT("#D4A017")
+    AGENTE("#0EA5A4")
+    MARCA("#7C3AED")
+    IMPRENSA("#EA580C")
+    OFICIAL_LIGA("#C9A227")
+    TORCEDOR("#F472B6")
+    AGENTE_IA("#22D3EE")
+    ARBITRO("#94A3B8") <<registry>>
+    TORCIDA_ORGANIZADA("#EC4899") <<registry>>
+    --
+    +ringColor : String
+  }
+  enum AccountStatus {
+    PENDING_VERIFICATION
+    ACTIVE
+    SUSPENDED
+    PENDING_DELETE
+    ANONYMIZED
+  }
+  class TermsVersion <<@Entity>> {
+    -version : String
+    -owner : String = "Velion (Orange Social)"
+    -documentUrl : String
+    -effectiveFrom : Instant
+    -current : boolean
+  }
+  class TermsAcceptance <<@Entity>> {
+    -termsVersion : String
+    -acceptedAt : Instant
+    -ipAddress : String
+    -userAgent : String
+  }
+  class EmailVerificationToken <<@Entity>> {
+    -token : String
+    -expiresAt : Instant
+    -usedAt : Instant
+  }
+
+  interface RoleCapability <<Strategy>> {
+    +role() : UserRole
+    +instantiate(cmd : RegisterUserCommand) : User
+    +canPublish(type : PostContentType, ctx : UserContext) : boolean
+    +canOriginateInjuryRecord(ctx) : boolean
+    +countsForRarity(ctx) : boolean
+    +audiencePolicy(ctx) : AudiencePolicy
+    +defaultWindow() : FeedWindow
+  }
+  class AthleteCapability
+  class StaffCapability
+  class HealthStaffCapability
+  class AgentCapability
+  class SupporterCapability
+  class AiAgentCapability
+  class ClubCapability
+  class ScoutCapability
+  class BrandCapability
+  class PressCapability
+  class LeagueOfficialCapability
+  class "AgentProvidedCapability\n(registrada em runtime por Agentes IA)" as AgentCap
+}
+
+User <|-- Athlete
+User <|-- Staff
+User <|-- HealthStaff
+User <|-- Agent
+User <|-- Supporter
+User <|-- AiAgent
+User <|-- Club
+User <|-- Scout
+User <|-- Brand
+User <|-- Press
+User <|-- LeagueOfficial
+User --> UserRole
+User --> AccountStatus
+User "1" *-- "0..*" TermsAcceptance
+User "1" *-- "0..1" EmailVerificationToken
+TermsAcceptance ..> TermsVersion
+
+RoleCapability <|.. AthleteCapability
+RoleCapability <|.. StaffCapability
+RoleCapability <|.. HealthStaffCapability
+RoleCapability <|.. AgentCapability
+RoleCapability <|.. SupporterCapability
+RoleCapability <|.. AiAgentCapability
+RoleCapability <|.. ClubCapability
+RoleCapability <|.. ScoutCapability
+RoleCapability <|.. BrandCapability
+RoleCapability <|.. PressCapability
+RoleCapability <|.. LeagueOfficialCapability
+RoleCapability <|.. AgentCap
+
+UserController --> RegisterUserUseCase
+TermsController --> AcceptTermsUseCase
+RegisterUserUseCase --> RoleRegistry
+RoleRegistry o-- RoleCapability
+RegisterUserUseCase ..> Cmd
+RegisterUserUseCase ..> User : cria + LgpdPreferences(FALSE) + DigitalTwin(DRAFT)
+UserController ..> ProfileDTO
+@enduml

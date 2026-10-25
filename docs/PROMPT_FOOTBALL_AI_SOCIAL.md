@@ -18,17 +18,25 @@ A plataforma é uma rede social técnica de alta performance para o futebol, con
 - **Aceite obrigatório e versionado** dos Termos de Uso e da Política de Privacidade da **Velion (proprietária da Orange Social)** — entidade `TermsAcceptance` com `termsVersion`, `acceptedAt`, `ipAddress`, `userAgent`. Login bloqueado enquanto houver versão vigente não aceita.
 - **Herança JPA** (`@Inheritance(strategy = JOINED)`) a partir de `User`, com um `UserRole` e uma cor de anel universal:
 
-| UserRole | Anel (cor / hex) | Foco |
-|---|---|---|
-| `ATLETA` | Verde `#15805C` | Telemetria, treino diário, currículo esportivo |
-| `TECNICO_STAFF` | Azul Claro `#5BA3E6` | Pranchetas táticas, treinos, gestão de elenco |
-| `CLUBE` | Azul Escuro `#1E3A8A` | Gestão institucional, plantel, oportunidades |
-| `SCOUT` | Amarelo `#D4A017` | Relatórios de observação, dados táticos |
-| `MARCA` | Roxo `#7C3AED` | Patrocínio e ativação comercial |
-| `IMPRENSA` | Laranja `#EA580C` | Cobertura e comunicados oficiais |
-| `OFICIAL_LIGA` | Dourado `#C9A227` | Entidades organizadoras e arbitragem |
+| UserRole | Anel (token / hex · contraste WCAG sobre `--ink #0a0f0c`) | Foco | Sub-tipo / verificação |
+|---|---|---|---|
+| `ATLETA` | Verde `--c-green #00d47a` · 9,85 | Telemetria, treino diário, currículo, Gêmeo | `categoria`, `menorDeIdade` (Art. 14) |
+| `STAFF` (ex-`TECNICO_STAFF`) | Azul claro `#7fb6ff` · 9,24 | Pranchetas, treinos, gestão de elenco e esportiva | `StaffSpecialty`: TREINADOR, AUXILIAR, TREINADOR_GOLEIROS, PREPARADOR_FISICO, FISIOLOGISTA, ANALISTA_DESEMPENHO, GESTAO (diretor esportivo), OUTRO |
+| `STAFF_SAUDE` | Carmim `#e11d48` · 4,11 | Status médico, reabilitação, nutrição, psicologia | `HealthSpecialty`: MEDICO (CRM), FISIOTERAPEUTA (CREFITO), NUTRICIONISTA (CRN), PSICOLOGO (CRP), MASSAGISTA — único papel além do atleta que origina `InjuryRecord`/`LESAO_ALERTA` |
+| `CLUBE` | Azul `--c-blue #3b82f6` · 5,25 | Institucional, plantel, oportunidades, mural | `ClubeTipo`: PROFISSIONAL, FORMADOR_CCF, ESCOLINHA_ACADEMIA, AMADOR |
+| `SCOUT` | Amarelo `--c-yellow #f7c948` · 12,34 | Observação, relatórios, shortlists | `VerificationLevel`: COMUNIDADE, VERIFICADO, HOMOLOGADO — só VERIFICADO+ conta no Rarity Engine |
+| `AGENTE` | Teal `#2dd4bf` · 10,38 | Representação, mercado, oportunidades | `fifaLicenseId` (RNAF/CBF); representações com consentimento do atleta |
+| `MARCA` | Roxo `--c-purple #a06bff` · 5,56 | Patrocínio e ativação comercial | `MarcaCategoria`: PATROCINADOR, MATERIAL, AGENCIA, APOSTAS (18+, advertência, exclui atletas/staff/árbitros/liga, feature flag) |
+| `IMPRENSA` | Laranja `--c-orange #ff9f43` · 9,47 | Cobertura, comunicados, criação de conteúdo | `MidiaTipo`: VEICULO_CREDENCIADO, JORNALISTA, CRIADOR_INDEPENDENTE, CANAL_PODCAST |
+| `OFICIAL_LIGA` | Elite Gold `--gold #f5c542` · 11,92 (dourado reservado a contas oficiais e a Legendary/Mythic) | Entidades organizadoras (sem arbitragem) | `EntidadeTipo`: CONFEDERACAO, FEDERACAO_ESTADUAL, LIGA, ORGANIZADOR_TORNEIO |
+| `TORCEDOR` | Rosa `#f472b6` · 7,30 | Acompanhar, reagir, colecionar cards (FLAIR) | `clubeDoCoracao`; sem Gêmeo/Rarity |
+| `AGENTE_IA` | Ciano `#22d3ee` · 10,69 | Automação transparente (resumos, alertas, análises) | `operatedBy`, `modelId`, `purpose`, `disclosureVersion`; toda publicação rotulada "IA" |
+| `ARBITRO` *(via registry)* | Ardósia `#95a89d` · 7,70 | Arbitragem, súmulas | `quadro`: ESTADUAL, RENAF, FIFA; `funcao`: ARBITRO, ASSISTENTE, VAR |
+| `TORCIDA_ORGANIZADA` *(via registry)* | Magenta `#ec4899` · 5,48 | Conta coletiva de torcida | CNPJ / cadastro de membros (Lei 14.597/2023, art. 178) |
 
-- Arquitetura **extensível** (Strategy + polimorfismo JPA + `RoleCapability`), para que **Agentes Inteligentes** registrem novos papéis sem alterar o core (ex.: `AGENTE_IA`, `PREPARADOR_FISICO`).
+- **Bolinha (dot) do autor**: 13 px + halo de 3 px na cor do papel (`.dot.dc-*`), sempre à esquerda do `@handle · papel`; `✦` dourado = conta verificada. Seis papéis canônicos na UI (atleta verde · clube azul · scout amarelo · marca roxo · imprensa laranja · oficial dourado) e extensões com as cores acima.
+- **11 papéis core + 2 reservados** (cores no enum, comportamento no `RoleRegistry`). Arquitetura **extensível** (Strategy + polimorfismo JPA + `RoleCapability(role, subtype, verificationLevel)`), para que **Agentes Inteligentes** registrem novos papéis sem alterar o core. Fundamentação e benchmark em [`docs/research/01_tipos_de_usuarios.md`](research/01_tipos_de_usuarios.md).
+- Regras-chave do `RoleCapability`: `LESAO_ALERTA` só por ATLETA (próprio) ou STAFF_SAUDE verificado; `RELATORIO_TATICO` de SCOUT.COMUNIDADE/IMPRENSA é `OPINATIVA` e não entra nos 40 % do Rarity; `INSTITUCIONAL` só para contas de organização e STAFF.GESTAO/AGENTE verificados; `AGENTE_IA` sempre `aiGenerated = true`.
 
 ### RF3 — SPA, Arquitetura de Navegação Móvel e Classificação de Cards (UI/UX)
 - API REST v1 pronta para SPA/Mobile. Desktop: **Sidebar lateral + Topbar**. Mobile: **Bottom Navigation / Tab Bar** com **limite estrito de 4 abas primárias** na zona de alcance do polegar (*Thumb Zone*), mapeadas 1:1 ao enum `FeedWindow` (`order`, `icon`, `label`, `route`), cada uma com rota própria, paginação por cursor (Cassandra) e cache (Redis):
@@ -41,15 +49,50 @@ A plataforma é uma rede social técnica de alta performance para o futebol, con
   - **Ocultação dinâmica**: oculta no scroll para baixo no feed e reaparece no scroll para cima (área útil de leitura).
   - **Navegação por gestos**: swipe lateral entre as 4 janelas independentes, preservando estado/cursor de cada feed.
   - **Acessibilidade (WCAG 2.1 AA)**: contraste mínimo **3:1** em ícones e rótulos da barra; rótulos nunca truncados; alvos ≥ 44×44 pt; animações curtas e respeitando `prefers-reduced-motion`.
+- **Painel de filtros segmentado por janela** (`<aside class="filters-panel">` dentro de cada aba; o endpoint de cada janela recebe os mesmos parâmetros):
+
+| Janela | Filtros (query params de `GET /v1/feeds/{window}`) |
+|---|---|
+| **PERFIL** (Descoberta) | `tier[]` (COMMON…MYTHIC) · `position` · `ageMin`/`ageMax` · `clubId` · `contractStatus` (AGENTE_LIVRE \| CONTRATADO) |
+| **GEMEO** (Telemetria) | `period` (WEEK \| MONTH \| SEASON) · `metricType` (FISICA \| TECNICA \| TATICA) · `eventType` (TREINO \| PARTIDA) · `athleteId` |
+| **SCOUTING** (Análise) | `attr[velocidade]=gt:80`, `attr[passe]=gt:85`… (repetível) · `compare=idA,idB` (side-by-side) · `source` (HOMOLOGADO \| COMUNIDADE) |
+| **ALERTA** (Comunicados) | `severity` (BAIXA \| MEDIA \| ALTA \| CRITICA) · `alertType` (TRANSFERENCIA \| LESAO \| PUNICAO \| INSTITUCIONAL) · `source` (IMPRENSA \| CLUBE \| OFICIAL_LIGA) |
+
+- **Sub-abas (segment control) por janela** — nenhuma novidade vira aba primária ([`docs/research/02_novas_abas_e_features.md`](research/02_novas_abas_e_features.md)):
+  - PERFIL: `Feed` · `Ranking` (clubes e jogadores por tier/score, posição, liga, idade) · `Explorar` (globo MapLibre com clubes do mundo via Wikidata/openfootball + busca de ligas/clubes) · `Momentos`
+  - GEMEO: `Telemetria` · `Evolução` (linha do tempo de score/tier) · `Carga & Recuperação` (ACWR 7:28, prontidão 1–100, privado por padrão) · `DNA de jogo` (radar 5 eixos + estilos) · `Comparador` (≤ 3 atletas) · `Provador tático` (fit % por posição/esquema) · `Avatar 3D` · `Rascunhos Autopilot`
+  - SCOUTING: `Pranchetas` · `Comparar` · `Relatórios` · `Lens` (scouting por vídeo; rostos exigem `shareBiometricData`)
+  - ALERTA: `Tudo` · `Mural do Clube` · `Saúde` · `DM`
+- **Criador de cards em 4 etapas** (único ponto de criação, aberto pelo FAB/“Criar card”): **1 · Modo** (Manual ou Com IA · Copilot) → **2 · Conteúdo** (tipo/borda permitido ao papel, título obrigatório 5–12 palavras com contador, teaser, texto completo, **fotografia** — campo de upload do usuário via `POST /v1/media` (JPEG/PNG/WebP/GIF/MP4 ≤ 25 MB → `mediaKeys`) — e classificação; no modo IA o Copilot preenche via `POST /v1/copilot/suggest` e o humano aceita/edita) → **3 · Arte de fundo** (tinge o **fundo do card**, nunca a fotografia: cor hex dos tokens ou personalizada · material `FOSCO|METALICO|VIDRO|CARBONO|HOLOGRAFICO` · layout `CLASSICO|HERO|SPLIT|MINIMAL` · estilo `NEON|VITRAL|GRAFITE|OURO|RETRO`, com prévia ao vivo do `.pcard`; opções em `GET /v1/cards/art-options`) → **4 · Revisar e salvar** (prévia final + resumo; `Salvar rascunho` = `POST /v1/posts {draft:true}` e depois `POST /v1/posts/{id}/publish`; `Publicar` = `POST /v1/posts` com `generationMode` e `art`). Posts gerados com IA carregam o rótulo “GERADO COM IA · REVISADO”.
+- **FAB → Copilot**: sugere tipo, texto e badges do card; humano aceita/edita. **Autopilot** (opt-in por fonte: wearable, súmula) gera só rascunhos privados, nunca com dados de saúde sem `shareMedicalData`, com revisão humana (LGPD Art. 20); desabilitado para sub-18.
+- **SPA ligada à API real**: cliente `fetch` com JWT (access em `sessionStorage`, refresh com rotação automática em 401), modal de autenticação (login · cadastro polimórfico com aceite dos termos Velion · “modo demonstração”), adaptadores `PostCardDTO → .pcard` e `AthleteCardDTO → .vcard`, ações sociais (`/v1/posts/{id}/like|save|share`), PostView (`GET /v1/posts/{id}`), Central LGPD (`/v1/me/privacy*`, step-up, export, exclusão/restauração), FLAIR (`/v1/flair/*`), rankings, globo (`/v1/clubs`), evolução/carga/DNA (`/v1/twins/*`), Autopilot. Sem API alcançável ou em “modo demo”, a SPA usa dados fictícios e sinaliza `DEMO` no chip de identidade.
+- **Fotografia × arte de fundo**: a fotografia é upload do usuário (`POST /v1/media`, multipart, JPEG/PNG/WebP/GIF/MP4 ≤ 25 MB, chave `media/{userId}/{uuid}`), servida por URL pré-assinada de 1 h gerada com o endpoint que o navegador alcança (`app.storage.public-endpoint` / `S3_PUBLIC_ENDPOINT`, que também entra no CSP em `img-src`/`media-src`); a arte de fundo (cor · material · layout · estilo) tinge o próprio card e nunca a foto. Cards no feed variam de cor conforme a arte escolhida no estúdio de criação/edição (`PATCH /v1/posts/{id}`, só o autor).
+- **Aparência (Central de Privacidade → Aparência; preferências de interface, não dado pessoal)**: tema claro/escuro (`darkMode`, dark-first), tamanho da fonte, **cor de destaque** (`UiAccent`: verde campo · azul · ouro · roxo · laranja — muda barras ativas, botões e brilhos, nunca as cores de identidade dos papéis nem as bordas de conteúdo), **tom das barras laterais e painéis** (`UiSurface`: grafite · floresta · marinho · ameixa · areia clara) e **tela de fundo** (`Wallpaper`: grade de ícones de futebol com holofote em cinco paletas — verde, ciano, ouro, verde-claro, verde-vivo — em `static/brand/wallpapers/*.svg`, ou `CUSTOM` com arquivo do usuário via `/v1/media`; com fundo ativo, topbar, sidebar e painéis ficam translúcidos). Tudo persiste em `PATCH /v1/me` e em `localStorage` (modo demo); opções em `GET /v1/ui/appearance-options`.
+- **Estúdio de edição**: o autor edita o próprio card (`✎ Editar` na barra de ações → mesmo assistente, começando em Conteúdo, com tipo/borda travados) via `PATCH /v1/posts/{id}` (título, teaser, texto, fotografia, classificação e arte de fundo). Cards nunca são todos da mesma cor: cada um carrega a arte definida no estúdio.
+- **Sidebar desktop (7 seções, 27 itens)**: DESCOBRIR (Feed, Buscar, Explorar, Clubes & Ligas, Lens) · MEU GÊMEO (7 sub-abas acima) · CARDS (Meus cards, Criar card, Copilot, Autopiloto) · PERFIL (Meu perfil, Histórico, Privacidade LGPD) · JOGAR E GANHAR (Momentos, FLAIR, Destaques/Rankings, Cupons) · LOJA (Pontos) · GESTÃO (Meu clube, Minha liga, Administração). Cada item declara os papéis que o veem; "☰ Mais" no mobile abriga JOGAR E GANHAR, LOJA, PERFIL e GESTÃO — nunca ações de criação.
 - **Classificação estrita de Cards** = *Bolinha do Autor* (`UserRole`) + *Borda de Conteúdo* (`PostContentType`):
 
-| PostContentType | Borda | Janela padrão | Conteúdo |
-|---|---|---|---|
-| `TREINO` | Verde | GEMEO | Carga/telemetria do atleta |
-| `PARTIDA_MOMENTO` | Azul | PERFIL | Lances e atuações de jogo |
-| `RELATORIO_TATICO` | Amarela | SCOUTING | Esquemas, drills, análises da comissão |
-| `INSTITUCIONAL` | Cinza | ALERTA | Comunicados de clubes/marcas |
-| `LESAO_ALERTA` | Vermelha | ALERTA | Status médico e urgências (**dado sensível**) |
+| PostContentType | Borda (`borderColor`) | VSL (`vslGlyph`) | Janela padrão | Conteúdo |
+|---|---|---|---|---|
+| `TREINO` | Verde `#00d47a` | ◇ identidade | GEMEO | Carga/telemetria do atleta |
+| `PARTIDA_MOMENTO` | Azul `#3b82f6` | ◇ identidade | PERFIL | Lances e atuações de jogo |
+| `RELATORIO_TATICO` (Scouting Report) | Laranja `#ff9f43` | ▭ instituição | SCOUTING | Relatórios, comparadores, pranchetas, análises |
+| `LIGA` | Roxo `#a06bff` | ⬢ comunidade | PERFIL | Tabelas, rodadas, convocações e enquetes de liga/clube |
+| `INSTITUCIONAL` | Vermelho `#ff5d5d` | ▭ instituição | ALERTA | Comunicados oficiais, punições, transferências |
+| `LESAO_ALERTA` (sub-tipo de `INSTITUCIONAL`, `sensitive = true`) | Vermelho `#ff5d5d` + listra de risco (*hazard*) e badge 🩹 | ▭ instituição | ALERTA | Status médico e urgências (**dado sensível, Art. 11**) |
+| `ESPECIAL` | Elite Gold `#f5c542` | ✦ valor | PERFIL | Conquistas, subidas de tier, MVP, momentos oficiais |
+
+- **Common Border dupla**: `outer` com gradiente de 2 px na cor da borda + `inner` com fundo `--panel`; cantos 18 px (card) / 11 px (blocos internos); posts de alerta recebem `hazard` (listra diagonal vermelha).
+- **Anatomia obrigatória do post (`.pcard`)** — *o feed nunca mostra texto corrido*:
+  - `p-top`: tempo · glifo VSL · badge do tipo (na cor da borda) · `age-chip` de classificação (`AgeRating`: `SAFE` · `KIDS` · `12+` · `16+` · `18+` · `SENSÍVEL`).
+  - `author`: bolinha do papel + `@handle · papel` (+ `✦` verificado, rótulo `IA` quando `aiGenerated`).
+  - `title` **obrigatório** (5–12 palavras, ≤ 2 linhas, `clamp`); `subtitle` *teaser* opcional (≤ 2 linhas, 70 % de opacidade); o `content` completo só aparece em `PostView`; posts com mídia não exibem subtítulo (mídia 136 px).
+  - `meta`: tags do contexto (`HOMOLOGADO`, `VELOCIDADE > 80`, clube, rodada…).
+  - `actbar` em **todo** post: **Curtir · Comentar · Compartilhar · Salvar**, com contadores, mais o indicador de tendência (`TrendDirection`: 🔥 HOT · 📈 UP · ➖ FLAT · 📉 DOWN, por visualizações/interações em 24 h).
+- **Card de atleta/perfil (`.vcard`)**: `ctop` (VSL + contexto + `age-chip` + **brasão de raridade**) · `imgblock` **hero limpo** (108 px, só foto/avatar — nunca stats, títulos ou badges sobrepostos) · `author` · `title` (`Nome — Posição`) · `vsub` · `sgrid` da temporada (Jogos · Gols ou Clean sheets · Assistências ou Desarmes · Minutos · Cartões · Nota média) · `phys` (prontidão, ACWR 7:28, status ⚡/⚠️/🩹 com tipo de lesão e retorno) · `bdgrow` (`BADGES` + até 3 *Athletic Persona*) · `statrow` (PP · RP · MP · SCORE) · `actbar` (Curtir · Comentar · Compartilhar · **Gêmeo →**). Anatomia completa em [`docs/CARD_ANATOMY.md`](CARD_ANATOMY.md).
+- **Raridade nunca é escrita em texto na UI**: cada `RarityTier` tem um **brasão único do Football Social** (`crestIcon = ic-tier-{tier}`, derivado do logo: escudo tingido na cor do tier com gema — Common ◇, Rare, Epic ✦ — ou coroa — Legendary, Mythic com raios e aro branco); o nome do tier vai só em `aria-label`/tooltip e no JSON.
+- **Relevância e filtros do feed**: abas `Para você · Trending · Recentes · Seguindo` (`sort=FOR_YOU|TRENDING|RECENT|FOLLOWING`) + `filterbar` com chips por eixo (ativo = `.hot`); todos os endpoints aceitam ainda `role[]`, `state`, `clubId`, `q` (nome), `cursor`, `size ≤ 50`.
+- **Design tokens** (fonte: modelo *Football AI · Social*): `--ink #0a0f0c · --ink-2 #0f1613 · --panel #131b17 · --panel-2 #19231d · --line #26332b · --line-soft #1e2921 · --text #eaf2ee · --text-2 #95a89d · --text-3 #63756a · --green #00d47a / --green-hi #6cffc0 / --green-deep #00874e · --gold #f5c542 / --gold-hi #ffe08a / --gold-deep #b8902c · --c-green/--c-blue/--c-yellow/--c-purple/--c-orange/--c-red/--c-slate`; fontes Space Grotesk (display) · Inter (corpo) · JetBrains Mono (rótulos, números). Ícones da navegação = mini-brasões do logo oficial (`static/icons.svg`).
 
 ### RF4 — Core Domain · Rarity Engine & Gêmeo Digital (Digital Twin)
 - Cálculo **determinístico e semanal** (job agendado, idempotente por `userId + isoWeek`) do `Score_Total` (0 a 3000+):
@@ -59,13 +102,13 @@ A plataforma é uma rede social técnica de alta performance para o futebol, con
 - Mesma entrada ⇒ mesma saída (sem `Random`, sem relógio dentro do cálculo; `BigDecimal` com `RoundingMode.HALF_EVEN`).
 - **Tiers de Raridade** aplicados ao Card do Perfil/Gêmeo (`RarityTier`, com `minScore`, `maxScore`, `visualEffect`):
 
-| Tier | Faixa | Efeito visual |
-|---|---|---|
-| `COMMON` | 0–400 | Borda padrão simples |
-| `RARE` | 401–900 | Glow azul suave |
-| `EPIC` | 901–1600 | Partículas roxas + destaque de estatística |
-| `LEGENDARY` | 1601–2400 | Moldura Branco + Dourado |
-| `MYTHIC` | 2401+ | Aura dinâmica reativa + badges de MVP |
+| Tier | Faixa | Efeito visual no card (`visualEffect`) | Brasão (`crestIcon`) |
+|---|---|---|---|
+| `COMMON` | 0–400 | Borda padrão simples (`--c-slate`) | `ic-tier-common` — escudo ardósia, gema ◇ |
+| `RARE` | 401–900 | Glow azul suave | `ic-tier-rare` — escudo azul, gema facetada |
+| `EPIC` | 901–1600 | Partículas roxas (`driftParticles`) + destaque de estatística | `ic-tier-epic` — escudo roxo, gema + ✦ |
+| `LEGENDARY` | 1601–2400 | Moldura Branco + Dourado | `ic-tier-legendary` — escudo dourado, coroa, aro ouro |
+| `MYTHIC` | 2401+ | Aura dinâmica reativa (`mythicAura`, `mythicPulse`) + badges de MVP | `ic-tier-mythic` — escudo dourado, coroa com raios, aro branco |
 
 - **Máquina de Estados** do Gêmeo (`TwinStatus`): `DRAFT → ACTIVE → SUSPENDED → PENDING_DELETE → ANONYMIZED | DELETED`, com transições validadas no domínio (`DigitalTwin.transitionTo()` lança `InvalidTwinTransitionException`).
 
@@ -79,7 +122,7 @@ Experiência imersiva inspirada em cards de jogos e redes de telemetria esportiv
 | | `PAREDAO` (goleiro) / `XERIFAO` (defensor) | 🧱 | Clean sheets / alta taxa de desarmes limpos |
 | | `MOTORZINHO` (Minutagem) | ⏱️ | Minutos acumulados em campo na temporada |
 | **Condição Física & Status Médico** (telemetria, **mutuamente exclusivos**) | `PRONTO_PRA_JOGO` | ⚡ verde | Rotina de treinos cumprida, capacidade 100% |
-| | `DEPARTAMENTO_MEDICO` | 🚑 vermelho | Em tratamento: `injuryType`, `expectedReturnDate`; **bloqueia convocações automáticas** |
+| | `DEPARTAMENTO_MEDICO` | 🩹 vermelho | Em tratamento: `injuryType`, `expectedReturnDate`; **bloqueia convocações automáticas** |
 | | `RISCO_FADIGA` | ⚠️ amarelo | RPE × carga dos últimos treinos indicam sobrecarga (ACWR > 1.5) |
 | **Sociais, Táticos e Gamificados** | `MVP` | 🏆 | Acumulativo; eleito melhor da partida pela comissão ou grupo |
 | | `MESTRE_TATICO` | 🧠 | Atribuído pelo treinador por execução precisa da prancheta |
@@ -88,9 +131,16 @@ Experiência imersiva inspirada em cards de jogos e redes de telemetria esportiv
 | | `FAIR_PLAY` | 🛡️ | Baixíssimo histórico de cartões e alta disciplina |
 
 - **Status físico** é um estado do Gêmeo (`PhysicalStatus`: `READY`, `INJURED`, `FATIGUE_RISK`) derivado da telemetria e do registro médico (`InjuryRecord`); o badge correspondente é projetado a partir dele, nunca editado manualmente. Dados médicos são **sensíveis (Art. 11)**: só aparecem para terceiros se `shareMedicalData = true`.
-- **Micro-Badges no topo do Card**: `AthleteCardDTO.topBadges` retorna até **3 badges prioritários** (ordenação: status médico ativo > `priority` > `counter`), para leitura rápida por scouts e treinadores.
+- **Badges na área inferior do Card** (`bdgrow`, nunca sobre a imagem hero): `AthleteCardDTO.topBadges` retorna até **3 badges prioritários** (ordenação: status médico ativo > `priority` > `counter`), exibidos como pills abaixo do bloco de condicionamento; gols/assistências/minutos já aparecem no `sgrid` e não se repetem no hero.
 - **Tap to Expand**: `GET /v1/athletes/{id}/badges/{badgeType}/history` alimenta o *Bottom Sheet* com o histórico completo (série temporal de gols, evolução de minutagem, histórico médico), paginado.
 - Os badges alimentam o **Rarity Engine** (RF4) como entradas das parcelas de avaliação técnica (40%) e desempenho em partidas (30%); `BadgeAwardService` é determinístico e auditável (`BadgeAuditLog`).
+
+### RF6 — Modo FLAIR: jogo de cartas com os Cards do app (Jogar e Ganhar)
+- Cada Card de Atleta/Clube vira **carta jogável** congelada por semana: `Card(subjectType, subjectId, snapshotWeek, tier, power)`.
+- **Poder determinístico**: `Power = Score_Total(semana) × tierMult × (1 + Σ bonusBadges)` — `tierMult` COMMON 1,00 · RARE 1,05 · EPIC 1,10 · LEGENDARY 1,20 · MYTHIC 1,30; bônus `MVP` +3 %, `EM_CHAMAS` +2 %, `FAIR_PLAY` +1 % (cap 10 %); capitão +20 %. Cards de atletas `INJURED`/`PENDING_DELETE` não pontuam e o estado médico **nunca** aparece (Art. 11).
+- **Loop**: coleção (pacotes grátis a cada 12 h + conquistas, pool e probabilidades visíveis) → escalação (`Deck` de 5 + capitão, restrição por tier) → duelo 1×1 em 3 lances (atacante escolhe o eixo Físico/Técnico/Partidas; "Snap" dobra) ou liga semanal de 8 → recompensas (`Pontos`, `Pack`, `Cupom` de marca com `shareWithBrands`, `Momento`, cosmético).
+- **Regulatório (Brasil)**: sem dinheiro real, sem inscrição paga, sem prêmio monetário, **nenhum pacote pago aleatório** (ECA Digital, Lei 15.211/2025, art. 20); enquadra-se como fantasy sport gratuito (Lei 14.790/2023); sub-13 sem modo competitivo público; consentimento parental para menores (Art. 14); anti-vício (limite diário, sem "quase ganhou", desligável em 1 toque).
+- Entidades: `Card`, `CardOwnership`, `Deck`, `Pack`, `Match`, `Reward`, `Season`, `Moment`, `PointsLedger`. Entra no roadmap após Rankings e Evolução (usa seus snapshots).
 
 ### RF5 — Central de Compliance LGPD / Privacy by Design (Lei nº 13.709/2018)
 Modelar a **Central de Privacidade** exatamente como a *Anatomia da Tela* de referência (padrão Meta/Google), com **5 seções** navegáveis e cada controle etiquetado com o artigo da LGPD que cumpre (`lgpdArticle` no DTO):
@@ -135,25 +185,31 @@ Modelar a **Central de Privacidade** exatamente como a *Anatomia da Tela* de ref
 
 ### 2.2 Estrutura de código (`src/main/java/com/footballai/social/`)
 ```
-domain/          entidades, value objects, enums, serviços de domínio, exceções
-  identity/      User + subclasses, TermsAcceptance, UserRole, ProfileVisibility
-  twin/          DigitalTwin, RarityTier, TwinStatus, PhysicalStatus, RarityCalculationService
-  badge/         AthleteBadge, BadgeType, BadgeCategory, InjuryRecord, BadgeAwardService
-  feed/          Post, PostContentType, FeedWindow, TacticalDrill
-  telemetry/     TelemetryData (modelo Cassandra)
-  lgpd/          UserLgpdPreferences, ConsentAuditLog, DataExportRequest, LgpdComplianceService
-application/     casos de uso (use cases), DTOs, ports (interfaces de repositório)
-infrastructure/  adaptadores JPA/Cassandra/Redis, Spring Security (JWT, filtros), config, jobs
-web/             controllers REST v1, handlers de exceção (@RestControllerAdvice)
+config/        SecurityConfig (JWT stateless + CORS), JwtAuthenticationFilter, RateLimitFilter (Redis),
+               RedisConfig, CassandraConfig (perfil docker), S3Config (MinIO/AWS), JpaAuditingConfig
+model/         enums com cores/tokens (UserRole, PostContentType, FeedWindow, RarityTier, AgeRating, VslGlyph,
+               TrendDirection, TwinStatus, PhysicalStatus, BadgeType…) e entidades JPA
+               (User JOINED + subclasses, TermsAcceptance, UserLgpdPreferences, ConsentAuditLog, DigitalTwin,
+               WeeklyScoreSnapshot, AthleteBadge, InjuryRecord, Post, DataExportRequest) + modelos Cassandra
+repository/    Spring Data JPA / Cassandra
+service/       AuthService, JwtTokenService, RedisSessionService, RarityEngineService (@Scheduled, determinístico),
+               BadgeAwardService, FeedWindowService, LgpdService
+controller/    AuthController, UserController, FeedWindowController (filtros por janela), LgpdController,
+               GlobalExceptionHandler; DTOs em `controller/dto` (records: PostCardDTO, AthleteCardDTO…)
 ```
+Scripts auxiliares em `scripts/` (Python): `trello_setup.py`, `ecosystem_discovery_agent.py`, `enrichment_agent.py`.
 
 ### 2.3 Código crítico implementado (Java 17)
 - Entidades JPA e Enums completos (Hibernate 6 / Jakarta Persistence), `records` para DTOs.
-- **`RarityCalculationService.java`** — algoritmo determinístico 30/40/30, normalização 0–3000+, mapeamento `RarityTier.fromScore(int)`, snapshot semanal idempotente.
-- **`LgpdComplianceService.java`** — exportação JSON (Art. 18, V), solicitação/cancelamento de exclusão com soft-delete de 30 dias, job de anonimização (Art. 18, VI), auditoria de consentimento.
+- **`RarityEngineService.java`** — algoritmo determinístico 30/40/30, normalização 0–3000+, mapeamento `RarityTier.fromScore(int)`, snapshot semanal idempotente.
+- **`LgpdService.java`** — exportação JSON (Art. 18, V), solicitação/cancelamento de exclusão com soft-delete de 30 dias, job de anonimização (Art. 18, VI), auditoria de consentimento.
 - **`JwtTokenService` + `RedisSessionService`** — emissão/rotação de tokens e invalidação de sessão em tempo real.
 - **`BadgeAwardService.java`** — concessão determinística de badges a partir de estatísticas/telemetria, derivação de `PhysicalStatus` (exclusivo), bloqueio de convocação quando `INJURED`, projeção dos 3 `topBadges` e histórico para o *Bottom Sheet*.
 - **`V1__init_schema.sql`** (Flyway, MySQL 8, `utf8mb4`) — tabelas `users`, `user_athletes`…, `terms_acceptances`, `user_lgpd_preferences` (todos os booleanos `DEFAULT FALSE`), `consent_audit_log`, `digital_twins`, `weekly_score_snapshots`, `athlete_badges`, `injury_records`, `badge_audit_log`, `posts`, `tactical_drills`, `data_export_requests`, índices e FKs.
+- **Entradas do Gêmeo e sub-abas** — `POST /v1/telemetry` (+ `PUT /v1/telemetry/plan`) alimenta `TrainingSummary` (carga = RPE × min, ACWR 7:28, prontidão) e a telemetria bruta no Cassandra (GPS só com `locationHistory`); `POST /v1/evaluations` (peso por papel/verificação; comunidade não conta no Rarity); `POST /v1/matches/performances` (auto-relato nunca é oficial); `POST /v1/injuries` / `POST /v1/injuries/{id}/clear` (atleta ou STAFF_SAUDE verificado; pode publicar `LESAO_ALERTA`); `GET /v1/twins/{id}/evolution|dna|load`, `GET /v1/twins/compare?ids=`; `GET /v1/rankings/athletes|clubs`, `GET /v1/clubs` (globo); `POST /v1/admin/rarity/recalculate` (OFICIAL_LIGA).
+- **FLAIR (RF6)** — `GET /v1/flair/collection`, `POST /v1/flair/packs/open` (1 pacote gratuito/dia, odds visíveis `55/25/12/6/2 %`, sorteio determinístico por usuário+dia), `PUT /v1/flair/deck` (3 cartas + capitão), `POST /v1/flair/matches` (vs sistema ou jogador; sub-13 só vs sistema; limite diário 10), `POST /v1/flair/matches/{id}/rounds {axis, snap}` (3 lances; eixo × multiplicador do tier × 1,2 capitão; lesionado vale 0; Snap dobra a aposta), `GET /v1/flair/points` (livro de pontos, nunca compráveis).
+- **Copilot/Autopilot** — `POST /v1/copilot/suggest` (regras determinísticas sobre os dados do próprio usuário; sem LLM externo; título 5–12 palavras; arte por tier), `GET /v1/autopilot/drafts` (exige `aiAgentProcessing = true`; desabilitado para menores), `GET /v1/cards/art-options`.
+- **Seed de exemplo** (`app.seed.enabled`, perfis local/docker): 14 contas `*@exemplo.dev` com senha `Senha@Forte123` (nomes `<PREENCHER_*>`), 5 gêmeos com 12 semanas de histórico, partidas, treinos, atributos de scouting, lesão do goleiro e 15 posts com arte.
 - `application.yml` com perfis `local`/`docker`, `docker-compose.yml` (MySQL 8, Redis 7, Cassandra 4, MinIO) e `README.md` com instruções de execução.
 
 ### 2.4 Critérios de aceite
@@ -161,5 +217,5 @@ web/             controllers REST v1, handlers de exceção (@RestControllerAdvi
 - Novo usuário nasce com visibilidade `SOMENTE_EU` e todos os consentimentos `FALSE`.
 - Recalcular o mesmo conjunto de entradas produz o mesmo `Score_Total` e o mesmo `RarityTier`.
 - `DELETE /v1/me` não apaga fisicamente nada antes de 30 dias e o login no período de graça reativa a conta.
-- `AthleteCardDTO.topBadges` nunca excede 3 itens; um atleta `INJURED` exibe 🚑 em primeiro lugar e é recusado em convocações automáticas.
+- `AthleteCardDTO.topBadges` nunca excede 3 itens; um atleta `INJURED` exibe 🩹 em primeiro lugar e é recusado em convocações automáticas.
 - Dados de lesão/status médico só aparecem no card para terceiros quando `shareMedicalData = true`.
