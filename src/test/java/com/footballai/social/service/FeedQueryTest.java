@@ -40,8 +40,9 @@ class FeedQueryTest {
     @Test
     void alertaSourceIsARoleList() {
         var p = new LinkedMultiValueMap<String, String>();
-        p.add("severity", "ALTA,MEDIA"); p.add("alertType", "LESAO"); p.add("source", "IMPRENSA,CLUBE");
+        p.add("severity", "ALTA,MEDIA"); p.add("alertType", "LESAO"); p.add("source", "IMPRENSA,CLUBE"); p.add("contentType", "LESAO_ALERTA,especial");
         FeedQuery q = FeedQuery.parse(FeedWindow.ALERTA, p);
         assertThat(q.severities).hasSize(2); assertThat(q.alertTypes).hasSize(1); assertThat(q.sources).hasSize(2); assertThat(q.source).isNull();
+        assertThat(q.contentTypes).hasSize(2); assertThat(q.applied()).containsKey("contentType");
     }
 }

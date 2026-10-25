@@ -34,6 +34,7 @@ public final class FeedQuery {
     public final Period period;
     public final List<MetricType> metricTypes;
     public final List<EventType> eventTypes;
+    public final List<PostContentType> contentTypes;
     public final UUID athleteId;
     public final List<AttributeFilter> attributes;
     public final List<UUID> compare;
@@ -58,6 +59,7 @@ public final class FeedQuery {
         this.period = enumOr(Period.class, upper(first(p, "period")), null);
         this.metricTypes = enums(MetricType.class, p.get("metricType"));
         this.eventTypes = enums(EventType.class, p.get("eventType"));
+        this.contentTypes = enums(PostContentType.class, p.get("contentType"));
         this.athleteId = uuid(first(p, "athleteId"));
         List<AttributeFilter> attrs = new ArrayList<>();
         for (var e : p.entrySet()) {
@@ -101,6 +103,7 @@ public final class FeedQuery {
         if (period != null) m.put("period", period.name());
         if (!metricTypes.isEmpty()) m.put("metricType", metricTypes.stream().map(Enum::name).toList());
         if (!eventTypes.isEmpty()) m.put("eventType", eventTypes.stream().map(Enum::name).toList());
+        if (!contentTypes.isEmpty()) m.put("contentType", contentTypes.stream().map(Enum::name).toList());
         if (athleteId != null) m.put("athleteId", athleteId.toString());
         if (!attributes.isEmpty()) m.put("attr", attributes.stream().map(a -> a.name() + " " + a.op() + " " + a.value()).toList());
         if (!compare.isEmpty()) m.put("compare", compare.stream().map(UUID::toString).toList());

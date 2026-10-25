@@ -30,12 +30,21 @@ public record AppProperties(
                             @DefaultValue("5") int maxLoginFailures) { }
 
     public record Storage(@DefaultValue("http://localhost:9000") String endpoint,
+                          @DefaultValue("") String publicEndpoint,
                           @DefaultValue("us-east-1") String region,
                           @DefaultValue("minioadmin") String accessKey,
                           @DefaultValue("minioadmin") String secretKey,
                           @DefaultValue("fas-media") String mediaBucket,
                           @DefaultValue("fas-lgpd-exports") String exportBucket,
-                          @DefaultValue("true") boolean pathStyle) { }
+                          @DefaultValue("true") boolean pathStyle) {
+        /** Endpoint que o navegador alcança (URLs pré-assinadas e CSP); em Docker a API fala com {@code minio:9000} e o browser com {@code localhost:9000}. */
+        public String browserEndpoint() { return publicEndpoint == null || publicEndpoint.isBlank() ? endpoint : publicEndpoint; }
+        /** Origem (esquema://host[:porta]) do endpoint público, para a diretiva CSP; vazio quando não configurado. */
+        public String browserOrigin() {
+            try { var u = java.net.URI.create(browserEndpoint()); return u.getScheme() == null || u.getHost() == null ? "" : u.getScheme() + "://" + u.getHost() + (u.getPort() > 0 ? ":" + u.getPort() : ""); }
+            catch (IllegalArgumentException e) { return ""; }
+        }
+    }
 
     public record Lgpd(@DefaultValue("30") int deletionGraceDays,
                        @DefaultValue("7") int exportTtlDays,

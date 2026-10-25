@@ -53,8 +53,11 @@ Convenções: tabelas `snake_case` plural; PK `id BINARY(16)`; timestamps `TIMES
 | `status` | `AccountStatus` | default `PENDING_VERIFICATION` | N |
 | `visibility` | `ProfileVisibility` | default `SOMENTE_EU` | N |
 | `locale` | String(5) | `pt-BR` \| `en-US` \| `es` (preferência de UI) | N |
-| `darkMode` | boolean | default `false` (preferência de UI) | N |
+| `darkMode` | boolean | default `true` — interface dark-first (preferência de UI) | N |
 | `fontScale` | Decimal(2,1) | 0.8–1.4 | N |
+| `uiAccent` | `UiAccent` | cor de destaque da UI (`GREEN` default) — não altera cores de identidade | N |
+| `uiSurface` | `UiSurface` | tom das barras laterais e painéis (`GRAPHITE` default; `SAND` é claro) | N |
+| `wallpaper` / `wallpaperKey` | `Wallpaper` / String(255) | tela de fundo (paletas `VERDE`…`VERDE_VIVO` em `/brand/wallpapers`, ou `CUSTOM` com chave em `fas-media`) | N |
 | `countryCode` | String(2) | ISO-3166 | P |
 | `city` | String(80) | opcional | P |
 | `createdAt` / `updatedAt` | Instant | auditoria | — |
@@ -217,6 +220,8 @@ Access JWT (HS512) — claims: `sub` (userId), `role`, `sid`, `jti`, `iat`, `exp
 | `vslGlyph` | `VslGlyph` | derivado de `contentType` (não persistido) | N |
 | `aiGenerated` | boolean | `true` obrigatório para `AGENTE_IA`/Autopilot | N |
 | `badgeLabel` | String(24) | rótulo curto da pill do tipo (`TREINO`, `LESÃO`, `SCOUTING`…) | N |
+| `generationMode` | `GenerationMode` | `MANUAL` \| `AI` (etapa 1 do criador); `AI` exibe “GERADO COM IA · REVISADO” | N |
+| `art` (embeddable `CardArt`) | `artColor` String(7) hex · `artMaterial` `CardMaterial` · `artLayout` `CardLayout` · `artStyle` `CardStyle` | etapa 3 do criador (arte de fundo); nulos = sem arte | N |
 | `status` | `PostStatus` | default `PUBLISHED` | N |
 | `severity` | `AlertSeverity` | só para janela ALERTA | N |
 | `alertType` | `AlertType` | só para janela ALERTA | N |
@@ -343,6 +348,13 @@ Métricas derivadas (não persistidas): `acuteLoad7d`, `chronicLoad28d`, `acwr =
 | `VslGlyph` | `IDENTIDADE` · `VALOR` · `COMUNIDADE` · `INSTITUICAO` | `glyph` (◇ · ✦ · ⬢ · ▭) — Velion Symbol Language |
 | `TrendDirection` | `HOT` · `UP` · `FLAT` · `DOWN` | `emoji` (🔥 · 📈 · ➖ · 📉), `fromDelta()` |
 | `FeedSort` | `FOR_YOU` · `TRENDING` · `RECENT` · `FOLLOWING` | abas de relevância (Para você · Trending · Recentes · Seguindo) |
+| `GenerationMode` | `MANUAL` · `AI` | modo de criação do card |
+| `UiAccent` | `GREEN` · `BLUE` · `GOLD` · `PURPLE` · `ORANGE` | `label`, `hex` — destaque da interface |
+| `UiSurface` | `GRAPHITE` · `FOREST` · `NAVY` · `PLUM` · `SAND` | `label`, `hex`, `light` — tom das barras/painéis |
+| `Wallpaper` | `NONE` · `VERDE` · `CIANO` · `OURO` · `VERDE_CLARO` · `VERDE_VIVO` · `CUSTOM` | `label`, `url()` — tela de fundo |
+| `CardMaterial` | `FOSCO` · `METALICO` · `VIDRO` · `CARBONO` · `HOLOGRAFICO` | `label`; material da arte de fundo |
+| `CardLayout` | `CLASSICO` · `HERO` · `SPLIT` · `MINIMAL` | `label`; posição do bloco de arte no card |
+| `CardStyle` | `NEON` · `VITRAL` · `GRAFITE` · `OURO` · `RETRO` | `label`; tratamento gráfico coerente com o sistema visual |
 | `PostStatus` | `DRAFT` · `PUBLISHED` · `HIDDEN` · `REMOVED` | — |
 | `AlertSeverity` | `BAIXA` · `MEDIA` · `ALTA` · `CRITICA` | — |
 | `AlertType` | `TRANSFERENCIA` · `LESAO` · `PUNICAO` · `INSTITUCIONAL` | — |
@@ -425,6 +437,17 @@ Métricas derivadas (não persistidas): `acuteLoad7d`, `chronicLoad28d`, `acwr =
 
 Regras: sem dinheiro real nem prêmio monetário (ECA Digital art. 20 · Lei 14.790/2023); sub-13 sem modo competitivo público; cards de atletas `INJURED`/`PENDING_DELETE` não pontuam; perfis `SOMENTE_EU` não geram carta para terceiros; limite diário de partidas e opt-out em 1 toque.
 
+### 13.1 Tabelas implementadas (V2)
+
+| Entidade / tabela | Atributos | LGPD |
+|---|---|---|
+| `FlairCard` · `flair_cards` | `ownerId`, `athleteId`, `athleteName`, `athletePosition`, `tier` (snapshot), `pp`/`rp`/`mp` (0–100), `scoreTotal` (0 se INJURED/PENDING_DELETE), `season`, `source` (`PACK` \| `SYSTEM` \| `REWARD`), `acquiredAt`; `power(captain) = score × flairMultiplier × 1,2` | D (só atletas `PUBLICO`) |
+| `FlairDeck` · `flair_decks` | `ownerId` PK, `card1Id`, `card2Id`, `card3Id`, `captainIndex`, `updatedAt` | N |
+| `FlairMatch` · `flair_matches` | `challengerId`, `opponentId` (nulo = sistema), `opponentLabel`, `status`, `roundsJson`, `roundsPlayed`, `challengerWins`, `opponentWins`, `snapUsed`, `pointsAwarded`, `deckJson` (snapshot das duas escalações), `createdAt`, `finishedAt` | N |
+| `PointsLedger` · `points_ledger` (append-only) | `userId`, `delta`, `reason` (`FLAIR_REWARD`…), `refId`, `at`; saldo nunca negativo | P |
+
+Regras codificadas em `FlairService`: 1 pacote gratuito/dia com odds visíveis (COMMON 55 % · RARE 25 % · EPIC 12 % · LEGENDARY 6 % · MYTHIC 2 %) e sorteio determinístico por SHA-256(usuário + dia); limite de 10 partidas/dia; sub-13 só contra o sistema; vitória 100 pts · empate 25 · Snap: +200 / −100.
+
 ## 14. Regras de anonimização (job diário, após 30 dias)
 
 | Entidade | Ação |
@@ -438,7 +461,7 @@ Regras: sem dinheiro real nem prêmio monetário (ECA Digital art. 20 · Lei 14.
 | `WeeklyScoreSnapshot`, `AthleteBadge` | mantidos como agregados (`D`) ligados ao pseudônimo |
 | `ConsentAuditLog`, `TermsAcceptance` | mantidos (obrigação legal de accountability) com `userId` pseudonimizado |
 | `DataExportRequest` | objetos S3 apagados; registro marcado `EXPIRED` |
-| `Card`, `CardOwnership`, `Deck`, `Moment` | cards do titular como *sujeito* perdem nome/avatar (viram "Atleta #hash"); cards que o titular *possuía* são devolvidos ao pool; `PointsLedger` pseudonimizado |
+| `FlairCard`, `FlairDeck`, `FlairMatch`, `PointsLedger` | cards do titular como *sujeito* perdem nome/avatar (viram "Atleta #hash"); cards que o titular *possuía* são devolvidos ao pool; `PointsLedger` pseudonimizado |
 | `RankingEntry`, `PlayDnaProfile` | mantidos como agregados ligados ao pseudônimo |
 | `RecoveryDaily`, `TrainingLoadDaily`, `AutopilotDraft` | removidos fisicamente (dado de saúde) |
 

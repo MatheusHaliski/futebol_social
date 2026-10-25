@@ -5,6 +5,7 @@ import com.footballai.social.controller.dto.CardDtos.PostCardDTO;
 import com.footballai.social.controller.dto.CardDtos.PostViewDTO;
 import com.footballai.social.controller.dto.PostDtos.CreatePostRequest;
 import com.footballai.social.controller.dto.PostDtos.ReactionDTO;
+import com.footballai.social.controller.dto.PostDtos.UpdatePostRequest;
 import com.footballai.social.model.entity.PostReaction;
 import com.footballai.social.service.PostService;
 import jakarta.validation.Valid;
@@ -24,6 +25,15 @@ public class PostController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public PostCardDTO create(@AuthenticationPrincipal AuthPrincipal p, @Valid @RequestBody CreatePostRequest r) { return posts.create(p, r); }
+
+    @GetMapping("/mine")
+    public java.util.List<PostCardDTO> mine(@AuthenticationPrincipal AuthPrincipal p) { return posts.mine(p); }
+
+    @PostMapping("/{id}/publish")
+    public PostCardDTO publish(@AuthenticationPrincipal AuthPrincipal p, @PathVariable UUID id) { return posts.publishDraft(p, id); }
+
+    @PatchMapping("/{id}")
+    public PostCardDTO update(@AuthenticationPrincipal AuthPrincipal p, @PathVariable UUID id, @Valid @RequestBody UpdatePostRequest r) { return posts.update(p, id, r); }
 
     @GetMapping("/{id}")
     public PostViewDTO view(@AuthenticationPrincipal AuthPrincipal p, @PathVariable UUID id) { return posts.view(p, id); }

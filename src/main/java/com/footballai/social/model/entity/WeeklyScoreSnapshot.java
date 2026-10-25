@@ -30,6 +30,12 @@ public class WeeklyScoreSnapshot {
         this.matchScore = matchScore; this.badgeBonus = badgeBonus; this.scoreTotal = scoreTotal; this.rarityTier = rarityTier;
         this.inputsHash = inputsHash; this.calculatedAt = calculatedAt;
     }
+    /** Recalculo idempotente: atualiza o snapshot da mesma semana em vez de apagar/recriar (evita violar o UNIQUE no flush). */
+    public void update(BigDecimal physicalScore, BigDecimal technicalScore, BigDecimal matchScore, BigDecimal badgeBonus, int scoreTotal, RarityTier rarityTier, String inputsHash, Instant calculatedAt) {
+        this.physicalScore = physicalScore; this.technicalScore = technicalScore; this.matchScore = matchScore; this.badgeBonus = badgeBonus;
+        this.scoreTotal = scoreTotal; this.rarityTier = rarityTier; this.inputsHash = inputsHash; this.calculatedAt = calculatedAt;
+    }
+
     public UUID getId() { return id; }
     public UUID getTwinId() { return twinId; }
     public String getIsoWeek() { return isoWeek; }

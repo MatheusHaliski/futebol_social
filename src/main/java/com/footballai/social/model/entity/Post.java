@@ -45,6 +45,8 @@ public class Post {
     @Column(name = "view_count", nullable = false) private long viewCount;
     @Column(name = "trending_score", nullable = false, precision = 8, scale = 3) private BigDecimal trendingScore = BigDecimal.ZERO;
     @Column(name = "trending_delta", nullable = false, precision = 8, scale = 3) private BigDecimal trendingDelta = BigDecimal.ZERO;
+    @Enumerated(EnumType.STRING) @Column(name = "generation_mode", nullable = false, length = 8) private GenerationMode generationMode = GenerationMode.MANUAL;
+    @Embedded private CardArt art = new CardArt();
 
     public TrendDirection trend() { return TrendDirection.fromDelta(trendingDelta.doubleValue()); }
     public VslGlyph vslGlyph() { return contentType.vslGlyph(); }
@@ -114,4 +116,8 @@ public class Post {
     public void setTrendingScore(BigDecimal trendingScore) { this.trendingScore = trendingScore; }
     public BigDecimal getTrendingDelta() { return trendingDelta; }
     public void setTrendingDelta(BigDecimal trendingDelta) { this.trendingDelta = trendingDelta; }
+    public GenerationMode getGenerationMode() { return generationMode; }
+    public void setGenerationMode(GenerationMode generationMode) { this.generationMode = generationMode == null ? GenerationMode.MANUAL : generationMode; }
+    public CardArt getArt() { return art == null ? new CardArt() : art; }
+    public void setArt(CardArt art) { this.art = art == null ? new CardArt() : art; }
 }

@@ -8,6 +8,7 @@ import com.footballai.social.model.entity.HealthStaff;
 import com.footballai.social.model.entity.Scout;
 import com.footballai.social.model.entity.User;
 import com.footballai.social.model.enums.VerificationLevel;
+import com.footballai.social.model.enums.Wallpaper;
 import com.footballai.social.repository.DigitalTwinRepository;
 import com.footballai.social.repository.UserRepository;
 import org.springframework.stereotype.Service;
@@ -20,8 +21,9 @@ import java.util.UUID;
 public class UserService {
     private final UserRepository users;
     private final DigitalTwinRepository twins;
+    private final StorageService storage;
 
-    public UserService(UserRepository users, DigitalTwinRepository twins) { this.users = users; this.twins = twins; }
+    public UserService(UserRepository users, DigitalTwinRepository twins, StorageService storage) { this.users = users; this.twins = twins; this.storage = storage; }
 
     public User require(UUID id) { return users.findById(id).orElseThrow(() -> ApiException.notFound("Usuário")); }
 
@@ -30,7 +32,7 @@ public class UserService {
         return new UserSummaryDTO(u.getId(), u.getUsername(), u.getDisplayName(), u.getRole().name(), u.getRole().label(), u.getRole().ringColor(),
                 u.getRole().dotClass(), u.getStatus().name(), u.getVisibility().name(), u.isVerified(),
                 twin.map(t -> t.getRarityTier().name()).orElse(null), twin.map(t -> t.getRarityTier().crestIcon()).orElse(null),
-                u.getLocale(), u.isDarkMode(), u.getFontScale());
+                u.getLocale(), u.isDarkMode(), u.getFontScale(), u.getUiAccent().name(), u.getUiSurface().name(), u.getWallpaper().name(), wallpaperUrl(u));
     }
 
     public UserSummaryDTO me(AuthPrincipal p) { return summary(require(p.userId())); }
@@ -47,7 +49,17 @@ public class UserService {
         if (r.visibility() != null) u.setVisibility(r.visibility());
         if (r.stateCode() != null) u.setStateCode(r.stateCode().toUpperCase());
         if (r.city() != null) u.setCity(r.city());
+        if (r.uiAccent() != null) u.setUiAccent(r.uiAccent());
+        if (r.uiSurface() != null) u.setUiSurface(r.uiSurface());
+        if (r.wallpaper() != null) { u.setWallpaper(r.wallpaper()); if (r.wallpaper() != Wallpaper.CUSTOM) u.setWallpaperKey(null); }
+        if (r.wallpaperKey() != null) { u.setWallpaperKey(r.wallpaperKey()); u.setWallpaper(Wallpaper.CUSTOM); }
         return summary(users.save(u));
+    }
+
+    /** URL da tela de fundo: asset público das paletas ou mídia do usuário (pré-assinada). */
+    private String wallpaperUrl(User u) {
+        if (u.getWallpaper() == Wallpaper.CUSTOM) return u.getWallpaperKey() == null ? null : storage.mediaUrl(u.getWallpaperKey());
+        return u.getWallpaper().url();
     }
 
     public static VerificationLevel verificationLevelOf(User u) {

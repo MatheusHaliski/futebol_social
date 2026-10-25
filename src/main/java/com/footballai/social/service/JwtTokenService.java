@@ -26,6 +26,7 @@ public class JwtTokenService {
     private final AppProperties.Jwt cfg;
     private final Clock clock;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public JwtTokenService(AppProperties props) { this(props, Clock.systemUTC()); }
 
     public JwtTokenService(AppProperties props, Clock clock) {

@@ -49,6 +49,7 @@ public class LgpdService {
     private final AppProperties props;
     private final Clock clock;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public LgpdService(UserRepository users, UserLgpdPreferencesRepository prefs, ConsentAuditLogRepository consents, TermsAcceptanceRepository terms,
                        DigitalTwinRepository twins, WeeklyScoreSnapshotRepository snapshots, AthleteBadgeRepository badges, InjuryRecordRepository injuries,
                        PostRepository posts, PostReactionRepository reactions, TechnicalEvaluationRepository evaluations, TrainingSummaryRepository training,

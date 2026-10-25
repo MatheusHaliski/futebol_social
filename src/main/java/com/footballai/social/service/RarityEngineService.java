@@ -54,6 +54,7 @@ public class RarityEngineService {
     private final BadgeAwardService badges;
     private final Clock clock;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public RarityEngineService(DigitalTwinRepository twins, WeeklyScoreSnapshotRepository snapshots, RarityInputProvider inputs,
                                BadgeAwardService badges, AppProperties props) {
         this(twins, snapshots, inputs, badges, Clock.systemUTC());
@@ -126,9 +127,13 @@ public class RarityEngineService {
         RarityResult r = calculate(in);
         var existing = snapshots.findByTwinIdAndIsoWeek(twinId, isoWeek);
         if (existing.isPresent() && existing.get().getInputsHash().equals(r.inputsHash())) return false;
-        existing.ifPresent(snapshots::delete);
-        snapshots.save(new WeeklyScoreSnapshot(twinId, isoWeek, r.physicalScore(), r.technicalScore(), r.matchScore(), r.badgeBonus(),
-                r.scoreTotal(), r.tier(), r.inputsHash(), clock.instant()));
+        if (existing.isPresent()) {
+            existing.get().update(r.physicalScore(), r.technicalScore(), r.matchScore(), r.badgeBonus(), r.scoreTotal(), r.tier(), r.inputsHash(), clock.instant());
+            snapshots.save(existing.get());
+        } else {
+            snapshots.save(new WeeklyScoreSnapshot(twinId, isoWeek, r.physicalScore(), r.technicalScore(), r.matchScore(), r.badgeBonus(),
+                    r.scoreTotal(), r.tier(), r.inputsHash(), clock.instant()));
+        }
         twin.applyWeeklyScore(r.scoreTotal(), isoWeek);
         twins.save(twin);
         badges.onWeeklyScore(twin.getUserId(), isoWeek);

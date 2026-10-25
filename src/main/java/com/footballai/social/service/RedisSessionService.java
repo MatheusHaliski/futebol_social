@@ -27,6 +27,7 @@ public class RedisSessionService {
     private final AppProperties props;
     private final Clock clock;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public RedisSessionService(StringRedisTemplate redis, AppProperties props) { this(redis, props, Clock.systemUTC()); }
     public RedisSessionService(StringRedisTemplate redis, AppProperties props, Clock clock) { this.redis = redis; this.props = props; this.clock = clock; }
 

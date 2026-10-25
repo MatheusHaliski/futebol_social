@@ -12,7 +12,7 @@ public final class TestProps {
         return new AppProperties(
                 new AppProperties.Jwt("unit-test-secret-" + "x".repeat(80), Duration.ofMinutes(15), Duration.ofDays(7), "football-ai-social"),
                 new AppProperties.RateLimit(120, 300, 10, 5),
-                new AppProperties.Storage("http://localhost:9000", "us-east-1", "a", "b", "fas-media", "fas-lgpd-exports", true),
+                new AppProperties.Storage("http://localhost:9000", "", "us-east-1", "a", "b", "fas-media", "fas-lgpd-exports", true),
                 new AppProperties.Lgpd(30, 7, 5, "0 30 3 * * *"),
                 new AppProperties.Cors(List.of("http://localhost:8080")),
                 new AppProperties.Crypto(""),
