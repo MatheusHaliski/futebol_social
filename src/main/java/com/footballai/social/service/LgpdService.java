@@ -232,7 +232,9 @@ public class LgpdService {
     /** FLAIR guarda cópias desnormalizadas do nome do atleta (cards de outros donos, deck_json e rounds_json): são pseudonimizadas junto com a conta. */
     void scrubFlairSnapshots(UUID athleteId, String displayName) {
         for (FlairCard c : flairCards.findAllByAthleteId(athleteId)) { c.setAthleteName(FLAIR_ANON_NAME); flairCards.save(c); }
-        for (FlairMatch m : flairMatches.findAllByDeckJsonContaining(athleteId.toString())) {
+        for (UUID matchId : flairMatches.findIdsByDeckJsonContaining(athleteId.toString())) {
+            FlairMatch m = flairMatches.findByIdForUpdate(matchId).orElse(null);   // mesmo lock do lance: não sobrescreve um round concorrente nem reabre partida encerrada
+            if (m == null) continue;
             try {
                 Map<String, List<FlairCardDTO>> deck = mapper.readValue(m.getDeckJson(), new TypeReference<Map<String, List<FlairCardDTO>>>() { });
                 Map<String, List<FlairCardDTO>> out = new LinkedHashMap<>();

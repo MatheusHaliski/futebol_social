@@ -21,7 +21,7 @@ public interface FlairMatchRepository extends JpaRepository<FlairMatch, UUID> {
     @Query("select m from FlairMatch m where m.id = :id")
     Optional<FlairMatch> findByIdForUpdate(@Param("id") UUID id);
 
-    /** Partidas cujo deck guarda cópia do atleta (anonimização LGPD). */
-    @Query("select m from FlairMatch m where m.deckJson like concat('%', :fragment, '%')")
-    List<FlairMatch> findAllByDeckJsonContaining(@Param("fragment") String fragment);
+    /** Ids das partidas cujo deck guarda cópia do atleta (anonimização LGPD); só ids, para a entidade ser carregada já com lock. */
+    @Query("select m.id from FlairMatch m where m.deckJson like concat('%', :fragment, '%')")
+    List<UUID> findIdsByDeckJsonContaining(@Param("fragment") String fragment);
 }
