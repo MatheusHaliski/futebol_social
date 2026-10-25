@@ -796,7 +796,7 @@
 
   /* ---------- camada social: seguir · comentários · notificações ---------- */
   const setFollowBtn = (btn, on) => { btn.classList.toggle('on', on); btn.innerHTML = `<span class="i">${on ? '✓' : '＋'}</span>${on ? 'Seguindo' : 'Seguir'}`; };
-  let CM = { postId: null, parentId: null };
+  let CM = { postId: null, parentId: null, items: [], total: 0, next: null };
   const commentsBlock = d => `<section class="comments" data-post="${esc(d.id)}"><h4>Comentários <b id="cmTotal">${fmt(d.comments)}</b>${API.user && !d.mine ? `<button class="act follow" data-act="follow" data-user="${esc(d.authorId)}" id="cmFollow"><span class="i">＋</span>Seguir</button>` : ''}</h4>
     <ul class="cm-list" id="cmList"><li class="hint">carregando…</li></ul>
     <form class="cm-form" id="cmForm"><div class="cm-replying" id="cmReplying" hidden></div><textarea id="cmBody" maxlength="500" placeholder="Comente com respeito."></textarea><button class="btn primary" type="submit">Enviar</button><small>1–500 caracteres · menores de 13 não comentam (ECA Digital) · o dono do card e a liga podem remover.</small></form></section>`;
@@ -804,35 +804,53 @@
       <div class="cm-head"><b>${esc(a ? a.handle : '@removido')}</b><span>· ${esc(r.label)}${a && a.verified ? ' ✦' : ''}</span><small>${esc(c.timeLabel)}</small></div>
       <div class="cm-body">${esc(c.body)}</div>
       <div class="cm-actions">${c.parentId ? '' : `<button type="button" data-cm="reply" data-cid="${esc(c.id)}" data-handle="${esc(a ? a.handle : '')}">Responder</button>`}${c.canDelete ? `<button type="button" data-cm="delete" data-cid="${esc(c.id)}">Remover</button>` : ''}</div></div></li>`; };
-  function renderComments(page) {
-    const rootIds = new Set(page.items.filter(c => !c.parentId).map(c => c.id));
-    const roots = page.items.filter(c => !c.parentId || !rootIds.has(c.parentId)).map(c => rootIds.has(c.parentId) ? c : { ...c, parentId: null });   // órfã vira raiz
-    const replies = page.items.filter(c => c.parentId && rootIds.has(c.parentId));
+  function renderComments() {
+    const items = CM.items;
+    const rootIds = new Set(items.filter(c => !c.parentId).map(c => c.id));
+    const roots = items.filter(c => !c.parentId || !rootIds.has(c.parentId)).map(c => rootIds.has(c.parentId) ? c : { ...c, parentId: null });   // órfã vira raiz
+    const replies = items.filter(c => c.parentId && rootIds.has(c.parentId));
     const ordered = roots.flatMap(r => [r, ...replies.filter(x => x.parentId === r.id)]);
-    $('#cmList').innerHTML = ordered.length ? ordered.map(cmItem).join('') : '<li class="hint">Seja o primeiro a comentar.</li>';
-    $('#cmTotal').textContent = fmt(page.total);
-    $$(`.pcard[data-id="${page.postId}"] .act[data-act=comment] b`).forEach(b => b.textContent = fmt(page.total));
+    $('#cmList').innerHTML = (ordered.length ? ordered.map(cmItem).join('') : '<li class="hint">Seja o primeiro a comentar.</li>')
+      + (CM.next ? `<li class="cm-more"><button type="button" class="btn ghost" data-cm="more">Carregar mais comentários (${fmt(Math.max(0, CM.total - items.length))} restantes)</button></li>` : '');
+    $('#cmTotal').textContent = fmt(CM.total);
+    $$(`.pcard[data-id="${CM.postId}"] .act[data-act=comment] b`).forEach(b => b.textContent = fmt(CM.total));
   }
+  async function fetchCommentPage(postId, cursor) { return API.call(`/v1/posts/${postId}/comments?size=50${cursor ? '&cursor=' + encodeURIComponent(cursor) : ''}`); }
   async function loadComments(postId) {
-    CM = { postId, parentId: null };
+    CM = { postId, parentId: null, items: [], total: 0, next: null };
     if (!live()) { $('#cmList').innerHTML = '<li class="hint">Comentários chegam com a API ligada.</li>'; return; }
     try {
       const fb = $('#cmFollow');
-      const [page, fs] = await Promise.all([API.call(`/v1/posts/${postId}/comments?size=50`), fb ? API.call(`/v1/users/${fb.dataset.user}/follow`).catch(() => null) : null]);
-      renderComments(page); if (fs && fb) setFollowBtn(fb, fs.following);
+      const [page, fs] = await Promise.all([fetchCommentPage(postId, null), fb ? API.call(`/v1/users/${fb.dataset.user}/follow`).catch(() => null) : null]);
+      CM.items = page.items; CM.total = page.total; CM.next = page.nextCursor || null; renderComments(); if (fs && fb) setFollowBtn(fb, fs.following);
     } catch (e) { $('#cmList').innerHTML = `<li class="hint">${esc(e.message)}</li>`; }
+  }
+  async function loadMoreComments() {   // consome o cursor: páginas seguintes entram no fim (ordem cronológica)
+    if (!CM.next) return;
+    try { const page = await fetchCommentPage(CM.postId, CM.next); CM.items = CM.items.concat(page.items); CM.total = page.total; CM.next = page.nextCursor || null; renderComments(); } catch (e) { toast(e.message); }
   }
   document.addEventListener('submit', async e => {
     if (e.target.id !== 'cmForm') return; e.preventDefault();
     if (!live()) { toast('COMENTÁRIOS DISPONÍVEIS COM A API'); return; }
     const body = $('#cmBody').value.trim(); if (!body) return;
-    try { await API.call(`/v1/posts/${CM.postId}/comments`, { method: 'POST', body: { body, parentId: CM.parentId } }); $('#cmBody').value = ''; CM.parentId = null; $('#cmReplying').hidden = true; await loadComments(CM.postId); toast('COMENTÁRIO PUBLICADO'); } catch (err) { toast(err.message); }
+    try {
+      const c = await API.call(`/v1/posts/${CM.postId}/comments`, { method: 'POST', body: { body, parentId: CM.parentId } });
+      CM.items.push(c); CM.total += 1; CM.parentId = null; $('#cmBody').value = ''; $('#cmReplying').hidden = true; renderComments();   // o novo entra na hora, mesmo com páginas por carregar
+      toast('COMENTÁRIO PUBLICADO');
+    } catch (err) { toast(err.message); }
   });
   document.addEventListener('click', async e => {
     const b = e.target.closest('[data-cm]'); if (!b) return;
     if (b.dataset.cm === 'reply') { CM.parentId = b.dataset.cid; $('#cmReplying').hidden = false; $('#cmReplying').innerHTML = `Respondendo a <b>${esc(b.dataset.handle)}</b> <button type="button" data-cm="cancel">✕ cancelar</button>`; $('#cmBody').focus(); }
     else if (b.dataset.cm === 'cancel') { CM.parentId = null; $('#cmReplying').hidden = true; }
-    else if (b.dataset.cm === 'delete') { try { await API.call(`/v1/posts/${CM.postId}/comments/${b.dataset.cid}`, { method: 'DELETE' }); await loadComments(CM.postId); toast('COMENTÁRIO REMOVIDO'); } catch (err) { toast(err.message); } }
+    else if (b.dataset.cm === 'more') { await loadMoreComments(); }
+    else if (b.dataset.cm === 'delete') {
+      try {
+        await API.call(`/v1/posts/${CM.postId}/comments/${b.dataset.cid}`, { method: 'DELETE' });
+        const gone = new Set([b.dataset.cid, ...CM.items.filter(x => x.parentId === b.dataset.cid).map(x => x.id)]);   // raiz removida leva o fio
+        CM.items = CM.items.filter(x => !gone.has(x.id)); CM.total = Math.max(0, CM.total - gone.size); renderComments(); toast('COMENTÁRIO REMOVIDO');
+      } catch (err) { toast(err.message); }
+    }
   });
   const NT = { unread: 0, timer: null };
   function renderNotifCount(n) { NT.unread = n; ['#notifCount', '#navAlertCount'].forEach(sel => { const el = $(sel); if (!el) return; el.textContent = n > 99 ? '99+' : String(n); el.hidden = !n; }); }

@@ -74,9 +74,12 @@ public class NotificationService {
 
     /* ---------------- LGPD ---------------- */
 
-    /** Exclusão do destinatário apaga a caixa; como ator, o id some das notificações alheias (o texto já não identifica). */
+    /** Exclusão do destinatário apaga a caixa; como ator, as notificações alheias perdem id, @handle no título, trecho de comentário e referência ao perfil. */
     @Transactional
-    public void forget(UUID userId) { repo.deleteAllByUserId(userId); repo.detachActor(userId); }
+    public void forget(UUID userId) {
+        repo.deleteAllByUserId(userId);
+        for (Notification n : repo.findAllByActorId(userId)) { n.anonymizeActor(); repo.save(n); }
+    }
 
     public List<Map<String, Object>> export(UUID userId) {
         return repo.findAllByUserIdOrderByCreatedAtDesc(userId).stream().<Map<String, Object>>map(n -> {

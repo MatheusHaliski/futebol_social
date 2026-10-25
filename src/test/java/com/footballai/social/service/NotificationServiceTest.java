@@ -59,6 +59,20 @@ class NotificationServiceTest {
     }
 
     @Test
+    void forgetDeletesInboxAndScrubsActorSnapshotsInOthersInboxes() {
+        UUID actor = UUID.randomUUID(), other = UUID.randomUUID();
+        Notification c = new Notification(other, NotificationType.COMMENT, actor, "POST", UUID.randomUUID(), "@fulano comentou no seu card", "\"texto do fulano\" · Título", now);
+        Notification f = new Notification(other, NotificationType.FOLLOW, actor, "USER", actor, "@fulano começou a seguir você", null, now);
+        Notification l = new Notification(other, NotificationType.LIKE, actor, "POST", UUID.randomUUID(), "@fulano curtiu seu card", "Título do card", now);
+        when(repo.findAllByActorId(actor)).thenReturn(List.of(c, f, l));
+        svc.forget(actor);
+        verify(repo).deleteAllByUserId(actor);
+        assertThat(c.getActorId()).isNull(); assertThat(c.getTitle()).doesNotContain("fulano"); assertThat(c.getBody()).isNull(); assertThat(c.getRefType()).isEqualTo("POST");
+        assertThat(f.getTitle()).isEqualTo("Alguém começou a seguir você"); assertThat(f.getRefId()).isNull(); assertThat(f.getRefType()).isNull();
+        assertThat(l.getTitle()).isEqualTo("Alguém curtiu seu card"); assertThat(l.getBody()).isEqualTo("Título do card");   // título do card do destinatário não é dado do ator
+    }
+
+    @Test
     void listResolvesActorsAndRelativeTime() {
         AuthPrincipal p = new AuthPrincipal(me, UserRole.ATLETA, "s", "j", Instant.MAX);
         Notification n = new Notification(me, NotificationType.TIER_CHANGE, null, "TWIN", UUID.randomUUID(), "Seu Gêmeo Digital agora é EPIC", "Score_Total 950", now.minusSeconds(3600));

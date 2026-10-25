@@ -228,7 +228,7 @@ public class FeedWindowService {
     record Cursor(BigDecimal score, Instant publishedAt) { }
 
     static String encodeCursor(Post last, FeedSort sort) {
-        String raw = sort == FeedSort.TRENDING ? last.getTrendingScore().toPlainString() + "|" + last.getPublishedAt().toEpochMilli() : Long.toString(last.getPublishedAt().toEpochMilli());
+        String raw = sort == FeedSort.TRENDING ? last.getTrendingScore().toPlainString() + "|" + last.getPublishedAt() : last.getPublishedAt().toString();   // ISO-8601 com nanos: DATETIME(6) não repete item na página seguinte
         return Base64.getUrlEncoder().withoutPadding().encodeToString(raw.getBytes());
     }
 
@@ -237,14 +237,17 @@ public class FeedWindowService {
         try {
             String raw = new String(Base64.getUrlDecoder().decode(c));
             int bar = raw.indexOf('|');
-            if (sort == FeedSort.TRENDING && bar > 0) return new Cursor(new BigDecimal(raw.substring(0, bar)), Instant.ofEpochMilli(Long.parseLong(raw.substring(bar + 1))));
-            return new Cursor(null, Instant.ofEpochMilli(Long.parseLong(bar > 0 ? raw.substring(bar + 1) : raw)));
+            if (sort == FeedSort.TRENDING && bar > 0) return new Cursor(new BigDecimal(raw.substring(0, bar)), parseInstant(raw.substring(bar + 1)));
+            return new Cursor(null, parseInstant(bar > 0 ? raw.substring(bar + 1) : raw));
         } catch (RuntimeException e) { throw ApiException.badRequest("CURSOR_INVALID", "Cursor inválido"); }
     }
 
-    static String encodeTimeCursor(Instant t) { return Base64.getUrlEncoder().withoutPadding().encodeToString(Long.toString(t.toEpochMilli()).getBytes()); }
+    /** Aceita o formato antigo (epoch millis) e o atual (ISO-8601 com fração de segundo). */
+    static Instant parseInstant(String s) { return s.chars().allMatch(Character::isDigit) ? Instant.ofEpochMilli(Long.parseLong(s)) : Instant.parse(s); }
+
+    static String encodeTimeCursor(Instant t) { return Base64.getUrlEncoder().withoutPadding().encodeToString(t.toString().getBytes()); }
     static Instant decodeTimeCursor(String c) {
         if (c == null) return null;
-        try { return Instant.ofEpochMilli(Long.parseLong(new String(Base64.getUrlDecoder().decode(c)))); } catch (RuntimeException e) { throw ApiException.badRequest("CURSOR_INVALID", "Cursor inválido"); }
+        try { return parseInstant(new String(Base64.getUrlDecoder().decode(c))); } catch (RuntimeException e) { throw ApiException.badRequest("CURSOR_INVALID", "Cursor inválido"); }
     }
 }

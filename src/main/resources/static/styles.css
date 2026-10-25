@@ -603,3 +603,4 @@ html[data-wallpaper]:not([data-wallpaper=NONE]) .bottom-nav{background:color-mix
 /* PostView e Notificações: cartão de modal com painel, cabeçalho em linha e rolagem interna */
 .modal-card.postview{background:var(--panel);border:1px solid var(--line);border-radius:18px;max-height:92vh;overflow:auto;align-content:start}
 .modal-card.postview header{display:flex;align-items:center;justify-content:space-between}.modal-card.postview h3{margin:0;font-size:1.05rem}
+.cm-more{list-style:none;display:flex;justify-content:center;padding:4px 0}

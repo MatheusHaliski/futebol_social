@@ -28,6 +28,20 @@ public class Notification {
     }
 
     public void markRead(Instant when) { if (readAt == null) readAt = when; }
+
+    /** Anonimização do ator: some o id, o @handle do título e qualquer trecho de conteúdo dele (corpo); referência a USER também cai. */
+    public void anonymizeActor() {
+        this.actorId = null;
+        this.title = switch (type) {
+            case LIKE -> "Alguém curtiu seu card";
+            case COMMENT -> "Alguém comentou no seu card";
+            case REPLY -> "Alguém respondeu seu comentário";
+            case FOLLOW -> "Alguém começou a seguir você";
+            default -> title;
+        };
+        if (type == NotificationType.COMMENT || type == NotificationType.REPLY) this.body = null;   // trecho do comentário removido
+        if ("USER".equals(refType)) { this.refType = null; this.refId = null; }
+    }
     public boolean isUnread() { return readAt == null; }
 
     public UUID getId() { return id; }

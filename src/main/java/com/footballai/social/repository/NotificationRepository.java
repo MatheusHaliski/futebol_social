@@ -22,9 +22,5 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
     int markAllRead(@Param("userId") UUID userId, @Param("now") Instant now);
 
     void deleteAllByUserId(UUID userId);
-
-    /** Anonimização do ator: a notificação do destinatário fica, sem apontar para quem foi removido. */
-    @Modifying
-    @Query("update Notification n set n.actorId = null where n.actorId = :actorId")
-    int detachActor(@Param("actorId") UUID actorId);
+    List<Notification> findAllByActorId(UUID actorId);
 }
