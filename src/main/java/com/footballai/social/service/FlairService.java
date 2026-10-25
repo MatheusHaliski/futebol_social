@@ -14,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.*;
 import java.util.*;
+import com.footballai.social.model.enums.NotificationType;
 
 /**
  * RF6 — FLAIR. Regras: sem dinheiro real nem prêmio monetário (ECA Digital art. 20 · Lei 14.790/2023); pacotes gratuitos
@@ -34,18 +35,19 @@ public class FlairService {
     private final WeeklyScoreSnapshotRepository snapshots;
     private final UserRepository users;
     private final ObjectMapper mapper;
+    private final NotificationService notifications;
     private final Clock clock;
 
     @org.springframework.beans.factory.annotation.Autowired
     public FlairService(FlairCardRepository cards, FlairDeckRepository decks, FlairMatchRepository matches, PointsLedgerRepository points, AthleteRepository athletes,
-                        DigitalTwinRepository twins, WeeklyScoreSnapshotRepository snapshots, UserRepository users, ObjectMapper mapper) {
-        this(cards, decks, matches, points, athletes, twins, snapshots, users, mapper, Clock.systemUTC());
+                        DigitalTwinRepository twins, WeeklyScoreSnapshotRepository snapshots, UserRepository users, ObjectMapper mapper, NotificationService notifications) {
+        this(cards, decks, matches, points, athletes, twins, snapshots, users, mapper, notifications, Clock.systemUTC());
     }
 
     FlairService(FlairCardRepository cards, FlairDeckRepository decks, FlairMatchRepository matches, PointsLedgerRepository points, AthleteRepository athletes,
-                 DigitalTwinRepository twins, WeeklyScoreSnapshotRepository snapshots, UserRepository users, ObjectMapper mapper, Clock clock) {
+                 DigitalTwinRepository twins, WeeklyScoreSnapshotRepository snapshots, UserRepository users, ObjectMapper mapper, NotificationService notifications, Clock clock) {
         this.cards = cards; this.decks = decks; this.matches = matches; this.points = points; this.athletes = athletes; this.twins = twins;
-        this.snapshots = snapshots; this.users = users; this.mapper = mapper; this.clock = clock;
+        this.snapshots = snapshots; this.users = users; this.mapper = mapper; this.notifications = notifications; this.clock = clock;
     }
 
     /* ---------------- coleção / pacotes ---------------- */
@@ -225,6 +227,8 @@ public class FlairService {
         m.setStatus(FlairMatch.Status.FINISHED);
         m.setFinishedAt(clock.instant());
         if (pts != 0) points.save(new PointsLedger(m.getChallengerId(), pts, "FLAIR_REWARD", m.getId(), clock.instant()));
+        String title = draw ? "Duelo FLAIR empatado · +" + pts + " pontos" : won ? "Vitória no duelo FLAIR · +" + pts + " pontos" : "Derrota no duelo FLAIR · " + pts + " pontos";
+        notifications.notify(m.getChallengerId(), NotificationType.FLAIR_RESULT, null, "MATCH", m.getId(), title, m.getChallengerWins() + " × " + m.getOpponentWins() + " contra " + m.getOpponentLabel());
     }
 
     public MatchDTO match(AuthPrincipal p, UUID id) {

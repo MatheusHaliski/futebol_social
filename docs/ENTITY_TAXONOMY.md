@@ -348,6 +348,9 @@ Métricas derivadas (não persistidas): `acuteLoad7d`, `chronicLoad28d`, `acwr =
 | `VslGlyph` | `IDENTIDADE` · `VALOR` · `COMUNIDADE` · `INSTITUICAO` | `glyph` (◇ · ✦ · ⬢ · ▭) — Velion Symbol Language |
 | `TrendDirection` | `HOT` · `UP` · `FLAT` · `DOWN` | `emoji` (🔥 · 📈 · ➖ · 📉), `fromDelta()` |
 | `FeedSort` | `FOR_YOU` · `TRENDING` · `RECENT` · `FOLLOWING` | abas de relevância (Para você · Trending · Recentes · Seguindo) |
+| `FollowTargetType` | `USER` · `CLUBE` · `LIGA` | derivado do papel do alvo (`CLUBE` → CLUBE, `OFICIAL_LIGA` → LIGA) |
+| `NotificationType` | `LIKE` · `COMMENT` · `REPLY` · `FOLLOW` · `FLAIR_RESULT` · `TIER_CHANGE` · `SYSTEM` | sino; cada tipo tem um glifo |
+| `CommentStatus` | `VISIBLE` · `REMOVED` | remoção lógica de comentário |
 | `GenerationMode` | `MANUAL` · `AI` | modo de criação do card |
 | `UiAccent` | `GREEN` · `BLUE` · `GOLD` · `PURPLE` · `ORANGE` | `label`, `hex` — destaque da interface |
 | `UiSurface` | `GRAPHITE` · `FOREST` · `NAVY` · `PLUM` · `SAND` | `label`, `hex`, `light` — tom das barras/painéis |
@@ -419,7 +422,19 @@ Métricas derivadas (não persistidas): `acuteLoad7d`, `chronicLoad28d`, `acwr =
 | `ClubPoll` · `club_polls` | `clubId`, `question`, `options[]`, `closesAt`, `audience` | Mural do Clube | N |
 | `League` · `leagues` | `id`, `name`, `countryCode`, `tier` (divisão), `organizerId` (FK `OFICIAL_LIGA`), `wikidataId`, `season` | Explorar · Clubes & Ligas | N |
 | `ClubGeo` (projeção de `Club`) | `clubId`, `lat`, `lng`, `countryCode`, `leagueId`, `avgTier`, `crestKey` | Explorar (globo MapLibre; dados Wikidata CC0 + openfootball) | N |
-| `Follow` · `follows` | `followerId`, `targetId`, `targetType` (`USER` \| `CLUBE` \| `LIGA`), `since` | fan-out dos feeds | P |
+| `Follow` · `follows` | `followerId`, `targetId`, `targetType` (`USER` \| `CLUBE` \| `LIGA`), `since` | aba **Seguindo** (`sort=FOLLOWING`), conexão (= seguir mútuo) para visibilidade `CONEXOES` | P |
+| `PostComment` · `post_comments` | `postId`, `authorId`, `parentId` (1 nível), `body` ≤ 500, `status` (`VISIBLE` \| `REMOVED`), `createdAt`, `removedAt` | PostView (abaixo do texto completo); contador `commentCount` do card | P |
+| `Notification` · `notifications` | `userId` (destinatário), `type` (`NotificationType`), `actorId?`, `refType?` (`POST` \| `COMMENT` \| `USER` \| `MATCH` \| `TWIN`), `refId?`, `title` ≤ 120, `body?` ≤ 280, `createdAt`, `readAt?` | sino da topbar e contador da aba Alerta | P |
+
+### 12.1 Tabelas implementadas (V4 — camada social)
+
+| Tabela | Chaves/índices | Regras |
+|---|---|---|
+| `follows` | `uk_follow (follower_id, target_id)`, `ix_follow_target`, FKs para `users` | só conta ATIVA pode ser seguida; nunca a si mesmo; cria `FOLLOW` para o alvo; `findConnectionIds` = seguir mútuo |
+| `post_comments` | `ix_comment_post (post_id, status, created_at)`, `ix_comment_author`, FKs `posts`/`users` | só card PUBLICADO; **menores de 13 não comentam** (ECA Digital) e menor não comenta em card com `AgeRating.minAge` acima da idade; texto 1–500; remoção lógica (texto zerado) pelo autor, pelo dono do card ou por `OFICIAL_LIGA`; `commentCount` acompanha |
+| `notifications` | `ix_notification_user (user_id, read_at, created_at)`, FK `users` | ninguém é notificado da própria ação; `LIKE`/`COMMENT`/`REPLY`/`FOLLOW`/`FLAIR_RESULT`/`TIER_CHANGE`; corpo truncado em 280; `markAllRead` em lote |
+
+Anonimização (§14) apaga `follows` nas duas direções, remove os comentários do autor (ajustando contadores) e a caixa de notificações; como **ator**, o id some das notificações alheias (`detachActor`). Exportação (§7.4) ganha as chaves `follows`, `comments` e `notifications`.
 
 ## 13. Contexto `flair` — jogo de cartas (RF6)
 
@@ -488,6 +503,8 @@ Records Java em `controller/dto`; o front renderiza **apenas** a partir deles (n
 
 ### 15.2 `AthleteCardDTO` — `.vcard`
 
+Campo adicional `followedByMe` (boolean): alimenta o botão **＋ Seguir / ✓ Seguindo** do card (oculto para o próprio perfil).
+
 | Campo | Tipo | Origem | Camada visual |
 |---|---|---|---|
 | `athleteId`, `handle`, `name`, `position`, `age`, `state`, `club`, `contractStatus` | — | `Athlete` | `author` · `vtitle` (`Nome — Posição`) · `vsub` |
@@ -498,3 +515,14 @@ Records Java em `controller/dto`; o front renderiza **apenas** a partir deles (n
 | `classification` → `{ ageRating, sensitive }` | `AgeRating` | derivado de `physical` | `age-chip` (`SENSÍVEL` quando expõe dado médico) |
 | `social` → `{ likes, comments, shares }` | `SocialCountersDTO` | contadores do perfil | `actbar` + `Gêmeo →` |
 | `heroImage` → `{ url }` | opcional | S3 | `imgblock` — **só a imagem**, sem overlays |
+
+### 15.3 DTOs da camada social (`SocialDtos`)
+
+| DTO | Campos | Endpoint |
+|---|---|---|
+| `FollowDTO` | `targetId`, `targetType`, `following`, `followsMe`, `connection`, `followers`, `followingCount` | `POST`/`GET /v1/users/{id}/follow` |
+| `FollowSummaryDTO` | `user` (`AuthorDTO`), `targetType`, `since`, `mutual` | `GET /v1/me/following` · `/v1/me/followers` |
+| `CreateCommentRequest` | `body` (1–500), `parentId?` | `POST /v1/posts/{id}/comments` (201) |
+| `CommentDTO` · `CommentPageDTO` | `id`, `postId`, `parentId`, `author`, `body`, `createdAt`, `timeLabel`, `mine`, `canDelete` · `items`, `nextCursor`, `total` | `GET /v1/posts/{id}/comments?cursor&size` · `DELETE …/comments/{commentId}` (204) |
+| `NotificationDTO` · `NotificationPageDTO` | `id`, `type`, `glyph`, `title`, `body`, `actor?`, `refType`, `refId`, `createdAt`, `timeLabel`, `unread` · `items`, `unreadCount` | `GET /v1/me/notifications?unread` · `GET …/unread-count` · `POST …/read` (`{ids}` ou `{all:true}`) |
+

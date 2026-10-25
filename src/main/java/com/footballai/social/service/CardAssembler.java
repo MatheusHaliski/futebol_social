@@ -16,6 +16,7 @@ import java.time.LocalDate;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import com.footballai.social.repository.FollowRepository;
 
 /**
  * Monta os DTOs dos cards (.pcard e .vcard) aplicando as regras de privacidade:
@@ -34,11 +35,12 @@ public class CardAssembler {
     private final AthleteBadgeRepository badges;
     private final PostReactionRepository reactions;
     private final StorageService storage;
+    private final FollowRepository follows;
     private final Clock clock;
 
     public CardAssembler(UserRepository users, DigitalTwinRepository twins, WeeklyScoreSnapshotRepository snapshots, MatchPerformanceRepository matches,
                          TrainingSummaryRepository training, InjuryRecordRepository injuries, UserLgpdPreferencesRepository prefs, AthleteBadgeRepository badges,
-                         PostReactionRepository reactions, StorageService storage) {
+                         PostReactionRepository reactions, StorageService storage, FollowRepository follows) { this.follows = follows;
         this.users = users; this.twins = twins; this.snapshots = snapshots; this.matches = matches; this.training = training; this.injuries = injuries;
         this.prefs = prefs; this.badges = badges; this.reactions = reactions; this.storage = storage; this.clock = Clock.systemUTC();
     }
@@ -132,7 +134,7 @@ public class CardAssembler {
         return new AthleteCardDTO(a.getId(), "@" + a.getUsername(), a.getDisplayName(), author, "GÊMEO DIGITAL", VslGlyph.IDENTIDADE.glyph(),
                 RarityDTO.of(tier, score, pp, rp, mp), attributes(a, twin), seasonDto, physical, top,
                 new ClassificationDTO(AgeRatingDTO.of(sensitive ? AgeRating.SENSITIVE : AgeRating.SAFE), sensitive),
-                new SocialCountersDTO(likes, 0, 0, 0, false, false), hero);
+                new SocialCountersDTO(likes, 0, 0, 0, false, false), hero, viewer != null && !owner && follows.existsByFollowerIdAndTargetId(viewer.userId(), a.getId()));
     }
 
     /** Lista de atributos como badges (nunca texto corrido): posição · idade · clube · contrato · UF · pé · altura · referência · ranking. */

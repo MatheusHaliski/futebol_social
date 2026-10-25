@@ -22,7 +22,7 @@ class RarityEngineServiceTest {
     @BeforeEach
     void setUp() {
         engine = new RarityEngineService(mock(DigitalTwinRepository.class), mock(WeeklyScoreSnapshotRepository.class),
-                (athleteId, week) -> null, mock(BadgeAwardService.class), Clock.fixed(Instant.parse("2026-10-26T03:00:00Z"), ZoneOffset.UTC));
+                (athleteId, week) -> null, mock(BadgeAwardService.class), mock(NotificationService.class), Clock.fixed(Instant.parse("2026-10-26T03:00:00Z"), ZoneOffset.UTC));
     }
 
     private static RarityEngineService.RarityInputs inputs(int planned, int done, String acwr, int readiness, String wRating, String wSum,

@@ -1,6 +1,6 @@
 # Galeria · variações de aparência, estúdio de edição e fotografia
 
-Prints capturados na SPA ligada à API real (`atleta2@exemplo.dev`, perfil `local`, MySQL + Redis + S3 compatível).
+Prints capturados na SPA ligada à API real (`atleta2@exemplo.dev`, `torcedor@exemplo.dev` na seção G, perfil `local`, MySQL + Redis + S3 compatível).
 Todas as variações foram aplicadas pelos controles reais de **Central de Privacidade → Aparência** e persistidas em `PATCH /v1/me`.
 
 ## A · tema, cor de destaque e tom das barras laterais/painéis
@@ -57,5 +57,17 @@ Com fundo ativo, topbar, sidebar, painéis, KPIs e a arena FLAIR ficam translúc
 |---|---|
 | `F01_mobile_fundo_ouro.jpg` | Gêmeo em 390 px com fundo ouro, KPIs e feed translúcidos |
 | `F02_mobile_perfil_fundo_ouro.jpg` | Perfil em 390 px com fundo ouro |
+
+## G · camada social (seguir · comentários · notificações)
+
+| Print | O que mostra |
+|---|---|
+| `G01_cards_seguir.jpg` | cards de atleta com **＋ Seguir / ✓ Seguindo** (torcedor já segue o atleta 2 no seed; o próprio perfil não mostra o botão) |
+| `G02_aba_seguindo.jpg` | aba **Seguindo** do Gêmeo: só cards de quem o usuário segue (`sort=FOLLOWING`) |
+| `G03_postview_comentarios.jpg` | PostView com o fio de comentários (resposta indentada), botão Seguir o autor e formulário (1–500 caracteres) |
+| `G04_comentario_publicado.jpg` | comentário publicado: lista e contador "Comentar N" do card atualizados |
+| `G05_notificacoes.jpg` | sino do dono do card: COMMENT, TIER_CHANGE e FOLLOW, não lidas em destaque, "Marcar todas como lidas" |
+| `G06_notificacao_abre_card.jpg` | clicar na notificação marca como lida e abre o card referenciado |
+| `G07_mobile_contador_alerta.jpg` | mobile: contador de não lidas na aba Alerta da barra inferior |
 
 Regenerar: `cd docs/preview/spa/gallery/scripts && BASE=http://localhost:8080/ OUT=./out node gallery.js` (Playwright + Chromium; API no ar com a conta semente). `foto_golaco.jpg` é a fotografia ilustrativa usada no upload (gerada por código, sem pessoas reais). As seções D e E alteram dados locais.

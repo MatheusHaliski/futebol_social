@@ -72,6 +72,9 @@ controller/  AuthController, UserController, FeedWindowController, PostControlle
 | `GET` | `/v1/rankings/athletes` · `/v1/rankings/clubs` · `/v1/clubs` (globo Explorar) — `POST /v1/admin/rarity/recalculate` (OFICIAL_LIGA) | RF3/RF4 |
 | `POST` | `/v1/copilot/suggest` · `GET /v1/autopilot/drafts` · `GET /v1/cards/art-options` · `GET /v1/posts/mine` · `POST /v1/posts/{id}/publish` · `POST /v1/media` (fotografia do card, multipart) | RF3 |
 | `PATCH` | `/v1/posts/{id}` (estúdio de edição, só o autor) · `GET /v1/ui/appearance-options` · `PATCH /v1/me` com `uiAccent`, `uiSurface`, `wallpaper`, `wallpaperKey` | RF3 |
+| `POST` | `/v1/users/{id}/follow` (alterna; `GET` devolve o estado) · `GET /v1/me/following` · `/v1/me/followers` — aba **Seguindo** = `GET /v1/feeds/{janela}?sort=FOLLOWING` | RF3 |
+| `GET`/`POST`/`DELETE` | `/v1/posts/{id}/comments` (cursor, `parentId` para resposta) · `/v1/posts/{id}/comments/{commentId}` | RF3 |
+| `GET`/`POST` | `/v1/me/notifications?unread` · `/v1/me/notifications/unread-count` · `/v1/me/notifications/read` (`{ids}` ou `{all:true}`) | RF3 |
 | `GET/POST/PUT` | `/v1/flair/collection` · `/v1/flair/packs/open` · `/v1/flair/deck` · `/v1/flair/matches` · `/v1/flair/matches/{id}/rounds` · `/v1/flair/points` | RF6 |
 | `GET/PUT` | `/v1/me/privacy` · `/v1/me/privacy/{preference}` (header `X-Step-Up-Token` para sensíveis) · `/v1/me/consent-history` | RF5 |
 | `POST` | `/v1/me/step-up` · `/v1/me/export` · `GET /v1/me/exports` · `DELETE /v1/me` · `POST /v1/me/restore` | RF5 |
