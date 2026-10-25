@@ -17,8 +17,9 @@ public final class PostDtos {
                                     List<String> mediaKeys, AgeRating ageRating, AlertSeverity severity, AlertType alertType, UUID clubId,
                                     @Size(max = 2) String stateCode, GenerationMode generationMode, ArtRequest art, Boolean draft) { }
 
-    /** Etapa "Arte" do criador: cor hex, material, layout e estilo. */
-    public record ArtRequest(@Size(max = 7) String color, CardMaterial material, CardLayout layout, CardStyle style) { }
+    /** Etapa "Arte" do criador: cor hex, segunda cor, gradiente, material, layout e estilo. */
+    public record ArtRequest(@Size(max = 7) String color, @Size(max = 7) String color2, CardGradient gradient,
+                             CardMaterial material, CardLayout layout, CardStyle style) { }
 
     /** Edição no estúdio (só o autor): conteúdo, fotografia e arte de fundo; tipo/borda não muda. */
     public record UpdatePostRequest(@Size(max = 90) String title, @Size(max = 160) String subtitle, @Size(max = 5000) String content, List<String> mediaKeys,

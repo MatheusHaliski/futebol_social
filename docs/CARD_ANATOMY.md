@@ -24,12 +24,12 @@
 |---|---|---|
 | `--ink / --ink-2 / --panel / --panel-2` | `#0a0f0c · #0f1613 · #131b17 · #19231d` | base pitch green-black |
 | `--line / --line-soft` | `#26332b · #1e2921` | contornos |
-| `--text / --text-2 / --text-3` | `#eaf2ee · #95a89d · #63756a` | hierarquia de texto |
+| `--text / --text-2 / --text-3` | `#eaf2ee · #a3b5aa · #8a9c91` (claro: `#0e1512 · #46564d · #5b6b62`) | hierarquia de texto — todos ≥ 4,5:1 sobre `--ink-2`/`--panel` |
 | `--green / --green-hi / --green-deep` | `#00d47a · #6cffc0 · #00874e` | assinatura Pitch Green |
 | `--gold / --gold-hi / --gold-deep` | `#f5c542 · #ffe08a · #b8902c` | Elite Gold |
 | `--c-green · --c-blue · --c-yellow · --c-purple · --c-orange · --c-red · --c-gold · --c-slate` | `#00d47a · #3b82f6 · #f7c948 · #a06bff · #ff9f43 · #ff5d5d · #f5c542 · #5c6b62` | paleta de categoria |
 | `--radius / --radius-sm` | `18px / 11px` | cards / posts |
-| Fontes | Space Grotesk (display) · Inter (corpo) · JetBrains Mono (rótulos, chips, números) | |
+| Fontes | Space Grotesk (display) · Inter (corpo) · JetBrains Mono (rótulos, chips, números) — auto-hospedadas; a Aparência troca por Legível, Placar, Editorial ou Sistema | |
 
 ## 3. Camada 1 · Identidade — a bolinha (`.dot`)
 
@@ -179,13 +179,20 @@ O card é criado num assistente único (FAB / “Criar card”): **1 · Modo** (
 | **Fotografia** (`mediaKeys`) | imagem ou vídeo enviado pelo usuário (`POST /v1/media`, JPEG/PNG/WebP/GIF/MP4 ≤ 25 MB, bucket `fas-media`, URL pré-assinada 1 h) | upload do autor | bloco `p-media.photo` abaixo do título (posts com fotografia não exibem teaser) |
 | **Arte de fundo** (`CardArt`) | cor, material, layout e estilo que **tingem o fundo do próprio card** (`.pcard.has-art`) — não alteram a fotografia | etapa 3 do criador (ou sugestão do Copilot por tier) | fundo, borda e brilho do card inteiro, atrás de título, teaser e barra de ações |
 
-| Dimensão da arte | Valores | Render no fundo do `.pcard` |
+| Dimensão da arte | Valores | Render no fundo do `.pcard` (camadas, de cima para baixo: padronagem · material · layout · gradiente) |
 |---|---|---|
-| Cor | hex dos tokens (`--c-*`, `--gold`) ou personalizada | `--ac` misturada ao `--panel` (gradiente de 28 % → 0 %) e à borda |
-| Material | Fosco · Metálico · Vidro · Carbono · Holográfico | gradiente plano · faixas de brilho · translúcido com blur · trama diagonal · conic-gradient animado em `::before` |
-| Layout | Clássico · Hero · Split · Minimal | tinta uniforme · banda forte no terço superior · faixa lateral esquerda · só um fio de 4 px no topo |
-| Estilo | Neon · Vitral · Grafite · Ouro · Retrô | glow externo/interno · facetas do logo · véu grafite · aro Elite Gold · scanlines sépia |
+| Cor principal · segunda cor | hex dos tokens, personalizada ou **paletas de torcida** (Alvinegro, Alviverde, Rubro-negro, Tricolor, Celeste, Canarinho) | `--ac` / `--ac2` viram tintas com **luminância travada** em OKLCH: `--t1` L .30, `--t1hi` L .33, `--t2` L .25 (croma ≤ .11) no escuro; L .94/.91/.90 (croma ≤ .06) no claro |
+| Gradiente | Suave · Sólido · Degradê · Radial · Diagonal | `--t1`→`--ink-2` · `--t1` liso · `--t1`→`--t2` vertical · holofote `--t1hi`/`--t1`/`--t2` no canto · corte diagonal `--t1` / `--t2` |
+| Material | Fosco · Metálico · Vidro · Carbono · Holográfico · Cetim · Malha de camisa · Cromo · Papel de álbum · Prisma | liso · faixas escovadas · reflexo + borda translúcida · trama diagonal · reflexo iridescente (`::before`, animado sem “reduzir movimento”) · brilho acetinado · furos da malha · bandas cromadas · grão + tom de papel · faixa prismática animada |
+| Layout | Clássico · Hero · Split · Minimal | tinta uniforme · banda `--t1hi` no terço superior · faixa lateral esquerda · véu + fio de 3 px na cor no topo |
+| Estilo (padronagem) | Neon · Vitral · Grafite · Ouro · Retrô · Gramado · Rede do gol · Listras de camisa · Faixa diagonal · Xadrez · Prancheta tática · Arquibancada · Mosaico da torcida | grade fina + glow · facetas do logo · véu grafite · aro Elite Gold · scanlines · faixas de corte do campo · malha da rede · listras `--t2` · faixa `--t2` · xadrez · meio-campo + círculo + pontos · degraus + torcida · mosaico `--t2` |
 
-Regras: a arte **nunca substitui** a borda de conteúdo nem a bolinha do autor; o rótulo `material · layout · estilo` fica discreto no canto inferior do card; o Copilot sugere arte por tier (Common fosco/grafite … Mythic holográfico/ouro) e tipo (partida/especial = hero; relatório = split; institucional/lesão = minimal); cards gerados com IA exibem a pill “GERADO COM IA · REVISADO”.
+**Contraste garantido**: dentro de `.pcard.has-art` o teaser usa `--text-2: #b6c6bc` (claro `#3b4a42`) e `--text-3` = `--text-2`; padronagens escurecem (preto ≤ 26 %) e brilhos clareiam no máximo 10 %. `ArtContrastTest` refaz a conta OKLab para 17 cores (paleta, branco, preto, amarelo puro) nas três luminâncias com o brilho mais forte por cima: título ≥ 7:1 e teaser ≥ 4,5:1 nos dois temas.
+
+**A arte nunca toca na fotografia**: `.p-media.photo` fica acima de todas as camadas (`z-index:1`, `isolation:isolate`), numa moldura neutra (`--ink` + contorno `--line`), com `filter:none`, `mix-blend-mode:normal` e `opacity:1`. A medição em `docs/preview/spa/variacoes/report.json` compara a mesma foto sob a arte mais forte (radial · holográfico · vitral) e sob uma arte neutra: diferença média de **0,06/255** por canal (só antialias de borda). No PostView a foto aparece inteira (`object-fit:contain`).
+
+**Regras**: a arte **nunca substitui** a borda de conteúdo (a borda esquerda continua com a cor do tipo em todas as combinações) nem a bolinha do autor; o rótulo `gradiente · material · layout · estilo` aparece só na prévia do criador, na revisão e no PostView (no feed não disputa espaço com a barra de ações); **cards de alerta** (lesão e comunicado institucional) aceitam só arte sóbria — gradiente Suave/Sólido, material Fosco/Malha, estilo Grafite — o criador mostra só essas opções e a API rejeita o resto com `ART_INVALID` (cards antigos com arte festiva são exibidos na versão sóbria); o Copilot sugere por tipo (treino = malha · gramado, partida = radial · rede, relatório = prancheta, liga = degradê · listras, especial = diagonal · mosaico, alertas = sóbrio) e por tier (Rare cetim, Epic holográfico, Legendary cromo, Mythic prisma + segunda cor ouro); cards gerados com IA exibem a pill “GERADO COM IA · REVISADO”.
+
+**Card de perfil (`.vcard`)**: o hero mostra a **foto do perfil** (`heroImage` = `avatarKey` da conta, Central → Conta → Foto do perfil) numa moldura neutra; sem foto, o ícone placeholder. As partículas Epic e a aura Mythic ficam **abaixo** do conteúdo (`z-index:0`, conteúdo `z-index:1`), nunca por cima da foto ou dos números.
 
 **Estúdio de edição**: o autor reabre o próprio card (`✎ Editar`) no mesmo assistente, a partir da etapa Conteúdo, com tipo/borda travados; `PATCH /v1/posts/{id}` salva título, teaser, texto, fotografia, classificação e arte. Por isso os cards de um feed nunca são todos da mesma cor: cada um traz a arte definida pelo autor.

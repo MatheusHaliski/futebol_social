@@ -38,11 +38,14 @@ public final class CardDtos {
     public record SocialCountersDTO(int likes, int comments, int shares, int saves, boolean likedByMe, boolean savedByMe) { }
     public record TrendDTO(String direction, String emoji) { }
     public record MediaDTO(String key, String url, String kind) { }
-    /** Arte de fundo escolhida no criador de cards (cor · material · layout · estilo). */
-    public record CardArtDTO(String color, String material, String materialLabel, String layout, String layoutLabel, String style, String styleLabel) {
+    /** Arte de fundo escolhida no criador de cards (cor · segunda cor · gradiente · material · layout · estilo). */
+    public record CardArtDTO(String color, String color2, String gradient, String gradientLabel, String material, String materialLabel,
+                             String layout, String layoutLabel, String style, String styleLabel) {
         public static CardArtDTO of(com.footballai.social.model.entity.CardArt a) {
             if (a == null || a.isEmpty()) return null;
-            return new CardArtDTO(a.getColor(), a.getMaterial() == null ? null : a.getMaterial().name(), a.getMaterial() == null ? null : a.getMaterial().label(),
+            return new CardArtDTO(a.getColor(), a.getColor2(),
+                    a.getGradient() == null ? null : a.getGradient().name(), a.getGradient() == null ? null : a.getGradient().label(),
+                    a.getMaterial() == null ? null : a.getMaterial().name(), a.getMaterial() == null ? null : a.getMaterial().label(),
                     a.getLayout() == null ? null : a.getLayout().name(), a.getLayout() == null ? null : a.getLayout().label(),
                     a.getStyle() == null ? null : a.getStyle().name(), a.getStyle() == null ? null : a.getStyle().label());
         }

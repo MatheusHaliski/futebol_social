@@ -78,7 +78,7 @@ public class CardAssembler {
                 new SocialCountersDTO(p.getLikeCount(), p.getCommentCount(), p.getShareCount(), p.getSaveCount(), liked, saved),
                 new TrendDTO(p.trend().name(), p.trend().emoji()), p.getWindow().name(),
                 p.getSeverity() == null ? null : p.getSeverity().name(), p.getAlertType() == null ? null : p.getAlertType().name(),
-                p.getGenerationMode().name(), CardArtDTO.of(p.getArt()));
+                p.getGenerationMode().name(), CardArtDTO.of(p.getArt().soberFor(p.getContentType())));
     }
 
     static String timeLabel(Instant at, Instant now) {

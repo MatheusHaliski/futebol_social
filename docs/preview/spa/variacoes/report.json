@@ -1,0 +1,52 @@
+{
+  "authModal": {
+    "loginVisible": true,
+    "registerVisible": false
+  },
+  "savedHint": "salvo na sua conta · vale em todos os dispositivos",
+  "afterReload": {
+    "nav": "VIDRO",
+    "amb": "CREPUSCULO",
+    "font": "PLACAR"
+  },
+  "soberOptions": {
+    "gradients": [
+      "SUAVE",
+      "SOLIDO"
+    ],
+    "materials": [
+      "FOSCO",
+      "MALHA"
+    ],
+    "styles": [
+      "GRAFITE"
+    ],
+    "palettesHidden": true
+  },
+  "photoStyle": {
+    "filter": "none",
+    "blend": "normal",
+    "opacity": "1",
+    "frameZ": "1",
+    "frameIsolation": "isolate"
+  },
+  "photoPixels": {
+    "holoVitralVsNeutral": {
+      "mean": 0.058,
+      "max": 37,
+      "w": 633,
+      "h": 326
+    },
+    "holoVitralVsNoArt": {
+      "mean": 0.569,
+      "max": 69,
+      "w": 633,
+      "h": 326
+    }
+  },
+  "avatarStatus": "foto do perfil atualizada",
+  "vcardPhoto": {
+    "natural": true,
+    "filter": "none"
+  }
+}

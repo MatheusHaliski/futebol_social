@@ -37,13 +37,23 @@ class PerformanceRulesTest {
     }
 
     @Test
-    void copilotArtFollowsBorderColourAndTier() {
+    void copilotArtFollowsBorderColourTypeAndTier() {
         var art = CopilotService.suggestArt(PostContentType.PARTIDA_MOMENTO, RarityTier.MYTHIC);
         assertThat(art.color()).isEqualTo("#3b82f6");
-        assertThat(art.material()).isEqualTo("HOLOGRAFICO");
+        assertThat(art.color2()).isEqualTo("#f5c542");          // Mythic/Legendary: segunda cor ouro
+        assertThat(art.gradient()).isEqualTo("RADIAL");
+        assertThat(art.material()).isEqualTo("PRISMA");
         assertThat(art.layout()).isEqualTo("HERO");
-        assertThat(art.style()).isEqualTo("OURO");
-        assertThat(CopilotService.suggestArt(PostContentType.TREINO, RarityTier.COMMON).material()).isEqualTo("FOSCO");
+        assertThat(art.style()).isEqualTo("REDE");
+        var treino = CopilotService.suggestArt(PostContentType.TREINO, RarityTier.COMMON);
+        assertThat(treino.material()).isEqualTo("MALHA");
+        assertThat(treino.style()).isEqualTo("GRAMADO");
+        assertThat(treino.color2()).isNull();
+        // alerta sempre sóbrio, mesmo para tier alto
+        var lesao = CopilotService.suggestArt(PostContentType.LESAO_ALERTA, RarityTier.LEGENDARY);
+        assertThat(lesao.gradient()).isEqualTo("SOLIDO");
+        assertThat(lesao.material()).isEqualTo("FOSCO");
+        assertThat(lesao.style()).isEqualTo("GRAFITE");
     }
 
     @Test

@@ -9,6 +9,11 @@ import com.footballai.social.model.enums.PostContentType;
 import com.footballai.social.model.enums.RarityTier;
 import com.footballai.social.model.enums.UserRole;
 import com.footballai.social.model.enums.UiAccent;
+import com.footballai.social.model.enums.UiContrast;
+import com.footballai.social.model.enums.UiDensity;
+import com.footballai.social.model.enums.UiFont;
+import com.footballai.social.model.enums.UiGradient;
+import com.footballai.social.model.enums.UiMaterial;
 import com.footballai.social.model.enums.UiSurface;
 import com.footballai.social.model.enums.Wallpaper;
 import com.footballai.social.service.FeedQuery;
@@ -54,13 +59,36 @@ public class FeedWindowController {
         return new NavigationDTO(items, rules, tokens());
     }
 
-    /** Opções da tela Aparência: cor de destaque, tom das barras/painéis e telas de fundo. */
+    /**
+     * Opções da tela Aparência: cor de destaque, tom das barras/painéis, telas de fundo, material das barras, gradiente ambiente,
+     * fonte, densidade, contraste e combinações prontas (presets).
+     */
     @GetMapping("/ui/appearance-options")
     public Map<String, Object> appearance() {
-        return Map.of(
-                "accents", Arrays.stream(UiAccent.values()).map(a -> Map.of("value", a.name(), "label", a.label(), "hex", a.hex())).toList(),
-                "surfaces", Arrays.stream(UiSurface.values()).map(s -> Map.of("value", s.name(), "label", s.label(), "hex", s.hex(), "light", s.light())).toList(),
-                "wallpapers", Arrays.stream(Wallpaper.values()).map(w -> { Map<String, Object> m = new LinkedHashMap<>(); m.put("value", w.name()); m.put("label", w.label()); m.put("url", w.url()); return m; }).toList());
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("accents", Arrays.stream(UiAccent.values()).map(a -> Map.of("value", a.name(), "label", a.label(), "hex", a.hex())).toList());
+        m.put("surfaces", Arrays.stream(UiSurface.values()).map(s -> Map.of("value", s.name(), "label", s.label(), "hex", s.hex(), "light", s.light())).toList());
+        m.put("wallpapers", Arrays.stream(Wallpaper.values()).map(w -> { Map<String, Object> o = new LinkedHashMap<>(); o.put("value", w.name()); o.put("label", w.label()); o.put("url", w.url()); return o; }).toList());
+        m.put("materials", Arrays.stream(UiMaterial.values()).map(x -> Map.of("value", x.name(), "label", x.label(), "hint", x.hint())).toList());
+        m.put("gradients", Arrays.stream(UiGradient.values()).map(x -> Map.of("value", x.name(), "label", x.label(), "hint", x.hint())).toList());
+        m.put("fonts", Arrays.stream(UiFont.values()).map(x -> Map.of("value", x.name(), "label", x.label(), "family", x.family())).toList());
+        m.put("densities", Arrays.stream(UiDensity.values()).map(x -> Map.of("value", x.name(), "label", x.label())).toList());
+        m.put("contrasts", Arrays.stream(UiContrast.values()).map(x -> Map.of("value", x.name(), "label", x.label())).toList());
+        m.put("presets", List.of(
+                preset("NOITE_DE_JOGO", "Noite de jogo", "dark", UiAccent.GREEN, UiSurface.GRAPHITE, UiMaterial.VIDRO, UiGradient.HOLOFOTE, UiFont.PADRAO, UiDensity.CONFORTAVEL, UiContrast.PADRAO),
+                preset("GRAMADO", "Gramado", "dark", UiAccent.GREEN, UiSurface.FOREST, UiMaterial.GRAMADO, UiGradient.ARQUIBANCADA, UiFont.PLACAR, UiDensity.CONFORTAVEL, UiContrast.PADRAO),
+                preset("PRANCHETA_CLARA", "Prancheta clara", "light", UiAccent.BLUE, UiSurface.SAND, UiMaterial.FOSCO, UiGradient.NENHUM, UiFont.EDITORIAL, UiDensity.ESPACOSA, UiContrast.PADRAO),
+                preset("ALTA_LEGIBILIDADE", "Alta legibilidade", "dark", UiAccent.GOLD, UiSurface.CARVAO, UiMaterial.FOSCO, UiGradient.NENHUM, UiFont.LEGIVEL, UiDensity.ESPACOSA, UiContrast.ALTO),
+                preset("CARBONO", "Carbono", "dark", UiAccent.CIANO, UiSurface.CARVAO, UiMaterial.CARBONO, UiGradient.CREPUSCULO, UiFont.PLACAR, UiDensity.COMPACTA, UiContrast.PADRAO)));
+        return m;
+    }
+
+    private static Map<String, Object> preset(String value, String label, String theme, UiAccent accent, UiSurface surface, UiMaterial material,
+                                              UiGradient gradient, UiFont font, UiDensity density, UiContrast contrast) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("value", value); m.put("label", label); m.put("theme", theme); m.put("accent", accent.name()); m.put("surface", surface.name());
+        m.put("material", material.name()); m.put("gradient", gradient.name()); m.put("font", font.name()); m.put("density", density.name()); m.put("contrast", contrast.name());
+        return m;
     }
 
     /** Tokens de design + cores de papéis/bordas/tiers para a SPA (fonte única de verdade). */
@@ -68,7 +96,7 @@ public class FeedWindowController {
     public Map<String, String> tokens() {
         Map<String, String> t = new LinkedHashMap<>();
         t.put("--ink", "#0a0f0c"); t.put("--ink-2", "#0f1613"); t.put("--panel", "#131b17"); t.put("--panel-2", "#19231d");
-        t.put("--line", "#26332b"); t.put("--line-soft", "#1e2921"); t.put("--text", "#eaf2ee"); t.put("--text-2", "#95a89d"); t.put("--text-3", "#63756a");
+        t.put("--line", "#26332b"); t.put("--line-soft", "#1e2921"); t.put("--text", "#eaf2ee"); t.put("--text-2", "#a3b5aa"); t.put("--text-3", "#8a9c91");
         t.put("--green", "#00d47a"); t.put("--green-hi", "#6cffc0"); t.put("--green-deep", "#00874e");
         t.put("--gold", "#f5c542"); t.put("--gold-hi", "#ffe08a"); t.put("--gold-deep", "#b8902c");
         for (UserRole r : UserRole.values()) t.put("role." + r.name(), r.ringColor());

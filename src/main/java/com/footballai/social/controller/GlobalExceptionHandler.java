@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -47,6 +48,14 @@ public class GlobalExceptionHandler {
     public ProblemDetail mismatch(MethodArgumentTypeMismatchException e) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Parâmetro inválido: " + e.getName());
         pd.setProperty("code", "PARAM_INVALID");
+        return pd;
+    }
+
+    /** JSON malformado ou valor de enum desconhecido no corpo (ex.: uiFont inexistente) é erro do cliente, não 500. */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ProblemDetail unreadable(HttpMessageNotReadableException e) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Corpo da requisição inválido");
+        pd.setProperty("code", "BODY_INVALID");
         return pd;
     }
 

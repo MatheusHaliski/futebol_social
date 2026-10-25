@@ -15,6 +15,8 @@ imprensa e ligas. Java 17 · Spring Boot 3.3 · MySQL 8 · Redis 7 · Cassandra 
 | [`docs/diagrams/`](docs/diagrams/README.md) | PlantUML por RF (classes, atividades, estados, sequência, componentes) |
 | [`docs/preview/spa/`](docs/preview/spa) | Prints da SPA (desktop e mobile) |
 | [`docs/preview/spa/gallery/`](docs/preview/spa/gallery) | Galeria de aparência (tema claro/escuro, destaques, tons de barras, telas de fundo), estúdio de edição e fotografia |
+| [`docs/preview/spa/variacoes/`](docs/preview/spa/variacoes) | Variações de material, gradiente, fonte, densidade e contraste; 20 backgrounds de card (escuro, claro, contraste alto); arte × foto medida; foto do perfil |
+| [`docs/estudos/`](docs/estudos/ESTUDO_ABAS_2026-10.md) | Estudo por aba funcional, card design e interação social: defeitos P0/P1, melhorias e roadmap |
 | [`docs/research/`](docs/research) | Pesquisas: tipos de usuário, novas abas, FLAIR, Explorar |
 
 ## Subindo o ambiente
@@ -71,7 +73,7 @@ controller/  AuthController, UserController, FeedWindowController, PostControlle
 | `POST` | `/v1/telemetry` · `PUT /v1/telemetry/plan` · `/v1/evaluations` · `/v1/matches/performances` · `/v1/injuries` · `/v1/injuries/{id}/clear` — `GET /v1/twins/{id}/evolution\|dna\|load` · `/v1/twins/compare?ids=` · `/v1/twins/me` | RF4 |
 | `GET` | `/v1/rankings/athletes` · `/v1/rankings/clubs` · `/v1/clubs` (globo Explorar) — `POST /v1/admin/rarity/recalculate` (OFICIAL_LIGA) | RF3/RF4 |
 | `POST` | `/v1/copilot/suggest` · `GET /v1/autopilot/drafts` · `GET /v1/cards/art-options` · `GET /v1/posts/mine` · `POST /v1/posts/{id}/publish` · `POST /v1/media` (fotografia do card, multipart) | RF3 |
-| `PATCH` | `/v1/posts/{id}` (estúdio de edição, só o autor) · `GET /v1/ui/appearance-options` · `PATCH /v1/me` com `uiAccent`, `uiSurface`, `wallpaper`, `wallpaperKey` | RF3 |
+| `PATCH` | `/v1/posts/{id}` (estúdio de edição, só o autor) · `GET /v1/ui/appearance-options` · `PATCH /v1/me` com `uiAccent`, `uiSurface`, `wallpaper`, `wallpaperKey`, `uiMaterial`, `uiGradient`, `uiFont`, `uiDensity`, `uiContrast`, `avatarKey` | RF3 |
 | `POST` | `/v1/users/{id}/follow` (alterna; `GET` devolve o estado) · `GET /v1/me/following` · `/v1/me/followers` — aba **Seguindo** = `GET /v1/feeds/{janela}?sort=FOLLOWING` | RF3 |
 | `GET`/`POST`/`DELETE` | `/v1/posts/{id}/comments` (cursor, `parentId` para resposta) · `/v1/posts/{id}/comments/{commentId}` | RF3 |
 | `GET`/`POST` | `/v1/me/notifications?unread` · `/v1/me/notifications/unread-count` · `/v1/me/notifications/read` (`{ids}` ou `{all:true}`) | RF3 |
@@ -92,8 +94,12 @@ Filtros por janela (`GET /v1/feeds/…`): **PERFIL** `tier`, `position`, `ageMin
 - **Cards**: título obrigatório (5–12 palavras), teaser opcional, conteúdo só em PostView; atributos do atleta como lista de badges;
   hero limpo; janela segmentada Temporada · Atributos; barra Curtir · Comentar · Compartilhar · Salvar. Criador em 4 etapas:
   a **fotografia** é upload do usuário (`/v1/media`); a **arte de fundo** (cor, material, layout, estilo) só tinge o fundo do card.
-- **Aparência**: tema claro/escuro, fonte, cor de destaque, tom das barras/painéis e tela de fundo (cinco papéis de parede vetoriais em
-  `static/brand/wallpapers/` ou arquivo do usuário). Persistido por usuário em `PATCH /v1/me`.
+- **Aparência**: tema claro/escuro, tamanho e família da fonte (5, auto-hospedadas em `static/fonts`, OFL), cor de destaque (7), tom das
+  barras/painéis (7, com versões claras), material da navegação (fosco, vidro, metálico, carbono, gramado), gradiente do layout (4),
+  densidade (3), contraste alto, tela de fundo (cinco papéis de parede vetoriais em `static/brand/wallpapers/` ou arquivo do usuário) e
+  cinco combinações prontas. Persistido por usuário em `PATCH /v1/me` (Flyway `V5`).
+- **Arte de fundo dos cards**: 5 gradientes × 10 materiais × 4 layouts × 13 padronagens, segunda cor e paletas de torcida; tinta com
+  luminância travada (contraste AA em qualquer cor, testado); alertas só com arte sóbria; a fotografia fica numa moldura neutra e nunca é tingida.
 - **Storage**: a aplicação cria os buckets `fas-media` e `fas-lgpd-exports` (com expiração de 7 dias) ao subir, se o S3/MinIO estiver acessível;
   sem storage, uploads respondem 503 e exportações ficam `FAILED` sem derrubar a API.
 - **LGPD**: exclusão = soft delete com 30 dias de graça (login restaura), anonimização diária, exportação JSON com URL de 7 dias,

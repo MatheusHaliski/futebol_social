@@ -40,6 +40,8 @@
     get refresh() { return sessionStorage.getItem('fas.refresh'); },
     setTokens(a, r) { sessionStorage.setItem('fas.access', a); if (r) sessionStorage.setItem('fas.refresh', r); },
     clear() { sessionStorage.removeItem('fas.access'); sessionStorage.removeItem('fas.refresh'); this.user = null; },
+    /* sair: tokens e aparência da conta não ficam para a próxima pessoa no mesmo navegador */
+    signOut() { this.clear(); try { localStorage.removeItem('fas.appearance'); } catch { } },
     async raw(path, { method = 'GET', headers = {}, body } = {}) {
       const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 8000);
       try { return await fetch(this.base + path, { method, headers, body, signal: ctl.signal }); } finally { clearTimeout(t); }
@@ -159,7 +161,7 @@
       status:attrs.some(a => a.kind === 'free') ? 'AGENTE_LIVRE' : 'CONTRATADO', tier:r.tier || 'COMMON', score:r.score || 0, pp:r.pp || 0, rp:r.rp || 0, s:[Math.round((r.pp || 0) / 15), Math.round((r.rp || 0) / 10), r.mp || 0],
       attrs:attrs.map(a => [a.icon, a.label, a.kind]), badges:(d.topBadges || []).map(b => [b.label, b.type === 'PRONTO_PRA_JOGO' ? 'green' : b.type === 'DEPARTAMENTO_MEDICO' ? 'red' : b.type === 'RISCO_FADIGA' ? 'yellow' : '']),
       season:d.season, avgRating:d.season && d.season.avgRating, phys: ph ? { readiness:ph.readiness, acwr:ph.acwr, status:PHYS_MAP[ph.status] || 'READY', injury: ph.injury ? { type:ph.injury.type, ret: ph.injury.expectedReturn || '—' } : null } : null,
-      physPrivate: !ph, verified:d.author && d.author.verified, likes:d.social.likes, comments:d.social.comments, shares:d.social.shares, sub:'' };
+      physPrivate: !ph, photo: d.heroImage && d.heroImage.url, verified:d.author && d.author.verified, likes:d.social.likes, comments:d.social.comments, shares:d.social.shares, sub:'' };
   };
   const fromFlairCard = c => ({ id:c.id, name:c.name, pos:c.position ? c.position[0] + c.position.slice(1).toLowerCase() : '—', ini:ini(c.name), tier:c.tier, score:c.scoreTotal, s:[c.pp, c.rp, c.mp], power:c.power, captain:c.captain });
 
@@ -167,7 +169,7 @@
   const chip = t => { const k = String(t || 'COMMON').toUpperCase(); return `<svg class="ic tier t-${k.toLowerCase()}" role="img" aria-label="Tier ${TIER_LABEL[k] || k}" data-tier="${k}"><title>Tier ${TIER_LABEL[k] || k}</title><use href="#ic-tier-${k.toLowerCase()}"/></svg>`; };
   const roleOf = r => ROLES[r] || ROLES.ATLETA;
   /* arte = atributos do PRÓPRIO card (tinge o fundo); a fotografia é outro campo (upload do usuário) */
-  const artAttrs = art => art && (art.color || art.material) ? ` data-material="${esc(art.material || 'FOSCO')}" data-style="${esc(art.style || 'GRAFITE')}" data-layout="${esc(art.layout || 'CLASSICO')}" data-art-label="${esc([art.materialLabel || art.material, art.layoutLabel || art.layout, art.styleLabel || art.style].filter(Boolean).join(' · '))}" style="--ac:${esc(art.color || '#00d47a')}"` : '';
+  const artAttrs = art => art && (art.color || art.material) ? ` data-gradient="${esc(art.gradient || 'SUAVE')}" data-material="${esc(art.material || 'FOSCO')}" data-style="${esc(art.style || 'GRAFITE')}" data-layout="${esc(art.layout || 'CLASSICO')}" data-art-label="${esc([art.gradientLabel || art.gradient, art.materialLabel || art.material, art.layoutLabel || art.layout, art.styleLabel || art.style].filter(Boolean).join(' · '))}" style="--ac:${esc(art.color || '#00d47a')};--ac2:${esc(art.color2 || art.color || '#00d47a')}"` : '';
   const mediaBlock = p => p.mediaUrl ? `<div class="p-media photo">${p.mediaKind === 'video' ? `<video src="${esc(p.mediaUrl)}" controls preload="metadata" playsinline></video>` : `<img src="${esc(p.mediaUrl)}" alt="" loading="lazy">`}</div>` : p.media ? `<div class="p-media">${esc(p.media)}</div>` : '';
 
   /* PostCard — borda esquerda = tipo · bolinha = papel · arte opcional · ações sociais sempre */
@@ -250,7 +252,7 @@
     return `<article class="vcard rarity-${t}${opts.wide ? ' wide' : ''}" style="--cc:${cc}" data-id="${esc(a.id)}" data-athlete="1">
       <div class="outer"><div class="inner">
         <div class="ctop"><span class="l"><span class="vsl">${a.pos ? '◇' : '⬢'}</span>${a.pos ? 'GÊMEO DIGITAL' : (a.meta || 'PERFIL')}</span>${sens ? '<span class="age-chip age-sens">SENSÍVEL</span>' : '<span class="age-chip age-safe">SAFE</span>'}${chip(a.tier || 'COMMON')}</div>
-        <div class="imgblock"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></div>
+        ${a.photo ? `<div class="imgblock photo"><img src="${esc(a.photo)}" alt="Foto do perfil de ${esc(a.name)}" loading="lazy"></div>` : '<div class="imgblock"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></div>'}
         <div class="author"><span class="dot dc-${r.dc}"></span><span class="handle"><b>${esc(a.handle)}</b> <span>· ${r.label}</span>${a.verified ? '<span class="verified">✦</span>' : ''}</span></div>
         <div class="vtitle">${title}</div>
         ${data}
@@ -548,14 +550,20 @@
      CRIADOR DE CARDS — 4 etapas: modo → conteúdo → arte → revisar e salvar
      ===================================================================== */
   const ART_DEFAULT = { colors:['#00d47a','#3b82f6','#f7c948','#a06bff','#ff9f43','#ff5d5d','#f5c542','#2dd4bf','#f472b6','#22d3ee','#5c6b62','#eaf2ee'],
-    materials:[['FOSCO','Fosco'],['METALICO','Metálico'],['VIDRO','Vidro'],['CARBONO','Carbono'],['HOLOGRAFICO','Holográfico']],
-    layouts:[['CLASSICO','Clássico'],['HERO','Hero'],['SPLIT','Split'],['MINIMAL','Minimal']], styles:[['NEON','Neon'],['VITRAL','Vitral'],['GRAFITE','Grafite'],['OURO','Ouro'],['RETRO','Retrô']] };
+    gradients:[['SUAVE','Suave'],['SOLIDO','Sólido'],['DEGRADE','Degradê'],['RADIAL','Radial'],['DIAGONAL','Diagonal']],
+    materials:[['FOSCO','Fosco'],['METALICO','Metálico'],['VIDRO','Vidro'],['CARBONO','Carbono'],['HOLOGRAFICO','Holográfico'],['CETIM','Cetim'],['MALHA','Malha de camisa'],['CROMO','Cromo'],['PAPEL','Papel de álbum'],['PRISMA','Prisma']],
+    layouts:[['CLASSICO','Clássico'],['HERO','Hero'],['SPLIT','Split'],['MINIMAL','Minimal']],
+    styles:[['NEON','Neon'],['VITRAL','Vitral'],['GRAFITE','Grafite'],['OURO','Ouro'],['RETRO','Retrô'],['GRAMADO','Gramado'],['REDE','Rede do gol'],['LISTRAS','Listras de camisa'],['FAIXA','Faixa diagonal'],['XADREZ','Xadrez'],['PRANCHETA','Prancheta tática'],['ARQUIBANCADA','Arquibancada'],['MOSAICO','Mosaico da torcida']],
+    palettes:[['Alvinegro','#eaf2ee','#16181a'],['Alviverde','#00d47a','#eaf2ee'],['Rubro-negro','#ff5d5d','#16181a'],['Tricolor','#ff5d5d','#3b82f6'],['Celeste','#22d3ee','#eaf2ee'],['Canarinho','#f7c948','#00d47a']],
+    needs2:['DEGRADE','RADIAL','DIAGONAL','LISTRAS','FAIXA','MOSAICO'],
+    sober:{ types:['LESAO_ALERTA','INSTITUCIONAL'], gradients:['SOLIDO','SUAVE'], materials:['FOSCO','MALHA'], styles:['GRAFITE'] } };
+  const ART_INITIAL = () => ({ color:'#00d47a', color2:null, gradient:'SUAVE', material:'FOSCO', layout:'CLASSICO', style:'GRAFITE' });
   const CT_COLOR = { TREINO:'#00d47a', PARTIDA_MOMENTO:'#3b82f6', RELATORIO_TATICO:'#ff9f43', LIGA:'#a06bff', INSTITUCIONAL:'#ff5d5d', LESAO_ALERTA:'#ff5d5d', ESPECIAL:'#f5c542' };
-  const WZ = { step:1, mode:'MANUAL', art:{ color:'#00d47a', material:'FOSCO', layout:'CLASSICO', style:'NEON' }, opts:ART_DEFAULT, suggestion:null, busy:false, photo:null, editId:null };
+  const WZ = { step:1, mode:'MANUAL', art:ART_INITIAL(), opts:ART_DEFAULT, suggestion:null, busy:false, photo:null, editId:null };
   const words = s => String(s || '').trim().split(/\s+/).filter(Boolean).length;
   const labelOf = (list, v) => (list.find(x => x[0] === v) || [v, v])[1];
   function openComposer(withCopilot, edit) {
-    WZ.step = 1; WZ.mode = withCopilot ? 'AI' : 'MANUAL'; WZ.suggestion = null; WZ.art = { color:'#00d47a', material:'FOSCO', layout:'CLASSICO', style:'NEON' }; WZ.editId = edit ? edit.id : null;
+    WZ.step = 1; WZ.mode = withCopilot ? 'AI' : 'MANUAL'; WZ.suggestion = null; WZ.art = ART_INITIAL(); WZ.editId = edit ? edit.id : null;
     $('#wzTitle').textContent = edit ? 'Editar card · estúdio' : 'Criar card';
     ['#composerTitle', '#composerSub', '#composerText'].forEach(s => $(s).value = ''); $('#composerAge').value = 'SAFE'; $('#copilotBody').textContent = 'Gerando sugestão…'; clearPhoto();
     $$('.mode-opt').forEach(b => b.classList.toggle('on', b.dataset.mode === WZ.mode));
@@ -567,27 +575,53 @@
       const radio = $(`input[name="ct"][value="${edit.ct}"]`); if (radio) { radio.checked = true; } $$('input[name="ct"]').forEach(r => r.disabled = true);
       $('#composerTitle').value = edit.title || ''; $('#composerSub').value = edit.snip || ''; $('#composerText').value = edit.content || ''; $('#titleCount').textContent = `${words(edit.title)} palavras`;
       if (edit.ageValue) $('#composerAge').value = edit.ageValue;   // mantém a classificação publicada (uma edição só de arte não rebaixa 16+/18+)
-      if (edit.art && edit.art.color) WZ.art = { color: edit.art.color, material: edit.art.material || 'FOSCO', layout: edit.art.layout || 'CLASSICO', style: edit.art.style || 'NEON', touched: true };
+      if (edit.art && edit.art.color) WZ.art = { color: edit.art.color, color2: edit.art.color2 || null, gradient: edit.art.gradient || 'SUAVE', material: edit.art.material || 'FOSCO', layout: edit.art.layout || 'CLASSICO', style: edit.art.style || 'GRAFITE', touched: true };
       if (edit.mediaUrl) { WZ.photo = { key: edit.mediaKey || null, url: edit.mediaUrl, kind: edit.mediaKind || 'image', keep: true }; $('#photoPreview').innerHTML = `<img src="${esc(edit.mediaUrl)}" alt="">`; $('#photoPreview').hidden = false; $('#photoClear').hidden = false; $('#photoStatus').textContent = 'fotografia atual · envie outra para substituir'; }
       buildArtOptions(); goStep(2);
     } else $$('input[name="ct"]').forEach(r => r.disabled = false);
-    if (live()) API.call('/v1/cards/art-options').then(o => { WZ.opts = { colors:o.colors, materials:o.materials.map(m => [m.value, m.label]), layouts:o.layouts.map(m => [m.value, m.label]), styles:o.styles.map(m => [m.value, m.label]) }; buildArtOptions(); }).catch(() => {});
+    if (live()) API.call('/v1/cards/art-options').then(o => {
+      const pairs = l => (l || []).map(m => [m.value, m.label]);
+      WZ.opts = { colors:o.colors, gradients:o.gradients ? pairs(o.gradients) : ART_DEFAULT.gradients, materials:pairs(o.materials), layouts:pairs(o.layouts), styles:pairs(o.styles),
+        palettes:o.palettes ? o.palettes.map(x => [x.label, x.color, x.color2]) : ART_DEFAULT.palettes,
+        needs2:[...(o.gradients || []), ...(o.styles || [])].filter(x => x.needsColor2).map(x => x.value).concat(o.gradients ? [] : ART_DEFAULT.needs2), sober:o.sober || ART_DEFAULT.sober };
+      buildArtOptions(); }).catch(() => {});
   }
+  /* cards de alerta (lesão, institucional) só aceitam arte sóbria — a API rejeita o resto com ART_INVALID */
+  const isSober = ct => WZ.opts.sober.types.includes(ct);
+  function soberize() {
+    if (!isSober(currentCt())) return; const sb = WZ.opts.sober;
+    if (!sb.gradients.includes(WZ.art.gradient)) WZ.art.gradient = 'SOLIDO';
+    if (!sb.materials.includes(WZ.art.material)) WZ.art.material = 'FOSCO';
+    if (!sb.styles.includes(WZ.art.style)) WZ.art.style = 'GRAFITE';
+  }
+  const needsColor2 = a => WZ.opts.needs2.includes(a.gradient) || WZ.opts.needs2.includes(a.style);
+  /* corpo "art" enviado à API (POST /v1/posts e PATCH /v1/posts/{id}) */
+  const artBody = () => ({ color: WZ.art.color, color2: needsColor2(WZ.art) ? (WZ.art.color2 || WZ.art.color) : null, gradient: WZ.art.gradient, material: WZ.art.material, layout: WZ.art.layout, style: WZ.art.style });
   function buildArtOptions() {
-    $('#artColors').innerHTML = WZ.opts.colors.map(c => `<button type="button" class="swatch${c === WZ.art.color ? ' on' : ''}" data-color="${c}" style="--sw:${c}" aria-label="${c}"></button>`).join('');
-    const chips = (id, list, key) => $(id).innerHTML = list.map(([v, l]) => `<button type="button" class="optchip${WZ.art[key] === v ? ' on' : ''}" data-key="${key}" data-val="${v}">${l}</button>`).join('');
-    chips('#artMaterials', WZ.opts.materials, 'material'); chips('#artLayouts', WZ.opts.layouts, 'layout'); chips('#artStyles', WZ.opts.styles, 'style');
-    $('#artColorHex').textContent = WZ.art.color; $('#artCustom').value = WZ.art.color; renderArtPreview();
+    soberize();
+    const sober = isSober(currentCt()), sb = WZ.opts.sober, a = WZ.art, c2 = a.color2 || a.color;
+    $('#artColors').innerHTML = WZ.opts.colors.map(c => `<button type="button" class="swatch${c === a.color ? ' on' : ''}" data-color="${c}" style="--sw:${c}" aria-label="${c}"></button>`).join('');
+    $('#artColors2').innerHTML = WZ.opts.colors.map(c => `<button type="button" class="swatch${c === c2 ? ' on' : ''}" data-color2="${c}" style="--sw:${c}" aria-label="segunda cor ${c}"></button>`).join('');
+    $('#artPalettes').innerHTML = WZ.opts.palettes.map(([l, x, y]) => `<button type="button" class="optchip pal${a.color === x && c2 === y ? ' on' : ''}" data-key="palette" data-val="${esc(l)}"><i style="--a:${x};--b:${y}"></i>${esc(l)}</button>`).join('');
+    $('#artPalettes').hidden = sober; $('#artPalettes').previousElementSibling.hidden = sober;
+    // miniaturas: cada opção mostra a camada que ela muda, já na cor escolhida
+    const mini = (key, v) => { const m = { gradient:a.gradient, material:'FOSCO', style:'NONE', layout:'CLASSICO' }; m[key] = v;
+      return `<span class="art-mini pcard has-art cc-${(CT[currentCt()] || CT.TREINO).cc}" data-gradient="${m.gradient}" data-material="${m.material}" data-style="${m.style}" data-layout="${m.layout}" style="--ac:${a.color};--ac2:${c2}"></span>`; };
+    const chips = (id, list, key, allowed) => $(id).innerHTML = list.filter(([v]) => !allowed || allowed.includes(v)).map(([v, l]) => `<button type="button" class="optchip${key !== 'layout' ? ' vis' : ''}${a[key] === v ? ' on' : ''}" data-key="${key}" data-val="${v}">${key !== 'layout' ? mini(key, v) : ''}${l}</button>`).join('');
+    chips('#artGradients', WZ.opts.gradients, 'gradient', sober && sb.gradients); chips('#artMaterials', WZ.opts.materials, 'material', sober && sb.materials);
+    chips('#artLayouts', WZ.opts.layouts, 'layout'); chips('#artStyles', WZ.opts.styles, 'style', sober && sb.styles);
+    $('#artSoberHint').hidden = !sober; $('#artColor2Row').hidden = !needsColor2(a);
+    $('#artColorHex').textContent = a.color; $('#artCustom').value = a.color; $('#artColor2Hex').textContent = c2; $('#artCustom2').value = c2; renderArtPreview();
   }
   const currentCt = () => ($('input[name="ct"]:checked') || {}).value || 'TREINO';
   const draftPost = () => { const ct = currentCt(); const ageSel = $('#composerAge').value; return { id:'', role:ROLE, name:API.user ? '@' + API.user.username : '@<preencher_user>', ct, top:'AGORA', title:$('#composerTitle').value || '(título do card · 5 a 12 palavras)', snip:$('#composerSub').value, meta:null, mediaUrl: WZ.photo ? WZ.photo.url : null, mediaKind: WZ.photo ? WZ.photo.kind : null,
-    art:{ ...WZ.art, materialLabel:labelOf(WZ.opts.materials, WZ.art.material), styleLabel:labelOf(WZ.opts.styles, WZ.art.style) }, gen:WZ.mode, age: ct === 'LESAO_ALERTA' ? ['age-sens','SENSÍVEL'] : [{ SAFE:'age-safe', KIDS:'age-kids', AGE_12:'age-12', AGE_16:'age-16', AGE_18:'age-18' }[ageSel] || 'age-safe', { SAFE:'SAFE', KIDS:'KIDS', AGE_12:'12+', AGE_16:'16+', AGE_18:'18+' }[ageSel] || 'SAFE'], alert: ct === 'LESAO_ALERTA' || ct === 'INSTITUCIONAL', alarm: ct === 'LESAO_ALERTA' ? '🩹 LESÃO' : '📣 INSTITUCIONAL', verified: API.user && API.user.verified }; };
+    art:{ ...artBody(), gradientLabel:labelOf(WZ.opts.gradients, WZ.art.gradient), materialLabel:labelOf(WZ.opts.materials, WZ.art.material), layoutLabel:labelOf(WZ.opts.layouts, WZ.art.layout), styleLabel:labelOf(WZ.opts.styles, WZ.art.style) }, gen:WZ.mode, age: ct === 'LESAO_ALERTA' ? ['age-sens','SENSÍVEL'] : [{ SAFE:'age-safe', KIDS:'age-kids', AGE_12:'age-12', AGE_16:'age-16', AGE_18:'age-18' }[ageSel] || 'age-safe', { SAFE:'SAFE', KIDS:'KIDS', AGE_12:'12+', AGE_16:'16+', AGE_18:'18+' }[ageSel] || 'SAFE'], alert: ct === 'LESAO_ALERTA' || ct === 'INSTITUCIONAL', alarm: ct === 'LESAO_ALERTA' ? '🩹 LESÃO' : '📣 INSTITUCIONAL', verified: API.user && API.user.verified }; };
   function renderArtPreview() { $('#artPreview').innerHTML = postCard(draftPost()); }
   function renderReview() {
     const d = draftPost(); $('#reviewCard').innerHTML = postCard(d);
     const rows = [['Modo', WZ.mode === 'AI' ? 'Com IA · Copilot (revisado)' : 'Manual'], ['Tipo · borda', `${(CT[d.ct] || CT.TREINO).badge} · ${CT_COLOR[d.ct]}`], ['Janela', { TREINO:'GÊMEO', PARTIDA_MOMENTO:'PERFIL', RELATORIO_TATICO:'SCOUTING', LIGA:'PERFIL', INSTITUCIONAL:'ALERTA', LESAO_ALERTA:'ALERTA', ESPECIAL:'PERFIL' }[d.ct]],
       ['Título', `${words($('#composerTitle').value)} palavras`], ['Teaser', $('#composerSub').value ? 'sim' : '—'], ['Texto completo', $('#composerText').value ? `${$('#composerText').value.length} caracteres (só no PostView)` : '—'],
-      ['Fotografia', WZ.photo ? (WZ.photo.key ? 'enviada · ' + WZ.photo.key.split('/').pop() : 'prévia local (demo)') : '— (só arte de fundo)'], ['Classificação', d.age[1]], ['Cor de fundo', WZ.art.color], ['Material', labelOf(WZ.opts.materials, WZ.art.material)], ['Layout', labelOf(WZ.opts.layouts, WZ.art.layout)], ['Estilo', labelOf(WZ.opts.styles, WZ.art.style)], ['Fonte', live() ? (WZ.editId ? 'API · PATCH /v1/posts/{id}' : 'API · POST /v1/posts') : 'demo (local)']];
+      ['Fotografia', WZ.photo ? (WZ.photo.key ? 'enviada · ' + WZ.photo.key.split('/').pop() : 'prévia local (demo)') : '— (só arte de fundo)'], ['Classificação', d.age[1]], ['Cor de fundo', needsColor2(WZ.art) ? `${WZ.art.color} + ${WZ.art.color2 || WZ.art.color}` : WZ.art.color], ['Gradiente', labelOf(WZ.opts.gradients, WZ.art.gradient)], ['Material', labelOf(WZ.opts.materials, WZ.art.material)], ['Layout', labelOf(WZ.opts.layouts, WZ.art.layout)], ['Estilo', labelOf(WZ.opts.styles, WZ.art.style)], ['Fonte', live() ? (WZ.editId ? 'API · PATCH /v1/posts/{id}' : 'API · POST /v1/posts') : 'demo (local)']];
     $('#reviewSummary').innerHTML = rows.map(([k, v]) => `<li><span>${k}</span><b>${esc(v)}</b></li>`).join('');
   }
   function goStep(n) {
@@ -598,22 +632,22 @@
     $('#wzBack').disabled = WZ.step === 1; $('#wzNext').hidden = WZ.step === 4; $('#publishBtn').hidden = WZ.step !== 4; $('#saveDraftBtn').hidden = WZ.step !== 4;
     $('#wzNext').textContent = WZ.step === 3 ? 'Revisar →' : 'Avançar →';
     if (WZ.step === 2) { $('#copilot').hidden = WZ.mode !== 'AI'; if (WZ.mode === 'AI' && !WZ.suggestion) fetchSuggestion(); }
-    if (WZ.step === 3) { if (!WZ.art.touched) { WZ.art.color = CT_COLOR[currentCt()] || WZ.art.color; buildArtOptions(); } renderArtPreview(); }
+    if (WZ.step === 3) { if (!WZ.art.touched) WZ.art.color = CT_COLOR[currentCt()] || WZ.art.color; buildArtOptions(); }
     if (WZ.step === 4) renderReview();
   }
   async function fetchSuggestion() {
     $('#copilotBody').textContent = 'Gerando sugestão a partir dos seus dados…';
     const s = await tryApi(() => API.call('/v1/copilot/suggest', { method: 'POST', body: { draft: $('#composerText').value || $('#composerTitle').value || null, contentType: $('input[name="ct"]:checked') ? currentCt() : null } }),
-      () => ({ contentType:'TREINO', title:'Sessão de sprints com 25 km/h sustentados hoje', subtitle:'+38 PP registrados pelo wearable · 72 min · 8,4 km · RPE 7.', badges:['⚡ PRONTO'], ageRating:'SAFE', art:{ color:'#00d47a', material:'VIDRO', materialLabel:'Vidro', layout:'CLASSICO', layoutLabel:'Clássico', style:'NEON', styleLabel:'Neon' }, rationale:'Detectei uma sessão de 72 min no seu wearable (demo).' }));
+      () => ({ contentType:'TREINO', title:'Sessão de sprints com 25 km/h sustentados hoje', subtitle:'+38 PP registrados pelo wearable · 72 min · 8,4 km · RPE 7.', badges:['⚡ PRONTO'], ageRating:'SAFE', art:{ color:'#00d47a', color2:null, gradient:'SUAVE', gradientLabel:'Suave', material:'MALHA', materialLabel:'Malha de camisa', layout:'CLASSICO', layoutLabel:'Clássico', style:'GRAMADO', styleLabel:'Gramado' }, rationale:'Detectei uma sessão de 72 min no seu wearable (demo).' }));
     WZ.suggestion = s;
-    $('#copilotBody').innerHTML = `<div>Tipo sugerido: <b>${esc((CT[s.contentType] || CT.TREINO).badge)}</b> (borda ${esc(CT_COLOR[s.contentType] || '')})</div><div>Título: "${esc(s.title)}"</div><div>Teaser: "${esc(s.subtitle || '—')}"</div>${s.badges && s.badges.length ? `<div>Badges: ${s.badges.map(esc).join(' · ')}</div>` : ''}<div>Arte: ${esc(s.art ? `${s.art.materialLabel} · ${s.art.layoutLabel} · ${s.art.styleLabel} · ${s.art.color}` : '—')}</div><small class="mono">${esc(s.rationale || '')} · GERADO POR IA · VOCÊ REVISA ANTES DE PUBLICAR (LGPD ART. 20) · SEM DADOS DE SAÚDE</small>`;
+    $('#copilotBody').innerHTML = `<div>Tipo sugerido: <b>${esc((CT[s.contentType] || CT.TREINO).badge)}</b> (borda ${esc(CT_COLOR[s.contentType] || '')})</div><div>Título: "${esc(s.title)}"</div><div>Teaser: "${esc(s.subtitle || '—')}"</div>${s.badges && s.badges.length ? `<div>Badges: ${s.badges.map(esc).join(' · ')}</div>` : ''}<div>Arte: ${esc(s.art ? [s.art.gradientLabel, s.art.materialLabel, s.art.layoutLabel, s.art.styleLabel, s.art.color2 && s.art.color2 !== s.art.color ? `${s.art.color} + ${s.art.color2}` : s.art.color].filter(Boolean).join(' · ') : '—')}</div><small class="mono">${esc(s.rationale || '')} · GERADO POR IA · VOCÊ REVISA ANTES DE PUBLICAR (LGPD ART. 20) · SEM DADOS DE SAÚDE</small>`;
   }
   function acceptSuggestion() {
     const s = WZ.suggestion; if (!s) return;
     const radio = $(`input[name="ct"][value="${s.contentType}"]`); if (radio && !radio.closest('.type-opt').hidden) radio.checked = true;
     $('#composerTitle').value = s.title; $('#composerSub').value = s.subtitle || ''; if (s.content && !$('#composerText').value) $('#composerText').value = s.content;
     $('#titleCount').textContent = `${words(s.title)} palavras`;
-    if (s.art) { WZ.art = { color:s.art.color, material:s.art.material, layout:s.art.layout, style:s.art.style, touched:true }; buildArtOptions(); }
+    if (s.art) { WZ.art = { color:s.art.color, color2:s.art.color2 || null, gradient:s.art.gradient || 'SUAVE', material:s.art.material, layout:s.art.layout, style:s.art.style, touched:true }; buildArtOptions(); }
     toast('SUGESTÃO ACEITA · REVISE E AVANCE');
   }
   async function publish(draft) {
@@ -621,12 +655,12 @@
     const ct = currentCt(), title = $('#composerTitle').value.trim(), sub = $('#composerSub').value.trim(), text = $('#composerText').value.trim();
     try {
       if (live() && WZ.editId) {
-        const body = { title, subtitle: sub, content: text, ageRating: $('#composerAge').value, mediaKeys: WZ.photo && WZ.photo.key ? [WZ.photo.key] : null, clearMedia: !WZ.photo, art: { color: WZ.art.color, material: WZ.art.material, layout: WZ.art.layout, style: WZ.art.style } };
+        const body = { title, subtitle: sub, content: text, ageRating: $('#composerAge').value, mediaKeys: WZ.photo && WZ.photo.key ? [WZ.photo.key] : null, clearMedia: !WZ.photo, art: artBody() };
         await API.call(`/v1/posts/${WZ.editId}`, { method: 'PATCH', body });
         toast('CARD ATUALIZADO · ESTÚDIO'); $('#composer').hidden = true; renderSub(state.win, state.sub[state.win]); if (location.hash.startsWith('#/cards')) renderMisc('cards'); return;
       }
       if (live()) {
-        const body = { contentType: ct, title, subtitle: sub || null, content: text || null, ageRating: $('#composerAge').value, generationMode: WZ.mode, draft, mediaKeys: WZ.photo && WZ.photo.key ? [WZ.photo.key] : null, art: { color: WZ.art.color, material: WZ.art.material, layout: WZ.art.layout, style: WZ.art.style } };
+        const body = { contentType: ct, title, subtitle: sub || null, content: text || null, ageRating: $('#composerAge').value, generationMode: WZ.mode, draft, mediaKeys: WZ.photo && WZ.photo.key ? [WZ.photo.key] : null, art: artBody() };
         const created = await API.call('/v1/posts', { method: 'POST', body });
         toast(draft ? 'RASCUNHO SALVO · MEUS CARDS' : `CARD PUBLICADO · ${created.badgeLabel} · ${created.window}`);
         $('#composer').hidden = true; location.hash = draft ? '#/cards' : '#/' + created.window.toLowerCase(); renderSub(state.win, state.sub[state.win]);
@@ -659,13 +693,19 @@
   $('#wzNext').addEventListener('click', () => goStep(WZ.step + 1)); $('#wzBack').addEventListener('click', () => goStep(WZ.step - 1));
   $$('#wzSteps li').forEach(li => li.addEventListener('click', () => { if (+li.dataset.step < WZ.step) goStep(+li.dataset.step); }));
   $('#composerTitle').addEventListener('input', e => { const w = words(e.target.value); const el = $('#titleCount'); el.textContent = `${w} palavras`; el.className = w >= 5 && w <= 12 ? 'mono ok' : 'mono bad'; });
-  $$('input[name="ct"]').forEach(r => r.addEventListener('change', () => { if (!WZ.art.touched) WZ.art.color = CT_COLOR[r.value]; }));
+  $$('input[name="ct"]').forEach(r => r.addEventListener('change', () => { if (!WZ.art.touched) WZ.art.color = CT_COLOR[r.value]; buildArtOptions(); }));
   $('#cpAccept').addEventListener('click', acceptSuggestion); $('#cpRefresh').addEventListener('click', fetchSuggestion); $('#cpDismiss').addEventListener('click', () => $('#copilot').hidden = true);
   document.addEventListener('click', e => {
-    const sw = e.target.closest('.swatch'); if (sw) { WZ.art.color = sw.dataset.color; WZ.art.touched = true; buildArtOptions(); return; }
-    const oc = e.target.closest('.optchip'); if (oc) { WZ.art[oc.dataset.key] = oc.dataset.val; WZ.art.touched = true; buildArtOptions(); }
+    const sw = e.target.closest('.swatch'); if (sw) { if (sw.dataset.color2) WZ.art.color2 = sw.dataset.color2; else WZ.art.color = sw.dataset.color; WZ.art.touched = true; buildArtOptions(); return; }
+    const oc = e.target.closest('.optchip'); if (!oc) return;
+    if (oc.dataset.key === 'palette') {   // paleta de torcida: duas cores; sem gradiente bicolor escolhido, usa Degradê
+      const pal = WZ.opts.palettes.find(x => x[0] === oc.dataset.val); if (!pal) return;
+      WZ.art.color = pal[1]; WZ.art.color2 = pal[2]; if (!needsColor2(WZ.art)) WZ.art.gradient = 'DEGRADE';
+    } else WZ.art[oc.dataset.key] = oc.dataset.val;
+    WZ.art.touched = true; buildArtOptions();
   });
   $('#artCustom').addEventListener('input', e => { WZ.art.color = e.target.value; WZ.art.touched = true; buildArtOptions(); });
+  $('#artCustom2').addEventListener('input', e => { WZ.art.color2 = e.target.value; WZ.art.touched = true; buildArtOptions(); });
   $('#publishBtn').addEventListener('click', () => publish(false)); $('#saveDraftBtn').addEventListener('click', () => publish(true));
   $$('[data-close]').forEach(b => b.addEventListener('click', () => $('#' + b.dataset.close).hidden = true));
 
@@ -701,7 +741,7 @@
   }
   $$('#lgpdToggles .sw').forEach(sw => sw.addEventListener('change', () => { if (!live()) { toast(`${sw.dataset.pref}: ${!sw.checked} → ${sw.checked} · CONSENT AUDIT LOG (DEMO)`); return; } setPref(sw.dataset.pref, sw.checked, sw); }));
   async function stepUp(password) { const d = await API.call('/v1/me/step-up', { method: 'POST', body: { password } }); stepUpToken = d.stepUpToken; setTimeout(() => stepUpToken = null, (d.expiresInSeconds - 5) * 1000); return stepUpToken; }
-  $('#stepUpBtn').addEventListener('click', async () => { try { await stepUp($('#stepUpPass').value); $('#stepUpPass').value = ''; toast('REAUTENTICADO · 5 MIN'); if (pending) { const p = pending; p.sw.checked = p.enabled; setPref(p.key, p.enabled, p.sw); } else if (pending === 'delete') doDelete(); $('#stepUpBox').hidden = true; } catch (e) { toast(e.message); } });
+  $('#stepUpBtn').addEventListener('click', async () => { try { await stepUp($('#stepUpPass').value); $('#stepUpPass').value = ''; toast('REAUTENTICADO · 5 MIN'); if (pending === 'delete') { pending = null; doDelete(); } else if (pending) { const p = pending; p.sw.checked = p.enabled; setPref(p.key, p.enabled, p.sw); } $('#stepUpBox').hidden = true; } catch (e) { toast(e.message); } });
   $$('input[name="vis"]').forEach(r => r.addEventListener('change', async () => { if (!live()) { toast('VISIBILIDADE: ' + r.value + ' (DEMO)'); return; } try { API.user = await API.call('/v1/me', { method: 'PATCH', body: { visibility: r.value } }); toast('VISIBILIDADE · ' + r.value); } catch (e) { toast(e.message); } }));
   $('#accSave').addEventListener('click', async () => { if (!live()) { toast('SALVO (DEMO)'); return; } try { API.user = await API.call('/v1/me', { method: 'PATCH', body: { displayName: $('#accName').value, bio: $('#accBio').value || null, stateCode: $('#accState').value || null, city: $('#accCity').value || null } }); setUser(API.user); toast('PERFIL ATUALIZADO · ART. 18, III'); } catch (e) { toast(e.message); } });
   $('#darkToggle').addEventListener('change', e => saveAppearance({ theme: e.target.checked ? 'dark' : 'light' }));
@@ -710,56 +750,117 @@
   $('#exportBtn').addEventListener('click', async () => { if (!live()) { toast('EXPORTAÇÃO SOLICITADA (202) · LINK VÁLIDO POR 7 DIAS (DEMO)'); return; } try { const x = await API.call('/v1/me/export', { method: 'POST' }); toast(`EXPORTAÇÃO ${x.status}${x.downloadUrl ? ' · LINK PRONTO (7 DIAS)' : x.failureReason ? ' · ' + x.failureReason : ''}`); openLgpd('dados'); } catch (e) { toast(e.message); } });
   $('#historyBtn').addEventListener('click', async () => { const ul = $('#consentHistory'); ul.hidden = !ul.hidden; if (ul.hidden) return; ul.innerHTML = (await tryApi(async () => (await API.call('/v1/me/consent-history')).map(c => `${c.changedAt.slice(0, 16).replace('T', ' ')} · ${c.preference} ${c.oldValue} → ${c.newValue} · ${esc(c.articleLabel)}`), () => ['W42 · SHARE_TELEMETRY_WITH_CLUBS false → true · Art. 7º, I'])).map(x => `<li>${x}</li>`).join('') || '<li>Sem alterações registradas.</li>'; });
   $('#delConfirm').addEventListener('input', e => $('#deleteBtn').disabled = e.target.value !== 'EXCLUIR');
-  async function doDelete() { try { const d = await API.call('/v1/me', { method: 'DELETE', headers: stepUpToken ? { 'X-Step-Up-Token': stepUpToken } : {} }); toast(d.message); API.clear(); setTimeout(() => location.reload(), 1800); } catch (e) { if (e.code === 'STEP_UP_REQUIRED') { pending = 'delete'; $(`.lgpd-nav [data-lgpd="privacidade"]`).click(); $('#stepUpBox').hidden = false; $('#stepUpPass').focus(); toast('REAUTENTIQUE-SE PARA EXCLUIR'); } else toast(e.message); } }
+  async function doDelete() { try { const d = await API.call('/v1/me', { method: 'DELETE', headers: stepUpToken ? { 'X-Step-Up-Token': stepUpToken } : {} }); toast(d.message); API.signOut(); setTimeout(() => location.reload(), 1800); } catch (e) { if (e.code === 'STEP_UP_REQUIRED') { pending = 'delete'; $(`.lgpd-nav [data-lgpd="privacidade"]`).click(); $('#stepUpBox').hidden = false; $('#stepUpPass').focus(); toast('REAUTENTIQUE-SE PARA EXCLUIR'); } else toast(e.message); } }
   $('#deleteBtn').addEventListener('click', () => { if (!live()) { toast('REAUTENTIQUE-SE · PENDING_DELETE POR 30 DIAS (DEMO)'); return; } doDelete(); });
-  $('#logoutBtn').addEventListener('click', async () => { try { if (live()) await API.call('/v1/auth/logout', { method: 'POST' }); } catch { } API.clear(); location.reload(); });
-  $('#logoutAllBtn').addEventListener('click', async () => { try { if (live()) await API.call('/v1/auth/logout-all', { method: 'POST' }); } catch { } API.clear(); location.reload(); });
+  $('#logoutBtn').addEventListener('click', async () => { try { if (live()) await API.call('/v1/auth/logout', { method: 'POST' }); } catch { } API.signOut(); location.reload(); });
+  $('#logoutAllBtn').addEventListener('click', async () => { try { if (live()) await API.call('/v1/auth/logout-all', { method: 'POST' }); } catch { } API.signOut(); location.reload(); });
 
   /* =====================================================================
      AUTENTICAÇÃO — login / cadastro polimórfico / modo demo
      ===================================================================== */
-  /* ---------- Aparência: tema · destaque · superfície · tela de fundo (aplicado no <html>, salvo local + API) ---------- */
-  const AP_DEFAULT = { accents:[['GREEN','Verde campo','#00d47a'],['BLUE','Azul','#3b82f6'],['GOLD','Ouro','#f5c542'],['PURPLE','Roxo','#a06bff'],['ORANGE','Laranja','#ff9f43']],
-    surfaces:[['GRAPHITE','Grafite','#131b17'],['FOREST','Floresta','#0f241a'],['NAVY','Marinho','#0f192b'],['PLUM','Ameixa','#1f1529'],['SAND','Areia','#fbf7ee']],
-    wallpapers:[['NONE','Sem fundo',null],['VERDE','Verde','brand/wallpapers/verde.svg'],['CIANO','Ciano','brand/wallpapers/ciano.svg'],['OURO','Ouro','brand/wallpapers/ouro.svg'],['VERDE_CLARO','Verde-claro','brand/wallpapers/verde-claro.svg'],['VERDE_VIVO','Verde-vivo','brand/wallpapers/verde-vivo.svg']] };
-  let AP = Object.assign({ theme:'dark', accent:'GREEN', surface:'GRAPHITE', wallpaper:'NONE', wallpaperUrl:null, fontScale:1 }, JSON.parse(localStorage.getItem('fas.appearance') || '{}'));
+  /* ---------- Aparência: tema · destaque · superfície · tela de fundo · material da navegação · gradiente do layout · fonte · densidade · contraste
+     (atributos no <html>, salvo local + PATCH /v1/me; as opções vêm de /v1/ui/appearance-options quando a API está no ar) ---------- */
+  const AP_DEFAULT = { accents:[['GREEN','Verde campo','#00d47a'],['BLUE','Azul','#3b82f6'],['GOLD','Ouro','#f5c542'],['PURPLE','Roxo','#a06bff'],['ORANGE','Laranja','#ff9f43'],['CIANO','Ciano','#22d3ee'],['PRATA','Prata','#c7d2cc']],
+    surfaces:[['GRAPHITE','Grafite','#131b17'],['FOREST','Floresta','#0f241a'],['NAVY','Marinho','#0f192b'],['PLUM','Ameixa','#1f1529'],['CARVAO','Carvão','#16181a'],['VINHO','Vinho','#24131a'],['SAND','Areia','#fbf7ee']],
+    wallpapers:[['NONE','Sem fundo',null],['VERDE','Verde','brand/wallpapers/verde.svg'],['CIANO','Ciano','brand/wallpapers/ciano.svg'],['OURO','Ouro','brand/wallpapers/ouro.svg'],['VERDE_CLARO','Verde-claro','brand/wallpapers/verde-claro.svg'],['VERDE_VIVO','Verde-vivo','brand/wallpapers/verde-vivo.svg']],
+    materials:[['FOSCO','Fosco','Sólido, sem transparência'],['VIDRO','Vidro','Translúcido com desfoque'],['METALICO','Metálico','Brilho escovado'],['CARBONO','Carbono','Trama de fibra discreta'],['GRAMADO','Gramado','Faixas de corte do campo']],
+    gradients:[['NENHUM','Nenhum','Fundo liso'],['HOLOFOTE','Holofote','Luz do estádio no topo'],['ARQUIBANCADA','Arquibancada','Faixas diagonais da torcida'],['CREPUSCULO','Crepúsculo','Jogo ao entardecer']],
+    fonts:[['PADRAO','Padrão','Space Grotesk + Inter'],['LEGIVEL','Legível','Atkinson Hyperlegible'],['PLACAR','Placar','Barlow Condensed + Barlow'],['EDITORIAL','Editorial','Source Serif 4 + Source Sans 3'],['SISTEMA','Sistema','Fonte do aparelho']],
+    densities:[['COMPACTA','Compacta'],['CONFORTAVEL','Confortável'],['ESPACOSA','Espaçosa']],
+    presets:[
+      { value:'NOITE_DE_JOGO', label:'Noite de jogo', theme:'dark', accent:'GREEN', surface:'GRAPHITE', material:'VIDRO', gradient:'HOLOFOTE', font:'PADRAO', density:'CONFORTAVEL', contrast:'PADRAO' },
+      { value:'GRAMADO', label:'Gramado', theme:'dark', accent:'GREEN', surface:'FOREST', material:'GRAMADO', gradient:'ARQUIBANCADA', font:'PLACAR', density:'CONFORTAVEL', contrast:'PADRAO' },
+      { value:'PRANCHETA_CLARA', label:'Prancheta clara', theme:'light', accent:'BLUE', surface:'SAND', material:'FOSCO', gradient:'NENHUM', font:'EDITORIAL', density:'ESPACOSA', contrast:'PADRAO' },
+      { value:'ALTA_LEGIBILIDADE', label:'Alta legibilidade', theme:'dark', accent:'GOLD', surface:'CARVAO', material:'FOSCO', gradient:'NENHUM', font:'LEGIVEL', density:'ESPACOSA', contrast:'ALTO' },
+      { value:'CARBONO', label:'Carbono', theme:'dark', accent:'CIANO', surface:'CARVAO', material:'CARBONO', gradient:'CREPUSCULO', font:'PLACAR', density:'COMPACTA', contrast:'PADRAO' }] };
+  const FONT_SAMPLE = { PADRAO:"'Space Grotesk',sans-serif", LEGIVEL:"'Atkinson Hyperlegible Next',sans-serif", PLACAR:"'Barlow Condensed',sans-serif", EDITORIAL:"'Source Serif 4',serif", SISTEMA:'system-ui,sans-serif' };
+  const AP_BASE = { theme:'dark', accent:'GREEN', surface:'GRAPHITE', wallpaper:'NONE', wallpaperUrl:null, fontScale:1, material:'FOSCO', gradient:'HOLOFOTE', font:'PADRAO', density:'CONFORTAVEL', contrast:'PADRAO' };
+  let AP = Object.assign({}, AP_BASE, (() => { try { return JSON.parse(localStorage.getItem('fas.appearance') || '{}'); } catch { return {}; } })());
   function applyAppearance(save = true) {
     const root = document.documentElement;
-    root.dataset.theme = AP.theme; root.dataset.accent = AP.accent; root.dataset.surface = AP.surface; root.dataset.wallpaper = AP.wallpaper;
+    Object.assign(root.dataset, { theme:AP.theme, accent:AP.accent, surface:AP.surface, wallpaper:AP.wallpaper, nav:AP.material, amb:AP.gradient, font:AP.font, density:AP.density, contrast:AP.contrast });
     const wp = AP.wallpaper === 'NONE' ? null : AP.wallpaperUrl || (AP_DEFAULT.wallpapers.find(w => w[0] === AP.wallpaper) || [])[2];
     root.style.setProperty('--wallpaper-img', wp ? `url("${wp}")` : 'none'); root.style.fontSize = (16 * (AP.fontScale || 1)) + 'px';
     if (save) try { localStorage.setItem('fas.appearance', JSON.stringify(AP)); } catch { }
     renderAppearancePanel();
   }
+  const presetOn = pr => ['theme', 'accent', 'surface', 'material', 'gradient', 'font', 'density', 'contrast'].every(k => AP[k] === pr[k]);
+  const hexOf = (list, v) => (list.find(x => x[0] === v) || [])[2] || '#888';
   function renderAppearancePanel() {
+    $('#apPresets').innerHTML = AP_DEFAULT.presets.map(pr => `<button type="button" class="ap-preset${presetOn(pr) ? ' on' : ''}" data-preset="${pr.value}"><i style="--a:${hexOf(AP_DEFAULT.accents, pr.accent)};--s:${hexOf(AP_DEFAULT.surfaces, pr.surface)}"></i>${esc(pr.label)}</button>`).join('');
     $('#apAccents').innerHTML = AP_DEFAULT.accents.map(([v, l, hex]) => `<button type="button" class="ap-swatch${AP.accent === v ? ' on' : ''}" data-ap="accent" data-val="${v}" style="--sw:${hex}" title="${l}" aria-label="${l}"></button>`).join('');
     $('#apSurfaces').innerHTML = AP_DEFAULT.surfaces.map(([v, l, hex]) => `<button type="button" class="ap-swatch${AP.surface === v ? ' on' : ''}" data-ap="surface" data-val="${v}" style="--sw:${hex}" title="${l}" aria-label="${l}"></button>`).join('');
+    $('#apMaterials').innerHTML = AP_DEFAULT.materials.map(([v, l, h]) => `<button type="button" class="ap-tile${AP.material === v ? ' on' : ''}" data-ap="material" data-val="${v}"><span class="ap-navp" data-v="${v}"></span><b>${l}</b><small>${h}</small></button>`).join('');
+    $('#apGradients').innerHTML = AP_DEFAULT.gradients.map(([v, l, h]) => `<button type="button" class="ap-tile${AP.gradient === v ? ' on' : ''}" data-ap="gradient" data-val="${v}"><span class="ap-ambp" data-v="${v}"></span><b>${l}</b><small>${h}</small></button>`).join('');
+    $('#apFonts').innerHTML = AP_DEFAULT.fonts.map(([v, l, f]) => `<button type="button" class="ap-tile${AP.font === v ? ' on' : ''}" data-ap="font" data-val="${v}"><span class="fs" style="font-family:${FONT_SAMPLE[v] || 'inherit'}">Gol de placa 1×0<em>Il1 0O · ${esc(f)}</em></span><b>${l}</b></button>`).join('');
+    $('#apDensity').innerHTML = AP_DEFAULT.densities.map(([v, l]) => `<button type="button" class="${AP.density === v ? 'on' : ''}" data-ap="density" data-val="${v}" aria-pressed="${AP.density === v}">${l}</button>`).join('');
     $('#apWalls').innerHTML = AP_DEFAULT.wallpapers.map(([v, l, url]) => `<button type="button" class="ap-wall${AP.wallpaper === v ? ' on' : ''}" data-ap="wallpaper" data-val="${v}"><div class="thumb${url ? '' : ' none'}" style="${url ? `--wp:url('${url}')` : ''}">${url ? '' : 'SEM FUNDO'}</div><span>${l}</span></button>`).join('')
       + `<label class="ap-wall custom${AP.wallpaper === 'CUSTOM' ? ' on' : ''}"><div class="thumb${AP.wallpaper === 'CUSTOM' && AP.wallpaperUrl ? '' : ' none'}" style="${AP.wallpaper === 'CUSTOM' && AP.wallpaperUrl ? `--wp:url('${AP.wallpaperUrl}')` : ''}">${AP.wallpaper === 'CUSTOM' && AP.wallpaperUrl ? '' : 'SEU ARQUIVO'}</div><span>Personalizado</span><input type="file" id="apCustom" accept="image/jpeg,image/png,image/webp"></label>`;
-    $('#darkToggle').checked = AP.theme !== 'light'; $('#fontScale').value = AP.fontScale || 1;
+    $('#apMock').innerHTML = `<div class="m-top"><i></i>Football AI</div><div class="m-side"><i></i><i></i><i></i><i></i></div><div class="m-main"><article class="pcard cc-partida has-art" data-gradient="RADIAL" data-material="CETIM" data-layout="HERO" data-style="REDE" style="--ac:var(--green);--ac2:#22d3ee"><div class="p-title">Golaço no último minuto</div><div class="p-sub">Prévia: barras, fundo, fonte e card</div></article></div>`;
+    $('#darkToggle').checked = AP.theme !== 'light'; $('#fontScale').value = AP.fontScale || 1; $('#contrastToggle').checked = AP.contrast === 'ALTO';
   }
+  /* PATCH /v1/me só com os campos alterados (AP → nomes da API) */
+  const AP_API = { accent:'uiAccent', surface:'uiSurface', wallpaper:'wallpaper', wallpaperKey:'wallpaperKey', fontScale:'fontScale', material:'uiMaterial', gradient:'uiGradient', font:'uiFont', density:'uiDensity', contrast:'uiContrast' };
   async function saveAppearance(patch) {
     Object.assign(AP, patch); applyAppearance(true);
-    if (!live()) return;
-    const body = {}; if (patch.theme !== undefined) body.darkMode = patch.theme !== 'light'; if (patch.accent) body.uiAccent = patch.accent; if (patch.surface) body.uiSurface = patch.surface;
-    if (patch.wallpaper) body.wallpaper = patch.wallpaper; if (patch.wallpaperKey) body.wallpaperKey = patch.wallpaperKey; if (patch.fontScale) body.fontScale = patch.fontScale;
-    try { API.user = await API.call('/v1/me', { method: 'PATCH', body }); } catch (e) { toast(e.message); }
+    if (!live()) { $('#apSaved').textContent = 'salvo neste navegador (demo)'; return; }
+    const body = {}; if (patch.theme !== undefined) body.darkMode = patch.theme !== 'light';
+    Object.entries(AP_API).forEach(([k, api]) => { if (patch[k] !== undefined && patch[k] !== null) body[api] = patch[k]; });
+    try { API.user = await API.call('/v1/me', { method: 'PATCH', body }); $('#apSaved').textContent = 'salvo na sua conta · vale em todos os dispositivos'; } catch (e) { toast(e.message); }
   }
-  document.addEventListener('click', e => { const b = e.target.closest('[data-ap]'); if (!b) return; const patch = {}; patch[b.dataset.ap] = b.dataset.val; if (b.dataset.ap === 'wallpaper') patch.wallpaperUrl = null; saveAppearance(patch); toast(`APARÊNCIA · ${b.dataset.ap.toUpperCase()} ${b.dataset.val}`); });
+  document.addEventListener('click', e => {
+    const pr = e.target.closest('[data-preset]');
+    if (pr) { const p = AP_DEFAULT.presets.find(x => x.value === pr.dataset.preset); if (!p) return; const { value, label, ...patch } = p; saveAppearance(patch); toast('APARÊNCIA · ' + label.toUpperCase()); return; }
+    const b = e.target.closest('[data-ap]'); if (!b) return; const patch = {}; patch[b.dataset.ap] = b.dataset.val; if (b.dataset.ap === 'wallpaper') patch.wallpaperUrl = null; saveAppearance(patch); toast(`APARÊNCIA · ${b.dataset.ap.toUpperCase()} ${b.dataset.val}`);
+  });
+  $('#contrastToggle').addEventListener('change', e => saveAppearance({ contrast: e.target.checked ? 'ALTO' : 'PADRAO' }));
+  $('#apReset').addEventListener('click', () => { saveAppearance({ ...AP_BASE }); toast('APARÊNCIA · PADRÃO RESTAURADO'); });
   document.addEventListener('change', async e => {
     if (e.target.id !== 'apCustom') return; const f = e.target.files && e.target.files[0]; if (!f) return;
     const local = URL.createObjectURL(f);
     if (!live()) { saveAppearance({ wallpaper: 'CUSTOM', wallpaperUrl: local }); toast('FUNDO PERSONALIZADO (DEMO · SÓ NESTA SESSÃO)'); return; }
-    try { const fd = new FormData(); fd.append('file', f); const res = await API.raw('/v1/media', { method: 'POST', headers: { Authorization: 'Bearer ' + API.access }, body: fd }); const d = await res.json(); if (!res.ok) throw new Error(d.detail || 'upload falhou');
-      saveAppearance({ wallpaper: 'CUSTOM', wallpaperUrl: d.url, wallpaperKey: d.key }); toast('FUNDO PERSONALIZADO SALVO'); } catch (err) { toast('FUNDO: ' + err.message); }
+    try { const d = await uploadMedia(f); saveAppearance({ wallpaper: 'CUSTOM', wallpaperUrl: d.url, wallpaperKey: d.key }); toast('FUNDO PERSONALIZADO SALVO'); } catch (err) { toast('FUNDO: ' + err.message); }
   });
+  /* upload do próprio usuário (POST /v1/media grava em media/{userId}/) — usado por fundo, foto do perfil */
+  async function uploadMedia(f) {
+    const fd = new FormData(); fd.append('file', f);
+    const res = await API.raw('/v1/media', { method: 'POST', headers: { Authorization: 'Bearer ' + API.access }, body: fd });
+    const d = await res.json(); if (!res.ok) throw new Error(d.detail || 'upload falhou'); return d;
+  }
+  const loadAppearanceOptions = () => API.call('/v1/ui/appearance-options', { auth: false }).then(o => {
+    const tri = (l, k) => (l || []).map(x => [x.value, x.label, x[k]]);
+    if (o.accents) AP_DEFAULT.accents = tri(o.accents, 'hex'); if (o.surfaces) AP_DEFAULT.surfaces = tri(o.surfaces, 'hex');
+    if (o.materials) AP_DEFAULT.materials = tri(o.materials, 'hint'); if (o.gradients) AP_DEFAULT.gradients = tri(o.gradients, 'hint');
+    if (o.fonts) AP_DEFAULT.fonts = tri(o.fonts, 'family'); if (o.densities) AP_DEFAULT.densities = tri(o.densities, 'label');
+    if (o.presets) AP_DEFAULT.presets = o.presets; renderAppearancePanel();
+  }).catch(() => {});
   applyAppearance(false);
+  /* Conta · foto do perfil: aparece no hero do card de perfil, em moldura neutra (nunca tingida pela arte) */
+  function renderAvatar(u) {
+    const pv = $('#avatarPreview'), av = $('#meBtn .avatar'), url = u && u.avatarUrl;
+    pv.style.backgroundImage = url ? `url("${url}")` : ''; pv.textContent = url ? '' : ini(u ? u.displayName : '');
+    av.classList.toggle('has-photo', !!url); if (url) av.style.setProperty('--photo', `url("${url}")`); else av.style.removeProperty('--photo');
+    $('#avatarRemove').hidden = !url;
+  }
+  $('#avatarFile').addEventListener('change', async e => {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    if (f.size > 5 * 1024 * 1024) { toast('FOTO ACIMA DE 5 MB'); e.target.value = ''; return; }
+    if (!live()) { const url = URL.createObjectURL(f); renderAvatar({ displayName: $('#accName').value, avatarUrl: url }); $('#avatarStatus').textContent = 'prévia local (demo)'; return; }
+    $('#avatarStatus').textContent = 'enviando…';
+    try { const d = await uploadMedia(f); setUser(await API.call('/v1/me', { method: 'PATCH', body: { avatarKey: d.key } })); $('#avatarStatus').textContent = 'foto do perfil atualizada'; toast('FOTO DO PERFIL ATUALIZADA'); }
+    catch (err) { $('#avatarStatus').textContent = 'falha no envio'; toast('FOTO: ' + err.message); } finally { e.target.value = ''; }
+  });
+  $('#avatarRemove').addEventListener('click', async () => {
+    if (!live()) { renderAvatar({ displayName: $('#accName').value }); return; }
+    try { setUser(await API.call('/v1/me', { method: 'PATCH', body: { avatarKey: '' } })); $('#avatarStatus').textContent = 'foto removida'; } catch (err) { toast(err.message); }
+  });
 
   function setUser(u) {
     API.user = u; ROLE = u.role; document.body.dataset.role = u.role; document.body.dataset.tier = u.tier || 'COMMON';
-    Object.assign(AP, { theme: u.darkMode === false ? 'light' : 'dark', accent: u.uiAccent || 'GREEN', surface: u.uiSurface || 'GRAPHITE', wallpaper: u.wallpaper || 'NONE', wallpaperUrl: u.wallpaperUrl || null, fontScale: +u.fontScale || 1 }); applyAppearance(true);
+    Object.assign(AP, { theme: u.darkMode === false ? 'light' : 'dark', accent: u.uiAccent || 'GREEN', surface: u.uiSurface || 'GRAPHITE', wallpaper: u.wallpaper || 'NONE', wallpaperUrl: u.wallpaperUrl || null, fontScale: +u.fontScale || 1,
+      material: u.uiMaterial || 'FOSCO', gradient: u.uiGradient || 'HOLOFOTE', font: u.uiFont || 'PADRAO', density: u.uiDensity || 'CONFORTAVEL', contrast: u.uiContrast || 'PADRAO' }); applyAppearance(true);
     $('#meName').textContent = u.displayName; $('#meHandle').textContent = '@' + u.username; $('#meRole').textContent = roleOf(u.role).label;
-    $('#meTier').innerHTML = u.tier ? chip(u.tier) : ''; const av = $('#meBtn .avatar'); av.dataset.initials = ini(u.displayName); av.innerHTML = `<i class="dot dc-${roleOf(u.role).dc}"></i>`;
+    $('#meTier').innerHTML = u.tier ? chip(u.tier) : ''; const av = $('#meBtn .avatar'); av.dataset.initials = ini(u.displayName); av.innerHTML = `<i class="dot dc-${roleOf(u.role).dc}"></i>`; renderAvatar(u);
     $('#srcBadge').textContent = 'API'; $('#srcBadge').classList.add('api');
     $$('.sidebar a[data-roles]').forEach(a => a.hidden = !a.dataset.roles.split(',').includes(ROLE));
     if (typeof startNotifPolling === 'function') setTimeout(startNotifPolling, 0);
@@ -913,6 +1014,7 @@
   /* ---------- boot ---------- */
   async function boot() {
     await API.probe();
+    if (API.online) loadAppearanceOptions();
     if (API.online && API.access) { try { setUser(await API.call('/v1/me')); } catch { API.clear(); } }
     if (!API.online) { $('#srcBadge').textContent = 'DEMO · API OFFLINE'; }
     if (API.online && !API.user && !sessionStorage.getItem('fas.demo')) openAuth();

@@ -5,9 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Football AI · Social</title>
 <link rel="icon" type="image/png" href="favicon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<!-- fontes auto-hospedadas (SIL OFL 1.1): sem requisição a terceiros; o navegador só baixa a família em uso -->
+<link rel="preload" href="fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/space-grotesk-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="fonts/fonts.css">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body data-role="ATLETA" data-tier="LEGENDARY">
@@ -605,10 +606,18 @@
     <section class="wz-pane" data-step="3" hidden>
       <div class="art-grid">
         <div>
-          <p class="hint">A arte tinge o <b>fundo do card</b> (não a fotografia). Cor, material, layout e estilo mudam o painel atrás do título e do teaser.</p>
-          <label class="t">Cor de fundo <small class="mono" id="artColorHex">#00d47a</small></label>
+          <p class="hint">A arte tinge só o <b>fundo do card</b> — a fotografia fica numa moldura neutra e nunca recebe cor, textura ou filtro. Qualquer cor vira um tom com contraste garantido para o texto.</p>
+          <label class="t">Paletas de torcida</label><div class="optchips" id="artPalettes"></div>
+          <label class="t">Cor principal <small class="mono" id="artColorHex">#00d47a</small></label>
           <div class="swatches" id="artColors"></div>
           <label class="t custom-color">Personalizada <input type="color" id="artCustom" value="#00d47a"></label>
+          <label class="t">Gradiente</label><div class="optchips" id="artGradients"></div>
+          <div id="artColor2Row" hidden>
+            <label class="t">Segunda cor <small class="mono" id="artColor2Hex">#00d47a</small></label>
+            <div class="swatches" id="artColors2"></div>
+            <label class="t custom-color">Personalizada <input type="color" id="artCustom2" value="#00d47a"></label>
+          </div>
+          <p class="hint" id="artSoberHint" hidden>Cards de alerta (lesão e comunicado institucional) usam arte sóbria: gradiente Suave ou Sólido, material Fosco ou Malha e estilo Grafite.</p>
           <label class="t">Material</label><div class="optchips" id="artMaterials"></div>
           <label class="t">Layout</label><div class="optchips" id="artLayouts"></div>
           <label class="t">Estilo</label><div class="optchips" id="artStyles"></div>
@@ -650,6 +659,9 @@
         <label>Nome de exibição <input type="text" id="accName" value="<PREENCHER_NOME>"></label>
         <label>Bio <input type="text" id="accBio" maxlength="280" placeholder="opcional"></label>
         <label>Estado (UF) / cidade <span class="inline2"><input type="text" id="accState" maxlength="2" placeholder="UF"><input type="text" id="accCity" placeholder="<PREENCHER_CIDADE>"></span><small>Usados só para filtros regionais — necessidade (Art. 6º, III)</small></label>
+        <div class="avatar-row"><span class="avatar-preview" id="avatarPreview" aria-hidden="true"></span>
+          <span><b>Foto do perfil</b><small>Aparece no topo do seu card de perfil, numa moldura neutra (a arte do card nunca a tinge). JPG, PNG ou WebP até 5 MB.</small>
+          <span class="upload-row"><input type="file" id="avatarFile" accept="image/jpeg,image/png,image/webp"><button type="button" class="btn ghost" id="avatarRemove">Remover foto</button></span><small id="avatarStatus" role="status"></small></span></div>
         <div class="filter-actions"><button class="btn primary" id="accSave">Salvar alterações</button><button class="btn ghost" id="logoutBtn">Sair desta sessão</button><button class="btn ghost" id="logoutAllBtn">Sair de todos os dispositivos</button></div>
         <ul class="milestones" id="sessionList"></ul>
       </div>
@@ -669,9 +681,17 @@
         <label class="toggle-row"><span><b>Modo escuro</b><small>tema da interface</small></span><input type="checkbox" class="sw" id="darkToggle" checked></label>
         <label>Tamanho da fonte <input type="range" id="fontScale" min="0.8" max="1.4" step="0.1" value="1"></label>
         <div class="ap-grid">
+          <div class="ap-row"><b>Combinações prontas</b><small class="hint">Aplicam tema, cor, tom, material, gradiente, fonte, densidade e contraste de uma vez — depois ajuste o que quiser.</small><div class="ap-presets" id="apPresets"></div></div>
+          <div class="ap-row"><b>Prévia</b><div class="ap-mock" id="apMock" aria-hidden="true"></div></div>
+          <label class="toggle-row"><span><b>Contraste alto</b><small>reforça textos secundários, bordas e foco do teclado</small></span><input type="checkbox" class="sw" id="contrastToggle"></label>
           <div class="ap-row"><b>Cor de destaque</b><small class="hint">Barras ativas, botões e brilhos. As cores de identidade dos papéis e das bordas de conteúdo nunca mudam.</small><div class="ap-swatches" id="apAccents"></div></div>
-          <div class="ap-row"><b>Tom das barras laterais e painéis</b><small class="hint">Grafite (padrão), Floresta, Marinho, Ameixa ou Areia (clara).</small><div class="ap-swatches" id="apSurfaces"></div></div>
+          <div class="ap-row"><b>Tom das barras laterais e painéis</b><small class="hint">Grafite (padrão), Floresta, Marinho, Ameixa, Carvão, Vinho ou Areia (clara). No tema claro, cada tom ganha a sua versão clara.</small><div class="ap-swatches" id="apSurfaces"></div></div>
+          <div class="ap-row"><b>Material da navegação</b><small class="hint">Barra superior, lateral e barra inferior do celular.</small><div class="ap-tiles" id="apMaterials"></div></div>
+          <div class="ap-row"><b>Gradiente do layout</b><small class="hint">Luz ambiente atrás do conteúdo, na cor de destaque.</small><div class="ap-tiles" id="apGradients"></div></div>
+          <div class="ap-row"><b>Fonte do texto</b><small class="hint">Títulos, texto e números. "Legível" diferencia I, l, 1, 0 e O.</small><div class="ap-tiles" id="apFonts"></div></div>
+          <div class="ap-row"><b>Densidade</b><small class="hint">Espaçamento entre cards e cantos.</small><div class="ap-seg" id="apDensity" role="group" aria-label="Densidade"></div></div>
           <div class="ap-row"><b>Tela de fundo</b><small class="hint">Grade de ícones de futebol com holofote, em cinco paletas, ou um arquivo seu. Painéis ficam translúcidos sobre o fundo.</small><div class="ap-walls" id="apWalls"></div></div>
+          <div class="ap-foot"><button type="button" class="btn ghost" id="apReset">Restaurar padrão</button><small class="hint" id="apSaved" role="status"></small></div>
         </div>
       </div>
       <div class="lgpd-panel" data-lgpd="idioma" hidden>
