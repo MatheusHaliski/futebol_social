@@ -34,6 +34,8 @@ public class Post {
     @Enumerated(EnumType.STRING) @Column(length = 12) private AlertSeverity severity;
     @Enumerated(EnumType.STRING) @Column(name = "alert_type", length = 16) private AlertType alertType;
     @Column(name = "club_id", columnDefinition = "BINARY(16)") private UUID clubId;
+    /** Atleta de quem o boletim de lesão fala (dado de saúde do sujeito, não do autor). Só em LESAO_ALERTA. */
+    @Column(name = "subject_athlete_id", columnDefinition = "BINARY(16)") private UUID subjectAthleteId;
     @Column(name = "state_code", length = 2) private String stateCode;
     @Column(name = "drill_id", columnDefinition = "BINARY(16)") private UUID drillId;
     @Column(name = "published_at", nullable = false) private Instant publishedAt;
@@ -101,6 +103,8 @@ public class Post {
     public void setAlertType(AlertType alertType) { this.alertType = alertType; }
     public UUID getClubId() { return clubId; }
     public void setClubId(UUID clubId) { this.clubId = clubId; }
+    public UUID getSubjectAthleteId() { return subjectAthleteId; }
+    public void setSubjectAthleteId(UUID subjectAthleteId) { this.subjectAthleteId = subjectAthleteId; }
     public String getStateCode() { return stateCode; }
     public void setStateCode(String stateCode) { this.stateCode = stateCode; }
     public UUID getDrillId() { return drillId; }

@@ -46,7 +46,10 @@ spring:
 
 server:
   port: ${PORT:8080}
-  forward-headers-strategy: framework
+  # "framework" aceitava X-Forwarded-* de QUALQUER cliente (troca de IP e de cota do rate limit a cada requisição).
+  # Padrão: none — o IP é o da conexão; atrás de proxy, liste os IPs em APP_TRUSTED_PROXIES (app.rate-limit.trusted-proxies)
+  # ou use "native" com server.tomcat.remoteip.internal-proxies restrito aos seus proxies.
+  forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:none}
   tomcat:
     relaxed-query-chars: "[,]"      # attr[velocidade]=gt:80 sem URL-encoding
   error:
@@ -73,6 +76,7 @@ app:
     user-per-minute: 300
     login-per-minute: 10
     max-login-failures: 5
+    trusted-proxies: ${APP_TRUSTED_PROXIES:}   # IPs dos proxies reversos, separados por vírgula; vazio = X-Forwarded-For ignorado
   crypto:
     key: ${APP_CRYPTO_KEY:}        # base64 de 32 bytes (AES-256-GCM) — vazio = chave de desenvolvimento
   storage:

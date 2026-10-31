@@ -1,0 +1,25 @@
+{
+  "minorEvolution": [
+    "Não encontrado",
+    "Gêmeo não encontrado"
+  ],
+  "privateLoad": [
+    "Sem acesso",
+    "Carga e recuperação são privadas por padrão (Art. 11)"
+  ],
+  "copilot": [
+    "Sem acesso",
+    "Ative 'Processamento por agentes de IA' na Central de Privacidade para usar o Copilot e o Autopilot"
+  ],
+  "flairOdds": "odds · COMMON 0% · RARE 0% · EPIC 0% · LEGENDARY 75% · MYTHIC 25% · partidas hoje 0/10",
+  "subjectOptions": 4,
+  "minorAgeChip": [
+    "22 anos",
+    "19 anos",
+    "27 anos",
+    "31 anos",
+    "SUB-20",
+    "SUB-20"
+  ],
+  "minorPublicToast": "Perfil público de menor de 18 exige o consentimento do responsável (ECA Digital, LGPD Art. 14)"
+}

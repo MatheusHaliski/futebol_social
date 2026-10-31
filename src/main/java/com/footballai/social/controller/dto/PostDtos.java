@@ -11,11 +11,14 @@ import java.util.UUID;
 public final class PostDtos {
     private PostDtos() { }
 
-    /** Criação via FAB/Copilot: título obrigatório (5–12 palavras), teaser opcional, conteúdo só em PostView. */
+    /**
+     * Criação via FAB/Copilot: título obrigatório (5–12 palavras), teaser opcional, conteúdo só em PostView.
+     * {@code subjectAthleteId}: atleta de quem o boletim de lesão fala (staff de saúde); o atleta autor é sempre o próprio sujeito.
+     */
     public record CreatePostRequest(@NotNull PostContentType contentType, FeedWindow window,
                                     @NotBlank @Size(max = 90) String title, @Size(max = 160) String subtitle, @Size(max = 5000) String content,
                                     List<String> mediaKeys, AgeRating ageRating, AlertSeverity severity, AlertType alertType, UUID clubId,
-                                    @Size(max = 2) String stateCode, GenerationMode generationMode, ArtRequest art, Boolean draft) { }
+                                    @Size(max = 2) String stateCode, GenerationMode generationMode, ArtRequest art, Boolean draft, UUID subjectAthleteId) { }
 
     /** Etapa "Arte" do criador: cor hex, segunda cor, gradiente, material, layout e estilo. */
     public record ArtRequest(@Size(max = 7) String color, @Size(max = 7) String color2, CardGradient gradient,

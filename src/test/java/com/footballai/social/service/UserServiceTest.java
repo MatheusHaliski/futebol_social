@@ -57,6 +57,16 @@ class UserServiceTest {
     }
 
     @Test
+    void minorNeedsGuardianConsentToGoPublic() {
+        u.setBirthDate(java.time.LocalDate.now().minusYears(16));
+        UpdateMeRequest toPublic = new UpdateMeRequest(null, null, null, null, null, ProfileVisibility.PUBLICO, null, null, null, null, null, null, null, null, null, null, null, null);
+        assertThatThrownBy(() -> svc.update(p, toPublic)).isInstanceOf(ApiException.class).hasMessageContaining("responsável");
+        assertThat(u.getVisibility()).isNotEqualTo(ProfileVisibility.PUBLICO);
+        u.setGuardianConsentAt(java.time.Instant.now());
+        assertThat(svc.update(p, toPublic).visibility()).isEqualTo("PUBLICO");
+    }
+
+    @Test
     void avatarAndWallpaperMustBeMediaUploadedByTheSameAccount() {
         String mine = "media/" + me + "/foto.jpg";
         UserSummaryDTO dto = svc.update(p, req(null, null, null, null, null, null, mine));

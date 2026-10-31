@@ -231,6 +231,7 @@ Access JWT (HS512) — claims: `sub` (userId), `role`, `sid`, `jti`, `iat`, `exp
 | `severity` | `AlertSeverity` | só para janela ALERTA | N |
 | `alertType` | `AlertType` | só para janela ALERTA | N |
 | `clubId` | UUID | opcional (mural do clube) | N |
+| `subjectAthleteId` | UUID | só em `LESAO_ALERTA`: atleta de quem o boletim fala (o atleta autor é o próprio sujeito; staff de saúde indica). Sem sujeito, só o autor vê. Flyway V6 | S |
 | `drillId` | UUID | FK opcional → `TacticalDrill` | — |
 | `publishedAt` | Instant | — | — |
 | `likeCount` / `commentCount` / `shareCount` / `saveCount` | int | contadores denormalizados (Curtir · Comentar · Compartilhar · Salvar) | D |

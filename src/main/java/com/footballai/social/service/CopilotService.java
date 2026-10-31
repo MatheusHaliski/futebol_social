@@ -36,7 +36,9 @@ public class CopilotService {
         this.users = users; this.training = training; this.matches = matches; this.twins = twins; this.badges = badges; this.prefs = prefs;
     }
 
+    /** Sugestão do Copilot: exige o consentimento "Processamento por agentes de IA" (LGPD Art. 7º, I · Art. 20), igual ao Autopilot. */
     public SuggestionDTO suggest(AuthPrincipal p, SuggestRequest r) {
+        UserLgpdPreferences consent = requireAiConsent(p);
         User u = users.findById(p.userId()).orElseThrow(() -> ApiException.notFound("Usuário"));
         PostContentType type = r.contentType() != null ? r.contentType() : inferType(u.getRole(), r.draft());
         FeedWindow window = r.window() != null ? r.window() : type.defaultWindow();
@@ -50,7 +52,9 @@ public class CopilotService {
                 TrainingSummary ts = training.findFirstByAthleteIdOrderByIsoWeekDesc(u.getId()).orElse(null);
                 if (ts != null) {
                     title = clampWords("Semana de treinos: " + ts.getSessionsDone() + " de " + ts.getSessionsPlanned() + " sessões concluídas");
-                    subtitle = "Carga " + ts.getLoadAu().setScale(0, java.math.RoundingMode.HALF_EVEN) + " AU · prontidão " + ts.getReadiness() + "% · semana " + ts.getIsoWeek();
+                    // prontidão é dado de saúde (Art. 11): só entra no teaser público se o atleta compartilha dados de saúde
+                    subtitle = "Carga " + ts.getLoadAu().setScale(0, java.math.RoundingMode.HALF_EVEN) + " AU"
+                            + (consent.isShareMedicalData() ? " · prontidão " + ts.getReadiness() + "%" : "") + " · semana " + ts.getIsoWeek();
                     rationale = "Detectei o resumo de treinos da semana " + ts.getIsoWeek() + " (sem dados de saúde).";
                 } else { title = clampWords(draft.isBlank() ? "Nova sessão de treino registrada no meu Gêmeo Digital" : draft); subtitle = "Telemetria registrada no Gêmeo Digital"; rationale = "Sem resumo de treinos recente — usei o rascunho."; }
             }
@@ -123,8 +127,7 @@ public class CopilotService {
 
     /** Autopilot: rascunhos privados a partir de fontes opt-in (resumo de treinos, súmula). Nunca saúde sem consentimento. */
     public List<SuggestionDTO> autopilotDrafts(AuthPrincipal p) {
-        UserLgpdPreferences pr = prefs.findById(p.userId()).orElse(null);
-        if (pr == null || !pr.isAiAgentProcessing()) throw ApiException.forbidden("AI_PROCESSING_OPT_IN", "Ative 'Processamento por agentes de IA' na Central de Privacidade para receber rascunhos");
+        requireAiConsent(p);
         User u = users.findById(p.userId()).orElseThrow(() -> ApiException.notFound("Usuário"));
         if (u.isMinor()) throw ApiException.forbidden("AUTOPILOT_MINOR", "Autopilot desabilitado para menores de 18");
         List<SuggestionDTO> out = new ArrayList<>();
@@ -135,6 +138,13 @@ public class CopilotService {
             out.add(new SuggestionDTO(m.contentType(), m.window(), m.title(), m.subtitle(), m.content(), m.badges(), m.ageRating(), m.art(), "Fonte: súmula oficial", "autopilot", true));
         }
         return out;
+    }
+
+    private UserLgpdPreferences requireAiConsent(AuthPrincipal p) {
+        UserLgpdPreferences pr = prefs.findById(p.userId()).orElse(null);
+        if (pr == null || !pr.isAiAgentProcessing())
+            throw ApiException.forbidden("AI_PROCESSING_OPT_IN", "Ative 'Processamento por agentes de IA' na Central de Privacidade para usar o Copilot e o Autopilot");
+        return pr;
     }
 
     public UUID idOf(AuthPrincipal p) { return p.userId(); }

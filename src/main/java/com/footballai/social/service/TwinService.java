@@ -23,12 +23,16 @@ public class TwinService {
     private final ScoutingAttributeRepository scouting;
     private final AthleteRepository athletes;
     private final CardAssembler assembler;
+    private final AccessPolicy access;
 
-    public TwinService(DigitalTwinRepository twins, WeeklyScoreSnapshotRepository snapshots, AthleteBadgeRepository badges, ScoutingAttributeRepository scouting, AthleteRepository athletes, CardAssembler assembler) {
-        this.twins = twins; this.snapshots = snapshots; this.badges = badges; this.scouting = scouting; this.athletes = athletes; this.assembler = assembler;
+    public TwinService(DigitalTwinRepository twins, WeeklyScoreSnapshotRepository snapshots, AthleteBadgeRepository badges, ScoutingAttributeRepository scouting, AthleteRepository athletes,
+                       CardAssembler assembler, AccessPolicy access) {
+        this.twins = twins; this.snapshots = snapshots; this.badges = badges; this.scouting = scouting; this.athletes = athletes; this.assembler = assembler; this.access = access;
     }
 
-    public EvolutionDTO evolution(UUID athleteId) {
+    /** Evolução, DNA e comparador seguem a mesma visibilidade do perfil (dono, público, conexão; menor só com consentimento) — senão 404. */
+    public EvolutionDTO evolution(AuthPrincipal viewer, UUID athleteId) {
+        access.requireProfile(viewer, athleteId, "Gêmeo");
         DigitalTwin t = twins.findByUserId(athleteId).orElseThrow(() -> ApiException.notFound("Gêmeo"));
         List<WeeklyScoreSnapshot> all = snapshots.findAllByTwinIdOrderByIsoWeekAsc(t.getId());
         List<PointDTO> pts = all.stream().map(s -> new PointDTO(s.getIsoWeek(), s.getScoreTotal(), s.getRarityTier().name(), s.getPhysicalScore(), s.getTechnicalScore(), s.getMatchScore())).toList();
@@ -44,7 +48,8 @@ public class TwinService {
     }
 
     /** Radar 5 eixos (0–100) a partir dos atributos de scouting mais recentes. */
-    public DnaDTO dna(UUID athleteId) {
+    public DnaDTO dna(AuthPrincipal viewer, UUID athleteId) {
+        access.requireProfile(viewer, athleteId, "Gêmeo");
         ScoutingAttribute s = scouting.findFirstByAthleteIdOrderByIsoWeekDesc(athleteId).orElse(null);
         List<String> axes = List.of("ATAQUE", "TÉCNICA", "TÁTICA", "DEFESA", "CRIATIVIDADE");
         if (s == null) return new DnaDTO(athleteId, axes, List.of(0, 0, 0, 0, 0), List.of(), null);
@@ -60,7 +65,7 @@ public class TwinService {
     public List<AthleteCardDTO> compare(AuthPrincipal viewer, List<UUID> ids) {
         if (ids.size() < 2 || ids.size() > 3) throw ApiException.badRequest("COMPARE_SIZE", "Compare 2 ou 3 atletas");
         List<Athlete> found = athletes.findAllById(ids);
-        if (found.size() != ids.size()) throw ApiException.notFound("Atleta");
+        if (found.size() != ids.size() || !found.stream().allMatch(a -> access.canViewProfile(viewer, a))) throw ApiException.notFound("Atleta");
         return assembler.athleteCards(found, viewer);
     }
 }

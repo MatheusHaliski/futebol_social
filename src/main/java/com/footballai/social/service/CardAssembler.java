@@ -36,11 +36,12 @@ public class CardAssembler {
     private final PostReactionRepository reactions;
     private final StorageService storage;
     private final FollowRepository follows;
+    private final AccessPolicy access;
     private final Clock clock;
 
     public CardAssembler(UserRepository users, DigitalTwinRepository twins, WeeklyScoreSnapshotRepository snapshots, MatchPerformanceRepository matches,
                          TrainingSummaryRepository training, InjuryRecordRepository injuries, UserLgpdPreferencesRepository prefs, AthleteBadgeRepository badges,
-                         PostReactionRepository reactions, StorageService storage, FollowRepository follows) { this.follows = follows;
+                         PostReactionRepository reactions, StorageService storage, FollowRepository follows, AccessPolicy access) { this.follows = follows; this.access = access;
         this.users = users; this.twins = twins; this.snapshots = snapshots; this.matches = matches; this.training = training; this.injuries = injuries;
         this.prefs = prefs; this.badges = badges; this.reactions = reactions; this.storage = storage; this.clock = Clock.systemUTC();
     }
@@ -98,7 +99,7 @@ public class CardAssembler {
 
     public AthleteCardDTO athleteCard(Athlete a, AuthPrincipal viewer) {
         boolean owner = viewer != null && viewer.userId().equals(a.getId());
-        boolean canSeeMedical = owner || prefs.findById(a.getId()).map(UserLgpdPreferences::isShareMedicalData).orElse(false);
+        boolean canSeeMedical = access.canSeeMedical(viewer, a.getId());
         DigitalTwin twin = twins.findByUserId(a.getId()).orElse(null);
         RarityTier tier = twin == null ? RarityTier.COMMON : twin.getRarityTier();
         int score = twin == null ? 0 : twin.getScoreTotal();
@@ -141,7 +142,7 @@ public class CardAssembler {
     public List<AttributeChipDTO> attributes(Athlete a, DigitalTwin twin) {
         List<AttributeChipDTO> out = new ArrayList<>();
         if (a.getPosition() != null) out.add(new AttributeChipDTO("◎", capitalize(a.getPosition().name()), "pos"));
-        if (a.age() != null) out.add(new AttributeChipDTO("", a.age() + " anos", "age"));
+        if (a.age() != null) out.add(new AttributeChipDTO("", a.isMinor() ? AccessPolicy.youthCategory(a.age()) : a.age() + " anos", "age"));   // menor: categoria, nunca a idade exata
         if (a.getCurrentClubName() != null) out.add(new AttributeChipDTO("⬢", a.getCurrentClubName(), "club"));
         boolean free = a.getContractStatus() == ContractStatus.AGENTE_LIVRE;
         out.add(new AttributeChipDTO("", free ? "Agente livre" : "Contratado", free ? "free" : "signed"));

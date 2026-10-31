@@ -740,6 +740,18 @@ html[data-contrast=ALTO] .pcard,html[data-contrast=ALTO] .panel,html[data-contra
 .avatar.has-photo{background:center/cover no-repeat var(--photo),var(--panel-2)}
 .avatar.has-photo::before{content:none}
 
+/* estado honesto da API (com a API ligada nada vira dado fictício): sem acesso, não encontrado, muitas requisições, erro */
+.api-state{display:grid;gap:6px;justify-items:start;padding:14px 16px;margin:0 0 12px;border:1px solid var(--line);border-left:3px solid var(--c-orange);border-radius:12px;background:var(--panel-2)}
+.api-state b{font-family:var(--font-display);font-size:1rem;color:var(--text)}
+.api-state span{color:var(--text);font-size:.86rem}
+.api-state small{color:var(--text-2);font-size:.76rem}
+.api-state code{font-size:.66rem;color:var(--text-2)}
+.api-state.s403,.api-state.s401{border-left-color:var(--gold)} .api-state.s404{border-left-color:var(--c-slate)} .api-state.s0,.api-state.s500{border-left-color:var(--c-red)}
+.api-state-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.api-blocked>:not(.api-state){display:none!important}
+.api-state-li{list-style:none;color:var(--text-2)}
+#subjectRow small{display:block;margin-top:5px;font-family:var(--font-body);font-size:.74rem;letter-spacing:0;text-transform:none;color:var(--text-2);line-height:1.4}
+
 /* ===== camada social: seguir · comentários · notificações ===== */
 .act.follow{border-color:color-mix(in srgb,var(--green) 45%,var(--line));color:var(--green-hi)}
 .act.follow.on{background:color-mix(in srgb,var(--green) 16%,transparent);border-color:var(--green);color:var(--text)}

@@ -352,12 +352,38 @@
     && (!p.ageMin || a.age >= +p.ageMin) && (!p.ageMax || a.age <= +p.ageMax) && (!p.state || a.state === p.state) && (!p.contractStatus || a.status === p.contractStatus) && (!p.role || p.role.split(',').includes(a.role)));
   const empty = msg => `<p class="hint">${msg || (sortBy === 'FOLLOWING' ? 'Você ainda não segue ninguém — use ＋ Seguir nos cards de atletas e clubes para montar este feed.' : 'Nada por aqui com esses filtros.')}</p>`;
   const cards = (list, fn = postCard, msg) => list.length ? list.map(x => fn(x)).join('') : empty(msg);
+  /* Com a API ligada, falha nunca vira dado fictício (o selo "API" mentiria): a tela mostra o estado — sem acesso, não encontrado,
+     muitas requisições ou erro — com "Tentar de novo". Dados de demonstração só no modo demo (API desligada ou sem login). */
+  class ApiStateError extends Error { constructor(e) { super(e.message); this.status = e.status || 0; this.code = e.code || null; } }
   async function tryApi(fn, fallback) {
     if (!live()) return fallback();
-    try { return await fn(); } catch (e) { console.warn('API', e); toast(`API: ${e.message}`); return fallback(); }
+    try { return await fn(); } catch (e) { console.warn('API', e); throw e instanceof ApiStateError ? e : new ApiStateError(e); }
   }
+  const API_STATE = { 401: ['Sessão expirada', 'Entre de novo para ver esta tela.'], 403: ['Sem acesso', ''], 404: ['Não encontrado', 'O perfil é privado, foi removido ou não existe.'],
+    429: ['Muitas requisições', 'Aguarde alguns segundos e tente de novo.'] };
+  const apiStateBlock = e => {
+    const [title, hint] = API_STATE[e.status] || ['Não foi possível carregar', 'A API não respondeu como esperado — nada aqui é dado fictício.'];
+    return `<div class="api-state s${e.status}" role="alert"><b>${esc(title)}</b><span>${esc(e.message)}</span>${hint ? `<small>${esc(hint)}</small>` : ''}`
+      + `<span class="api-state-actions">${e.code === 'AI_PROCESSING_OPT_IN' || e.code === 'MEDICAL_DATA_PRIVATE' ? '<button type="button" class="btn ghost" data-open-privacy>Central de Privacidade</button>' : ''}`
+      + `<button type="button" class="btn" data-retry>Tentar de novo</button></span>${e.code ? `<code>${esc(e.code)}</code>` : ''}</div>`;
+  };
+  function showApiState(container, e, retry) {
+    if (!(e instanceof ApiStateError)) throw e;
+    if (!container) { toast(`API: ${e.message}`); return; }
+    clearApiState(container);
+    container.insertAdjacentHTML('afterbegin', apiStateBlock(e)); container.classList.add('api-blocked');   // esconde o conteúdo antigo da tela
+    const box = container.querySelector(':scope > .api-state');
+    box.querySelector('[data-retry]').addEventListener('click', retry);
+    box.querySelector('[data-open-privacy]')?.addEventListener('click', () => openLgpd('privacidade'));
+  }
+  function clearApiState(container) { if (!container) return; container.querySelector(':scope > .api-state')?.remove(); container.classList.remove('api-blocked'); }
 
   async function renderSub(win, sub) {
+    const view = $(`#win-${win} .subview[data-sub="${sub}"]`);
+    clearApiState(view);
+    try { await renderSubView(win, sub); } catch (e) { showApiState(view, e, () => renderSub(win, sub)); }
+  }
+  async function renderSubView(win, sub) {
     const p = state.params;
     if (win === 'perfil') {
       if (sub === 'feed') {
@@ -365,7 +391,7 @@
         const { athletes: ath, posts: ps } = await tryApi(() => feed('perfil', p), () => ({ athletes: [...filteredAthletes(p), ...orgs.filter(o => (!roles || roles.includes(o.role)) && !p.position && !p.tier)], posts: posts.perfil }));
         $('#feed-perfil').innerHTML = cards(ath, vcard, 'Nenhum perfil com esses filtros.'); $('#feed-perfil-posts').innerHTML = cards(ps);
       }
-      if (sub === 'ranking') renderRanking('atletas');
+      if (sub === 'ranking') await renderRanking('atletas');
       if (sub === 'explorar') { await loadClubs(); drawGlobe(+$('#globeRot').value); renderClubs(); }
       if (sub === 'momentos') { const { posts: ps } = await tryApi(() => feed('perfil', {}, { contentType: 'ESPECIAL,PARTIDA_MOMENTO' }), () => ({ posts: posts.momentos })); $('#feed-momentos').innerHTML = cards(ps); }
     }
@@ -417,7 +443,10 @@
     $('#rankingTable').innerHTML = `<tr><th>#</th><th>${kind === 'atletas' ? 'Jogador' : 'Clube'}</th><th>Tier</th><th>Score_Total</th><th>Δ</th></tr>` + rows.map(r => `<tr><td class="pos">${r.i + 1}</td><td><div class="who"><span class="avatar" data-initials="${r.ini}"><i class="dot dc-${r.r}"></i></span><div><b>${esc(r.n)}</b><br><small>${esc(r.meta)}</small></div></div></td><td>${chip(r.tier)}</td><td><b class="mono">${fmt(r.score)}</b></td><td class="delta ${r.d > 0 ? 'up' : r.d < 0 ? 'down' : ''}">${r.d > 0 ? '▲' + r.d : r.d < 0 ? '▼' + -r.d : '—'}</td></tr>`).join('');
     $$('.seg-mini button[data-rank]').forEach(b => b.classList.toggle('active', b.dataset.rank === kind));
   }
-  $$('.seg-mini button[data-rank]').forEach(b => b.addEventListener('click', () => renderRanking(b.dataset.rank)));
+  $$('.seg-mini button[data-rank]').forEach(b => b.addEventListener('click', () => {
+    const view = $('#rankingTable').closest('.subview'); clearApiState(view);
+    renderRanking(b.dataset.rank).catch(e => showApiState(view, e, () => b.click()));
+  }));
 
   /* ---------- Explorar: globo ortográfico em SVG ---------- */
   let clubData = clubs;
@@ -527,6 +556,10 @@
 
   /* ---------- páginas simples ---------- */
   async function renderMisc(win, sub, params = {}) {
+    const panel = $('#miscPanel'); clearApiState(panel);
+    try { await renderMiscPage(win, sub, params); } catch (e) { showApiState(panel, e, () => renderMisc(win, sub, params)); }
+  }
+  async function renderMiscPage(win, sub, params) {
     const mine = win === 'cards' ? await tryApi(async () => (await API.call('/v1/posts/mine')).map(fromPost), () => posts.gemeo) : [];
     const me = win === 'me' ? await tryApi(async () => API.user.role === 'ATLETA' ? fromAthlete(await API.call(`/v1/athletes/${API.user.id}/card`)) : null, () => athletes[0]) : null;
     const pages = {
@@ -570,7 +603,7 @@
     $$('.type-opt[data-roles]').forEach(l => l.hidden = !l.dataset.roles.split(',').includes(ROLE));
     const first = $$('.type-opt').find(l => !l.hidden); if (first) first.querySelector('input').checked = true;
     $('#wzMeta').innerHTML = `<i class="dot xs dc-${roleOf(ROLE).dc}"></i> AUTOR · ${esc(roleOf(ROLE).label.toUpperCase())} · <span class="age-chip age-safe">SAFE</span>`;
-    buildArtOptions(); goStep(1); $('#composer').hidden = false; $('#titleCount').textContent = '0 palavras';
+    buildArtOptions(); goStep(1); $('#composer').hidden = false; $('#titleCount').textContent = '0 palavras'; $('#composerSubject').value = ''; syncSubjectRow();
     if (edit) {   // estúdio de edição: campos preenchidos, tipo/borda travados, começa no conteúdo
       const radio = $(`input[name="ct"][value="${edit.ct}"]`); if (radio) { radio.checked = true; } $$('input[name="ct"]').forEach(r => r.disabled = true);
       $('#composerTitle').value = edit.title || ''; $('#composerSub').value = edit.snip || ''; $('#composerText').value = edit.content || ''; $('#titleCount').textContent = `${words(edit.title)} palavras`;
@@ -637,9 +670,17 @@
   }
   async function fetchSuggestion() {
     $('#copilotBody').textContent = 'Gerando sugestão a partir dos seus dados…';
-    const s = await tryApi(() => API.call('/v1/copilot/suggest', { method: 'POST', body: { draft: $('#composerText').value || $('#composerTitle').value || null, contentType: $('input[name="ct"]:checked') ? currentCt() : null } }),
-      () => ({ contentType:'TREINO', title:'Sessão de sprints com 25 km/h sustentados hoje', subtitle:'+38 PP registrados pelo wearable · 72 min · 8,4 km · RPE 7.', badges:['⚡ PRONTO'], ageRating:'SAFE', art:{ color:'#00d47a', color2:null, gradient:'SUAVE', gradientLabel:'Suave', material:'MALHA', materialLabel:'Malha de camisa', layout:'CLASSICO', layoutLabel:'Clássico', style:'GRAMADO', styleLabel:'Gramado' }, rationale:'Detectei uma sessão de 72 min no seu wearable (demo).' }));
-    WZ.suggestion = s;
+    let s;
+    try { s = await tryApi(() => API.call('/v1/copilot/suggest', { method: 'POST', body: { draft: $('#composerText').value || $('#composerTitle').value || null, contentType: $('input[name="ct"]:checked') ? currentCt() : null } }),
+      () => ({ contentType:'TREINO', title:'Sessão de sprints com 25 km/h sustentados hoje', subtitle:'+38 PP registrados pelo wearable · 72 min · 8,4 km · RPE 7.', badges:['⚡ PRONTO'], ageRating:'SAFE', art:{ color:'#00d47a', color2:null, gradient:'SUAVE', gradientLabel:'Suave', material:'MALHA', materialLabel:'Malha de camisa', layout:'CLASSICO', layoutLabel:'Clássico', style:'GRAMADO', styleLabel:'Gramado' }, rationale:'Detectei uma sessão de 72 min no seu wearable (demo).' })) }
+    catch (e) {   // sem consentimento de IA (403 AI_PROCESSING_OPT_IN) ou erro: diz o motivo, nunca mostra sugestão fictícia
+      if (!(e instanceof ApiStateError)) throw e;
+      WZ.suggestion = null; $('#cpAccept').disabled = true; $('#copilotBody').innerHTML = apiStateBlock(e);
+      $('#copilotBody [data-retry]').addEventListener('click', fetchSuggestion);
+      $('#copilotBody [data-open-privacy]')?.addEventListener('click', () => openLgpd('privacidade'));
+      return;
+    }
+    WZ.suggestion = s; $('#cpAccept').disabled = false;
     $('#copilotBody').innerHTML = `<div>Tipo sugerido: <b>${esc((CT[s.contentType] || CT.TREINO).badge)}</b> (borda ${esc(CT_COLOR[s.contentType] || '')})</div><div>Título: "${esc(s.title)}"</div><div>Teaser: "${esc(s.subtitle || '—')}"</div>${s.badges && s.badges.length ? `<div>Badges: ${s.badges.map(esc).join(' · ')}</div>` : ''}<div>Arte: ${esc(s.art ? [s.art.gradientLabel, s.art.materialLabel, s.art.layoutLabel, s.art.styleLabel, s.art.color2 && s.art.color2 !== s.art.color ? `${s.art.color} + ${s.art.color2}` : s.art.color].filter(Boolean).join(' · ') : '—')}</div><small class="mono">${esc(s.rationale || '')} · GERADO POR IA · VOCÊ REVISA ANTES DE PUBLICAR (LGPD ART. 20) · SEM DADOS DE SAÚDE</small>`;
   }
   function acceptSuggestion() {
@@ -660,7 +701,8 @@
         toast('CARD ATUALIZADO · ESTÚDIO'); $('#composer').hidden = true; renderSub(state.win, state.sub[state.win]); if (location.hash.startsWith('#/cards')) renderMisc('cards'); return;
       }
       if (live()) {
-        const body = { contentType: ct, title, subtitle: sub || null, content: text || null, ageRating: $('#composerAge').value, generationMode: WZ.mode, draft, mediaKeys: WZ.photo && WZ.photo.key ? [WZ.photo.key] : null, art: artBody() };
+        const body = { contentType: ct, subjectAthleteId: ct === 'LESAO_ALERTA' && ROLE !== 'ATLETA' ? ($('#composerSubject').value || null) : null,
+        title, subtitle: sub || null, content: text || null, ageRating: $('#composerAge').value, generationMode: WZ.mode, draft, mediaKeys: WZ.photo && WZ.photo.key ? [WZ.photo.key] : null, art: artBody() };
         const created = await API.call('/v1/posts', { method: 'POST', body });
         toast(draft ? 'RASCUNHO SALVO · MEUS CARDS' : `CARD PUBLICADO · ${created.badgeLabel} · ${created.window}`);
         $('#composer').hidden = true; location.hash = draft ? '#/cards' : '#/' + created.window.toLowerCase(); renderSub(state.win, state.sub[state.win]);
@@ -693,7 +735,14 @@
   $('#wzNext').addEventListener('click', () => goStep(WZ.step + 1)); $('#wzBack').addEventListener('click', () => goStep(WZ.step - 1));
   $$('#wzSteps li').forEach(li => li.addEventListener('click', () => { if (+li.dataset.step < WZ.step) goStep(+li.dataset.step); }));
   $('#composerTitle').addEventListener('input', e => { const w = words(e.target.value); const el = $('#titleCount'); el.textContent = `${w} palavras`; el.className = w >= 5 && w <= 12 ? 'mono ok' : 'mono bad'; });
-  $$('input[name="ct"]').forEach(r => r.addEventListener('change', () => { if (!WZ.art.touched) WZ.art.color = CT_COLOR[r.value]; buildArtOptions(); }));
+  $$('input[name="ct"]').forEach(r => r.addEventListener('change', () => { if (!WZ.art.touched) WZ.art.color = CT_COLOR[r.value]; buildArtOptions(); syncSubjectRow(); }));
+  /* boletim de lesão do staff de saúde: atleta-sujeito (o atleta autor é sempre o próprio sujeito) */
+  async function syncSubjectRow() {
+    const show = currentCt() === 'LESAO_ALERTA' && ROLE !== 'ATLETA'; $('#subjectRow').hidden = !show;
+    const sel = $('#composerSubject'); if (!show || !live() || sel.dataset.loaded) return;
+    try { const rows = await API.call('/v1/rankings/athletes?limit=50'); sel.insertAdjacentHTML('beforeend', rows.map(r => `<option value="${esc(r.athleteId)}">${esc(r.name)} · ${esc(r.handle)}</option>`).join('')); sel.dataset.loaded = '1'; }
+    catch (e) { toast('ATLETAS: ' + e.message); }
+  }
   $('#cpAccept').addEventListener('click', acceptSuggestion); $('#cpRefresh').addEventListener('click', fetchSuggestion); $('#cpDismiss').addEventListener('click', () => $('#copilot').hidden = true);
   document.addEventListener('click', e => {
     const sw = e.target.closest('.swatch'); if (sw) { if (sw.dataset.color2) WZ.art.color2 = sw.dataset.color2; else WZ.art.color = sw.dataset.color; WZ.art.touched = true; buildArtOptions(); return; }
@@ -748,7 +797,10 @@
   $('#fontScale').addEventListener('change', e => saveAppearance({ fontScale: +e.target.value }));
   $('#langSelect').addEventListener('change', e => { if (live()) API.call('/v1/me', { method: 'PATCH', body: { locale: e.target.value } }).then(() => toast('IDIOMA · ' + e.target.value)).catch(err => toast(err.message)); else toast('IDIOMA · ' + e.target.value + ' (DEMO)'); });
   $('#exportBtn').addEventListener('click', async () => { if (!live()) { toast('EXPORTAÇÃO SOLICITADA (202) · LINK VÁLIDO POR 7 DIAS (DEMO)'); return; } try { const x = await API.call('/v1/me/export', { method: 'POST' }); toast(`EXPORTAÇÃO ${x.status}${x.downloadUrl ? ' · LINK PRONTO (7 DIAS)' : x.failureReason ? ' · ' + x.failureReason : ''}`); openLgpd('dados'); } catch (e) { toast(e.message); } });
-  $('#historyBtn').addEventListener('click', async () => { const ul = $('#consentHistory'); ul.hidden = !ul.hidden; if (ul.hidden) return; ul.innerHTML = (await tryApi(async () => (await API.call('/v1/me/consent-history')).map(c => `${c.changedAt.slice(0, 16).replace('T', ' ')} · ${c.preference} ${c.oldValue} → ${c.newValue} · ${esc(c.articleLabel)}`), () => ['W42 · SHARE_TELEMETRY_WITH_CLUBS false → true · Art. 7º, I'])).map(x => `<li>${x}</li>`).join('') || '<li>Sem alterações registradas.</li>'; });
+  $('#historyBtn').addEventListener('click', async () => { const ul = $('#consentHistory'); ul.hidden = !ul.hidden; if (ul.hidden) return;
+    try { ul.innerHTML = (await tryApi(async () => (await API.call('/v1/me/consent-history')).map(c => `${c.changedAt.slice(0, 16).replace('T', ' ')} · ${c.preference} ${c.oldValue} → ${c.newValue} · ${esc(c.articleLabel)}`), () => ['W42 · SHARE_TELEMETRY_WITH_CLUBS false → true · Art. 7º, I'])).map(x => `<li>${x}</li>`).join('') || '<li>Sem alterações registradas.</li>'; }
+    catch (e) { if (!(e instanceof ApiStateError)) throw e; ul.innerHTML = `<li class="api-state-li">${esc(e.message)} · <button type="button" class="btn ghost" data-retry-history>Tentar de novo</button></li>`; ul.querySelector('[data-retry-history]').addEventListener('click', () => { ul.hidden = true; $('#historyBtn').click(); }); }
+  });
   $('#delConfirm').addEventListener('input', e => $('#deleteBtn').disabled = e.target.value !== 'EXCLUIR');
   async function doDelete() { try { const d = await API.call('/v1/me', { method: 'DELETE', headers: stepUpToken ? { 'X-Step-Up-Token': stepUpToken } : {} }); toast(d.message); API.signOut(); setTimeout(() => location.reload(), 1800); } catch (e) { if (e.code === 'STEP_UP_REQUIRED') { pending = 'delete'; $(`.lgpd-nav [data-lgpd="privacidade"]`).click(); $('#stepUpBox').hidden = false; $('#stepUpPass').focus(); toast('REAUTENTIQUE-SE PARA EXCLUIR'); } else toast(e.message); } }
   $('#deleteBtn').addEventListener('click', () => { if (!live()) { toast('REAUTENTIQUE-SE · PENDING_DELETE POR 30 DIAS (DEMO)'); return; } doDelete(); });

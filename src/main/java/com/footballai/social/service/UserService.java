@@ -7,6 +7,7 @@ import com.footballai.social.model.entity.DigitalTwin;
 import com.footballai.social.model.entity.HealthStaff;
 import com.footballai.social.model.entity.Scout;
 import com.footballai.social.model.entity.User;
+import com.footballai.social.model.enums.ProfileVisibility;
 import com.footballai.social.model.enums.VerificationLevel;
 import com.footballai.social.model.enums.Wallpaper;
 import com.footballai.social.repository.DigitalTwinRepository;
@@ -48,7 +49,11 @@ public class UserService {
         if (r.locale() != null) u.setLocale(r.locale());
         if (r.darkMode() != null) u.setDarkMode(r.darkMode());
         if (r.fontScale() != null) u.setFontScale(r.fontScale());
-        if (r.visibility() != null) u.setVisibility(r.visibility());
+        if (r.visibility() != null) {
+            if (r.visibility() == ProfileVisibility.PUBLICO && !AccessPolicy.openToPublic(u))
+                throw ApiException.forbidden("GUARDIAN_CONSENT_REQUIRED", "Perfil público de menor de 18 exige o consentimento do responsável (ECA Digital, LGPD Art. 14)");
+            u.setVisibility(r.visibility());
+        }
         if (r.stateCode() != null) u.setStateCode(r.stateCode().toUpperCase());
         if (r.city() != null) u.setCity(r.city());
         if (r.uiAccent() != null) u.setUiAccent(r.uiAccent());

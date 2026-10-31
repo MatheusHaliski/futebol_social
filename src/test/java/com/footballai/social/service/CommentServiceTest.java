@@ -36,6 +36,7 @@ class CommentServiceTest {
     private final PostRepository posts = mock(PostRepository.class);
     private final UserRepository users = mock(UserRepository.class);
     private final NotificationService notifications = mock(NotificationService.class);
+    private final AccessPolicy access = mock(AccessPolicy.class);
     private CommentService svc;
 
     private final UUID postId = UUID.randomUUID(), ownerId = UUID.randomUUID(), fanId = UUID.randomUUID();
@@ -43,7 +44,8 @@ class CommentServiceTest {
 
     @BeforeEach
     void setUp() {
-        svc = new CommentService(comments, posts, users, notifications, Clock.fixed(now, ZoneOffset.UTC));
+        when(access.canSeePost(any(), any())).thenReturn(true);
+        svc = new CommentService(comments, posts, users, notifications, access, Clock.fixed(now, ZoneOffset.UTC));
         post = new Post(); ReflectionTestUtils.setField(post, "id", postId);
         post.setAuthorId(ownerId); post.setStatus(PostStatus.PUBLISHED); post.setTitle("Hat-trick de passes decisivos na semifinal"); post.setAgeRating(AgeRating.SAFE); post.setContentType(PostContentType.PARTIDA_MOMENTO);
         when(posts.findById(postId)).thenReturn(Optional.of(post));

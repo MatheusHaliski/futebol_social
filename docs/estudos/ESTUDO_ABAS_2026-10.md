@@ -12,6 +12,8 @@ Evidências visuais: [`docs/preview/estudos/`](../preview/estudos).
 
 ## 2. Defeitos P0 (conferidos no código)
 
+> **Atualização 31/10/2026:** #8 e #9 corrigidos no PR #9; #1–#7 corrigidos na Sprint 0 (`AccessPolicy`, V6 `posts.subject_athlete_id`, `forward-headers-strategy: none` + `APP_TRUSTED_PROXIES`, odds efetivas do FLAIR, consentimento do Copilot, estados honestos na SPA). Evidências em `docs/preview/spa/sprint0/`.
+
 | # | Área | Defeito | Onde | Correção proposta |
 |---|---|---|---|---|
 | 1 | Segurança | Rate limit contornável: `clientIp` confia em qualquer `X-Forwarded-For`, cada IP falso ganha cota nova (inclusive no login) | `config/RateLimitFilter.java:64-67` | Usar `request.getRemoteAddr()` com `RemoteIpValve` só para proxies confiáveis; limitar login por e-mail + IP |

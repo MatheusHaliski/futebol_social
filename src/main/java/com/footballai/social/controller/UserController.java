@@ -10,6 +10,7 @@ import com.footballai.social.model.entity.UserLgpdPreferences;
 import com.footballai.social.model.enums.BadgeType;
 import com.footballai.social.repository.AthleteRepository;
 import com.footballai.social.repository.UserLgpdPreferencesRepository;
+import com.footballai.social.service.AccessPolicy;
 import com.footballai.social.service.ApiException;
 import com.footballai.social.service.BadgeAwardService;
 import com.footballai.social.service.CardAssembler;
@@ -34,8 +35,10 @@ public class UserController {
     private final BadgeAwardService badges;
     private final UserLgpdPreferencesRepository prefs;
     private final FollowService followService;
+    private final AccessPolicy access;
 
-    public UserController(UserService users, AthleteRepository athletes, CardAssembler assembler, BadgeAwardService badges, UserLgpdPreferencesRepository prefs, FollowService followService) { this.followService = followService;
+    public UserController(UserService users, AthleteRepository athletes, CardAssembler assembler, BadgeAwardService badges, UserLgpdPreferencesRepository prefs, FollowService followService,
+                          AccessPolicy access) { this.followService = followService; this.access = access;
         this.users = users; this.athletes = athletes; this.assembler = assembler; this.badges = badges; this.prefs = prefs;
     }
 
@@ -48,18 +51,15 @@ public class UserController {
     @GetMapping("/athletes/{id}/card")
     public AthleteCardDTO card(@AuthenticationPrincipal AuthPrincipal p, @PathVariable UUID id) {
         Athlete a = athletes.findById(id).orElseThrow(() -> ApiException.notFound("Atleta"));
-        boolean owner = p != null && p.userId().equals(id);
-        // mesma regra de FeedWindowService.athleteSpec: fora o dono, só perfil PUBLICO e conta ATIVA (404 para não revelar existência)
-        boolean visible = owner || (a.getStatus() == AccountStatus.ACTIVE && (a.getVisibility() == ProfileVisibility.PUBLICO
-                || (a.getVisibility() == ProfileVisibility.CONEXOES && p != null && followService.isConnection(p.userId(), id))));   // conexão = seguir mútuo
-        if (!visible) throw ApiException.notFound("Atleta");
+        if (!access.canViewProfile(p, a)) throw ApiException.notFound("Atleta");   // mesma regra da descoberta; 404 para não revelar existência
         return assembler.athleteCard(a, p);
     }
 
     /** Bottom sheet "tap to expand": série histórica do badge; dados de saúde só com shareMedicalData. */
     @GetMapping("/athletes/{id}/badges/{type}/history")
     public List<BadgeDTO> badgeHistory(@AuthenticationPrincipal AuthPrincipal p, @PathVariable UUID id, @PathVariable BadgeType type) {
-        boolean canSeeMedical = p.userId().equals(id) || prefs.findById(id).map(UserLgpdPreferences::isShareMedicalData).orElse(false);
+        access.requireProfile(p, id, "Atleta");
+        boolean canSeeMedical = access.canSeeMedical(p, id);
         return badges.history(id, type, canSeeMedical);
     }
 }

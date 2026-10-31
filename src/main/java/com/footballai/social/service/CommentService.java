@@ -46,19 +46,20 @@ public class CommentService {
     private final PostRepository posts;
     private final UserRepository users;
     private final NotificationService notifications;
+    private final AccessPolicy access;
     private final Clock clock;
 
     @org.springframework.beans.factory.annotation.Autowired
-    public CommentService(PostCommentRepository comments, PostRepository posts, UserRepository users, NotificationService notifications) {
-        this(comments, posts, users, notifications, Clock.systemUTC());
+    public CommentService(PostCommentRepository comments, PostRepository posts, UserRepository users, NotificationService notifications, AccessPolicy access) {
+        this(comments, posts, users, notifications, access, Clock.systemUTC());
     }
 
-    CommentService(PostCommentRepository comments, PostRepository posts, UserRepository users, NotificationService notifications, Clock clock) {
-        this.comments = comments; this.posts = posts; this.users = users; this.notifications = notifications; this.clock = clock;
+    CommentService(PostCommentRepository comments, PostRepository posts, UserRepository users, NotificationService notifications, AccessPolicy access, Clock clock) {
+        this.comments = comments; this.posts = posts; this.users = users; this.notifications = notifications; this.access = access; this.clock = clock;
     }
 
     public CommentPageDTO list(AuthPrincipal p, UUID postId, String cursor, Integer size) {
-        Post post = visiblePost(postId);
+        Post post = visiblePost(p, postId);
         int n = size == null ? 20 : Math.max(1, Math.min(MAX_PAGE, size));
         Instant after = cursor == null ? Instant.EPOCH : FeedWindowService.decodeTimeCursor(cursor);
         List<PostComment> found = comments.findAllByPostIdAndStatusAndCreatedAtAfterOrderByCreatedAtAsc(postId, CommentStatus.VISIBLE, after, PageRequest.of(0, n + 1));
@@ -70,7 +71,7 @@ public class CommentService {
 
     @Transactional
     public CommentDTO create(AuthPrincipal p, UUID postId, CreateCommentRequest r) {
-        Post post = visiblePost(postId);
+        Post post = visiblePost(p, postId);
         User author = users.findById(p.userId()).orElseThrow(() -> ApiException.notFound("Usuário"));
         checkCanComment(author, post);
         String body = r.body() == null ? "" : r.body().trim();
@@ -119,8 +120,9 @@ public class CommentService {
         return title == null ? b : "\"" + b + "\" · " + title;
     }
 
-    Post visiblePost(UUID postId) {
-        return posts.findById(postId).filter(x -> x.getStatus() == PostStatus.PUBLISHED).orElseThrow(() -> ApiException.notFound("Post"));
+    /** Comentários de um boletim de lesão são tão sensíveis quanto o boletim: mesma regra de acesso (Art. 11). */
+    Post visiblePost(AuthPrincipal viewer, UUID postId) {
+        return posts.findById(postId).filter(x -> x.getStatus() == PostStatus.PUBLISHED && access.canSeePost(viewer, x)).orElseThrow(() -> ApiException.notFound("Post"));
     }
 
     List<CommentDTO> toDtos(List<PostComment> list, Post post, AuthPrincipal viewer) {
