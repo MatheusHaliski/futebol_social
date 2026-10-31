@@ -14,11 +14,13 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.*;
 import java.util.*;
+import java.util.stream.Collectors;
 import com.footballai.social.model.enums.NotificationType;
 
 /**
  * RF6 — FLAIR. Regras: sem dinheiro real nem prêmio monetário (ECA Digital art. 20 · Lei 14.790/2023); pacotes gratuitos
- * com probabilidades visíveis e sorteio determinístico por (usuário, dia); cartas só de atletas ACTIVE com perfil PUBLICO;
+ * com probabilidades visíveis e sorteio determinístico por (usuário, dia) — as odds exibidas são as do sorteio: tier sem atleta
+ * elegível sai e o peso dele é redistribuído proporcionalmente; cartas só de atletas ACTIVE com perfil PUBLICO (menor só com consentimento);
  * atletas INJURED/PENDING_DELETE não pontuam; sub-13 só joga contra o sistema; limite diário de partidas; opt-out em 1 toque.
  */
 @Service
@@ -58,12 +60,38 @@ public class FlairService {
         Instant dayStart = LocalDate.now(clock).atStartOfDay(ZoneOffset.UTC).toInstant();
         boolean free = cards.countByOwnerIdAndSourceAndAcquiredAtAfter(p.userId(), "PACK", dayStart) == 0;
         int today = (int) matches.countByChallengerIdAndCreatedAtAfter(p.userId(), dayStart);
-        return new CollectionDTO(mine.stream().map(c -> toDto(c, false)).toList(), deckDto(deck, mine), points.balance(p.userId()), free, oddsLabels(), today, DAILY_MATCH_LIMIT);
+        return new CollectionDTO(mine.stream().map(c -> toDto(c, false)).toList(), deckDto(deck, mine), points.balance(p.userId()), free,
+                oddsLabels(effectiveWeights(pool().tiers())), today, DAILY_MATCH_LIMIT);
     }
 
-    static Map<String, String> oddsLabels() {
+    /** Pool de cartas: Gêmeos ACTIVE de atletas com perfil PUBLICO, conta ATIVA e, se menor, consentimento do responsável. */
+    record Pool(Map<UUID, Athlete> byId, List<DigitalTwin> eligible) {
+        Set<RarityTier> tiers() { return eligible.stream().map(DigitalTwin::getRarityTier).collect(Collectors.toCollection(() -> EnumSet.noneOf(RarityTier.class))); }
+    }
+
+    Pool pool() {
+        List<DigitalTwin> all = twins.findAllByStatus(TwinStatus.ACTIVE);
+        Map<UUID, Athlete> byId = new HashMap<>();
+        for (Athlete a : athletes.findAllById(all.stream().map(DigitalTwin::getUserId).toList()))
+            if (a.getVisibility() == ProfileVisibility.PUBLICO && a.getStatus() == AccountStatus.ACTIVE && AccessPolicy.openToPublic(a)) byId.put(a.getId(), a);
+        return new Pool(byId, all.stream().filter(t -> byId.containsKey(t.getUserId())).sorted(Comparator.comparing(DigitalTwin::getUserId)).toList());
+    }
+
+    /** Pesos efetivos: só tiers com atleta no pool, cada um com o peso nominal (a soma é renormalizada no sorteio e no rótulo). */
+    static Map<RarityTier, Integer> effectiveWeights(Set<RarityTier> present) {
+        Map<RarityTier, Integer> w = new EnumMap<>(RarityTier.class);
+        for (RarityTier t : RarityTier.values()) w.put(t, present.contains(t) ? ODDS.get(t) : 0);
+        return w;
+    }
+
+    /** Probabilidade real de cada tier no pacote de hoje (ex.: sem MYTHIC no pool → MYTHIC 0% e os outros sobem na proporção). */
+    static Map<String, String> oddsLabels(Map<RarityTier, Integer> weights) {
+        int total = weights.values().stream().mapToInt(Integer::intValue).sum();
         Map<String, String> m = new LinkedHashMap<>();
-        for (RarityTier t : RarityTier.values()) m.put(t.name(), ODDS.get(t) + "%");
+        for (RarityTier t : RarityTier.values()) {
+            double pct = total == 0 ? 0 : Math.round(weights.get(t) * 1000.0 / total) / 10.0;   // uma casa decimal; "13%" em vez de "13,0%"
+            m.put(t.name(), pct == Math.rint(pct) ? (long) pct + "%" : String.format(Locale.forLanguageTag("pt-BR"), "%.1f%%", pct));
+        }
         return m;
     }
 
@@ -74,29 +102,29 @@ public class FlairService {
         Instant dayStart = today.atStartOfDay(ZoneOffset.UTC).toInstant();
         if (cards.countByOwnerIdAndSourceAndAcquiredAtAfter(p.userId(), "PACK", dayStart) > 0)
             throw ApiException.conflict("PACK_ALREADY_OPENED", "Pacote gratuito de hoje já aberto — próximo em " + today.plusDays(1) + "T00:00Z");
-        List<DigitalTwin> pool = twins.findAllByStatus(TwinStatus.ACTIVE);
-        Map<UUID, Athlete> byId = new HashMap<>();
-        for (Athlete a : athletes.findAllById(pool.stream().map(DigitalTwin::getUserId).toList()))
-            if (a.getVisibility() == ProfileVisibility.PUBLICO && a.getStatus() == AccountStatus.ACTIVE) byId.put(a.getId(), a);
-        List<DigitalTwin> eligible = pool.stream().filter(t -> byId.containsKey(t.getUserId())).sorted(Comparator.comparing(DigitalTwin::getUserId)).toList();
-        if (eligible.isEmpty()) throw ApiException.conflict("NO_PUBLIC_ATHLETES", "Ainda não há Gêmeos públicos para gerar cartas");
+        Pool pool = pool();
+        if (pool.eligible().isEmpty()) throw ApiException.conflict("NO_PUBLIC_ATHLETES", "Ainda não há Gêmeos públicos para gerar cartas");
+        Map<RarityTier, Integer> weights = effectiveWeights(pool.tiers());
+        int total = weights.values().stream().mapToInt(Integer::intValue).sum();
         Random rng = new Random(seed(p.userId() + "|" + today));
         List<FlairCard> drawn = new ArrayList<>();
         Instant now = clock.instant();
         for (int i = 0; i < PACK_SIZE; i++) {
-            RarityTier target = drawTier(rng.nextInt(100));
-            List<DigitalTwin> ofTier = eligible.stream().filter(t -> t.getRarityTier() == target).toList();
-            if (ofTier.isEmpty()) ofTier = eligible; // sem atleta no tier sorteado: cai para o pool
+            RarityTier target = drawTier(rng.nextInt(total), weights);   // só tiers presentes: a probabilidade exibida é a do sorteio
+            List<DigitalTwin> ofTier = pool.eligible().stream().filter(t -> t.getRarityTier() == target).toList();
             DigitalTwin t = ofTier.get(rng.nextInt(ofTier.size()));
-            drawn.add(cards.save(snapshotCard(p.userId(), byId.get(t.getUserId()), t, "PACK", now)));
+            drawn.add(cards.save(snapshotCard(p.userId(), pool.byId().get(t.getUserId()), t, "PACK", now)));
         }
-        return new PackDTO(drawn.stream().map(c -> toDto(c, false)).toList(), oddsLabels(), today.plusDays(1) + "T00:00:00Z");
+        return new PackDTO(drawn.stream().map(c -> toDto(c, false)).toList(), oddsLabels(weights), today.plusDays(1) + "T00:00:00Z");
     }
 
-    static RarityTier drawTier(int roll) {
+    static RarityTier drawTier(int roll) { return drawTier(roll, ODDS); }
+
+    /** {@code roll} em [0, soma dos pesos): percorre os tiers na ordem; tier com peso 0 nunca sai. */
+    static RarityTier drawTier(int roll, Map<RarityTier, Integer> weights) {
         int acc = 0;
-        for (RarityTier t : RarityTier.values()) { acc += ODDS.get(t); if (roll < acc) return t; }
-        return RarityTier.COMMON;
+        for (RarityTier t : RarityTier.values()) { acc += weights.get(t); if (roll < acc) return t; }
+        throw new IllegalArgumentException("roll fora da soma dos pesos");
     }
 
     static long seed(String s) {
@@ -173,10 +201,9 @@ public class FlairService {
 
     /** Oponente do sistema: 3 cartas virtuais com os mesmos atletas públicos, sorteio determinístico por partida/dia. */
     List<FlairCardDTO> systemDeck(UUID userId, List<FlairCardDTO> myDeck) {
-        List<DigitalTwin> pool = twins.findAllByStatus(TwinStatus.ACTIVE).stream().sorted(Comparator.comparing(DigitalTwin::getUserId)).toList();
-        Map<UUID, Athlete> byId = new HashMap<>();
-        for (Athlete a : athletes.findAllById(pool.stream().map(DigitalTwin::getUserId).toList())) if (a.getVisibility() == ProfileVisibility.PUBLICO) byId.put(a.getId(), a);
-        List<DigitalTwin> eligible = pool.stream().filter(t -> byId.containsKey(t.getUserId())).toList();
+        Pool pool = pool();
+        Map<UUID, Athlete> byId = pool.byId();
+        List<DigitalTwin> eligible = pool.eligible();
         Random rng = new Random(seed(userId + "|sys|" + LocalDate.now(clock) + "|" + matches.countByChallengerIdAndCreatedAtAfter(userId, Instant.EPOCH)));
         List<FlairCardDTO> out = new ArrayList<>();
         for (int i = 0; i < 3; i++) {

@@ -33,12 +33,12 @@ public class RankingService {
         int pos = 0;
         for (DigitalTwin t : top) {
             Athlete a = byId.get(t.getUserId());
-            if (a == null || a.getVisibility() != ProfileVisibility.PUBLICO || a.getStatus() != AccountStatus.ACTIVE) continue;
+            if (a == null || a.getVisibility() != ProfileVisibility.PUBLICO || a.getStatus() != AccountStatus.ACTIVE || !AccessPolicy.openToPublic(a)) continue;
             if (position != null && a.getPosition() != position) continue;
             if (state != null && !state.equalsIgnoreCase(a.getStateCode())) continue;
             if (minTier != null && t.getRarityTier().ordinal() < minTier.ordinal()) continue;
             pos++;
-            out.add(new AthleteRow(pos, a.getId(), "@" + a.getUsername(), a.getDisplayName(), a.getPosition() == null ? null : a.getPosition().name(), a.age(), a.getCurrentClubName(),
+            out.add(new AthleteRow(pos, a.getId(), "@" + a.getUsername(), a.getDisplayName(), a.getPosition() == null ? null : a.getPosition().name(), a.isMinor() ? null : a.age(), a.getCurrentClubName(),
                     a.getStateCode(), t.getRarityTier().name(), t.getRarityTier().crestIcon(), t.getScoreTotal(), 0));
             if (out.size() >= limit) break;
         }
@@ -49,7 +49,7 @@ public class RankingService {
     public List<ClubRow> clubs(String country, Integer division, RarityTier minTier) {
         Map<UUID, Club> byId = clubs.findAll().stream().collect(Collectors.toMap(Club::getId, c -> c));
         Map<UUID, List<DigitalTwin>> byClub = new HashMap<>();
-        Map<UUID, Athlete> ath = athletes.findAll().stream().filter(a -> a.getCurrentClubId() != null && a.getVisibility() == ProfileVisibility.PUBLICO).collect(Collectors.toMap(Athlete::getId, a -> a));
+        Map<UUID, Athlete> ath = athletes.findAll().stream().filter(a -> a.getCurrentClubId() != null && a.getVisibility() == ProfileVisibility.PUBLICO && AccessPolicy.openToPublic(a)).collect(Collectors.toMap(Athlete::getId, a -> a));
         for (DigitalTwin t : twins.findAllByUserIdIn(ath.keySet())) if (t.getStatus().countsForRanking()) byClub.computeIfAbsent(ath.get(t.getUserId()).getCurrentClubId(), k -> new ArrayList<>()).add(t);
         List<ClubRow> rows = new ArrayList<>();
         for (Club c : byId.values()) {

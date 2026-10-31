@@ -24,10 +24,12 @@ public record AppProperties(
                       @DefaultValue("7d") Duration refreshTtl,
                       @DefaultValue("football-ai-social") String issuer) { }
 
+    /** {@code trustedProxies}: IPs exatos dos proxies reversos/balanceadores. Só deles o {@code X-Forwarded-For} é aceito. */
     public record RateLimit(@DefaultValue("120") int ipPerMinute,
                             @DefaultValue("300") int userPerMinute,
                             @DefaultValue("10") int loginPerMinute,
-                            @DefaultValue("5") int maxLoginFailures) { }
+                            @DefaultValue("5") int maxLoginFailures,
+                            @DefaultValue List<String> trustedProxies) { }
 
     public record Storage(@DefaultValue("http://localhost:9000") String endpoint,
                           @DefaultValue("") String publicEndpoint,

@@ -18,6 +18,7 @@ import com.footballai.social.model.enums.FeedWindow;
 import com.footballai.social.model.enums.PostContentType;
 import com.footballai.social.model.enums.PostStatus;
 import com.footballai.social.model.enums.UserRole;
+import com.footballai.social.repository.AthleteRepository;
 import com.footballai.social.repository.PostReactionRepository;
 import com.footballai.social.repository.PostRepository;
 import com.footballai.social.repository.cassandra.FeedEntryRepository;
@@ -45,10 +46,14 @@ public class PostService {
     private final CardAssembler assembler;
     private final ObjectProvider<FeedEntryRepository> feedEntries;
     private final NotificationService notifications;
+    private final AccessPolicy access;
+    private final AthleteRepository athletes;
     private final Clock clock = Clock.systemUTC();
 
-    public PostService(PostRepository posts, PostReactionRepository reactions, UserService users, CardAssembler assembler, ObjectProvider<FeedEntryRepository> feedEntries, NotificationService notifications) {
+    public PostService(PostRepository posts, PostReactionRepository reactions, UserService users, CardAssembler assembler, ObjectProvider<FeedEntryRepository> feedEntries,
+                       NotificationService notifications, AccessPolicy access, AthleteRepository athletes) {
         this.posts = posts; this.reactions = reactions; this.users = users; this.assembler = assembler; this.feedEntries = feedEntries; this.notifications = notifications;
+        this.access = access; this.athletes = athletes;
     }
 
     public static int wordCount(String title) { return title == null ? 0 : (int) java.util.Arrays.stream(title.trim().split("\\s+")).filter(w -> !w.isBlank()).count(); }
@@ -72,6 +77,7 @@ public class PostService {
         post.setAgeRating(rating);
         post.setAiGenerated(role.isAutomated());
         post.setSeverity(r.severity()); post.setAlertType(r.alertType()); post.setClubId(r.clubId());
+        if (r.contentType() == PostContentType.LESAO_ALERTA) post.setSubjectAthleteId(injurySubject(author, r.subjectAthleteId()));
         post.setStateCode(r.stateCode() == null ? author.getStateCode() : r.stateCode().toUpperCase());
         post.setGenerationMode(r.generationMode());
         if (r.art() != null) {
@@ -104,7 +110,8 @@ public class PostService {
     @Transactional
     public PostViewDTO view(AuthPrincipal p, UUID id) {
         Post post = posts.findById(id)
-                .filter(x -> x.getStatus() == PostStatus.PUBLISHED || (p != null && x.getAuthorId().equals(p.userId()) && x.getStatus() != PostStatus.REMOVED)) // autor abre o próprio rascunho (estúdio)
+                .filter(x -> (x.getStatus() == PostStatus.PUBLISHED && access.canSeePost(p, x))
+                        || (p != null && x.getAuthorId().equals(p.userId()) && x.getStatus() != PostStatus.REMOVED)) // autor abre o próprio rascunho (estúdio)
                 .orElseThrow(() -> ApiException.notFound("Post"));
         if (post.getStatus() == PostStatus.PUBLISHED) { post.view(); posts.save(post); }
         return new PostViewDTO(assembler.postCards(List.of(post), p).get(0), post.getContent());
@@ -112,7 +119,7 @@ public class PostService {
 
     @Transactional
     public ReactionDTO toggle(AuthPrincipal p, UUID id, PostReaction.Kind kind) {
-        Post post = posts.findById(id).orElseThrow(() -> ApiException.notFound("Post"));
+        Post post = visible(p, id);
         var existing = reactions.findByPostIdAndUserIdAndKind(id, p.userId(), kind);
         boolean on;
         if (existing.isPresent()) { reactions.delete(existing.get()); on = false; }
@@ -130,7 +137,7 @@ public class PostService {
 
     @Transactional
     public ReactionDTO share(AuthPrincipal p, UUID id) {
-        Post post = posts.findById(id).orElseThrow(() -> ApiException.notFound("Post"));
+        Post post = visible(p, id);
         post.share(); posts.save(post);
         return new ReactionDTO(id, reactions.findByPostIdAndUserIdAndKind(id, p.userId(), PostReaction.Kind.LIKE).isPresent(),
                 reactions.findByPostIdAndUserIdAndKind(id, p.userId(), PostReaction.Kind.SAVE).isPresent(), post.getLikeCount(), post.getSaveCount(), post.getShareCount());
@@ -168,6 +175,19 @@ public class PostService {
         if (post.hasMedia()) post.setSubtitle(null);
         post = posts.save(post);
         return assembler.postCards(List.of(post), p).get(0);
+    }
+
+    /** Sujeito do boletim de lesão: o atleta autor fala de si; o staff de saúde indica um atleta existente (sem atleta, o boletim fica só com o autor). */
+    private UUID injurySubject(User author, UUID requested) {
+        if (author.getRole() == UserRole.ATLETA) return author.getId();
+        if (requested == null) return null;
+        if (!athletes.existsById(requested)) throw ApiException.badRequest("SUBJECT_INVALID", "Atleta do boletim não encontrado");
+        return requested;
+    }
+
+    /** Post visível ao leitor (boletim de lesão segue a regra de saúde do atleta-sujeito) ou 404. */
+    private Post visible(AuthPrincipal p, UUID id) {
+        return posts.findById(id).filter(x -> x.getStatus() == PostStatus.PUBLISHED && access.canSeePost(p, x)).orElseThrow(() -> ApiException.notFound("Post"));
     }
 
     private static CardArt art(com.footballai.social.controller.dto.PostDtos.ArtRequest a, PostContentType type) {

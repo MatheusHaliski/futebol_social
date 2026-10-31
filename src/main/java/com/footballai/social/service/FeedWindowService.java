@@ -57,11 +57,13 @@ public class FeedWindowService {
     private final StringRedisTemplate redis;
     private final ObjectMapper mapper;
     private final FollowRepository follows;
+    private final AccessPolicy access;
     private final Clock clock = Clock.systemUTC();
 
     public FeedWindowService(PostRepository posts, AthleteRepository athletes, ObjectProvider<FeedEntryRepository> feedEntries, CardAssembler assembler,
-                             StringRedisTemplate redis, ObjectMapper mapper, FollowRepository follows) {
+                             StringRedisTemplate redis, ObjectMapper mapper, FollowRepository follows, AccessPolicy access) {
         this.posts = posts; this.athletes = athletes; this.feedEntries = feedEntries; this.assembler = assembler; this.redis = redis; this.mapper = mapper; this.follows = follows;
+        this.access = access;
     }
 
     public FeedPageDTO page(FeedQuery q, AuthPrincipal viewer) {
@@ -87,7 +89,7 @@ public class FeedWindowService {
 
     FeedPageDTO fromMysql(FeedQuery q, AuthPrincipal viewer, Set<UUID> followed) {
         Cursor before = decodeCursor(q.cursor, q.sort);
-        Specification<Post> spec = postSpec(q, before, followed);
+        Specification<Post> spec = postSpec(q, before, followed).and(access.visiblePosts(viewer));   // boletim de lesão: regra de saúde do atleta-sujeito
         Sort sort = q.sort == FeedSort.TRENDING ? Sort.by(Sort.Order.desc("trendingScore"), Sort.Order.desc("publishedAt")) : Sort.by(Sort.Order.desc("publishedAt"));
         List<Post> found = posts.findAll(spec, PageRequest.of(0, q.size + 1, sort)).getContent();
         boolean more = found.size() > q.size;
@@ -143,12 +145,14 @@ public class FeedWindowService {
         return (root, cq, cb) -> {
             List<Predicate> ps = new ArrayList<>();
             ps.add(cb.equal(root.get("status"), AccountStatus.ACTIVE));
-            Predicate visible = cb.equal(root.get("visibility"), ProfileVisibility.PUBLICO);
+            LocalDate adultBorn = LocalDate.now(clock).minusYears(18);   // menor só aparece ao público com consentimento do responsável (ECA Digital)
+            Predicate visible = cb.and(cb.equal(root.get("visibility"), ProfileVisibility.PUBLICO),
+                    cb.or(cb.lessThanOrEqualTo(root.get("birthDate"), adultBorn), cb.isNotNull(root.get("guardianConsentAt"))));
             if (viewer == null) ps.add(visible);
             else {   // PUBLICO, o próprio, ou CONEXOES para quem é conexão (seguir mútuo)
                 Set<UUID> conn = new HashSet<>(follows.findConnectionIds(viewer.userId()));
                 Predicate self = cb.equal(root.get("id"), viewer.userId());
-                ps.add(conn.isEmpty() ? cb.or(visible, self) : cb.or(visible, self, cb.and(cb.equal(root.get("visibility"), ProfileVisibility.CONEXOES), root.get("id").in(conn))));
+                ps.add(conn.isEmpty() ? cb.or(visible, self) : cb.or(visible, self, cb.and(root.get("visibility").in(List.of(ProfileVisibility.CONEXOES, ProfileVisibility.PUBLICO)), root.get("id").in(conn))));
             }
             if (followed != null) ps.add(root.get("id").in(followed));
             if (q.position != null) ps.add(cb.equal(root.get("position"), q.position));
@@ -193,7 +197,7 @@ public class FeedWindowService {
         List<FeedEntry> entries = slice.getContent().stream().filter(e -> matches(e, q)).filter(e -> followed == null || followed.contains(e.getAuthorId())).toList();   // só campos imutáveis da projeção
         Map<UUID, Post> byId = posts.findAllByIdIn(entries.stream().map(FeedEntry::getPostId).toList()).stream().collect(Collectors.toMap(Post::getId, Function.identity()));
         List<Post> ordered = entries.stream().map(e -> byId.get(e.getPostId())).filter(Objects::nonNull)
-                .filter(p -> p.getStatus() == PostStatus.PUBLISHED).filter(p -> matchesText(p, q)).toList();   // título/teaser vêm do MySQL (fonte da verdade após edição)
+                .filter(p -> p.getStatus() == PostStatus.PUBLISHED).filter(p -> matchesText(p, q)).filter(p -> access.canSeePost(viewer, p)).toList();   // título/teaser vêm do MySQL (fonte da verdade após edição)
         String next = null;
         if (slice.hasNext() && slice.nextPageable() instanceof CassandraPageRequest n && n.getPagingState() != null) {
             ByteBuffer st = n.getPagingState(); byte[] b = new byte[st.remaining()]; st.duplicate().get(b);

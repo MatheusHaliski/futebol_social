@@ -32,10 +32,10 @@ public class TwinController {
     }
 
     @GetMapping("/{athleteId}/evolution")
-    public EvolutionDTO evolution(@PathVariable UUID athleteId) { return twinService.evolution(athleteId); }
+    public EvolutionDTO evolution(@AuthenticationPrincipal AuthPrincipal p, @PathVariable UUID athleteId) { return twinService.evolution(p, athleteId); }
 
     @GetMapping("/{athleteId}/dna")
-    public DnaDTO dna(@PathVariable UUID athleteId) { return twinService.dna(athleteId); }
+    public DnaDTO dna(@AuthenticationPrincipal AuthPrincipal p, @PathVariable UUID athleteId) { return twinService.dna(p, athleteId); }
 
     @GetMapping("/compare")
     public List<AthleteCardDTO> compare(@AuthenticationPrincipal AuthPrincipal p, @RequestParam String ids) {

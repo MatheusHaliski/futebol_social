@@ -13,11 +13,16 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Rate limit por IP e por usuário (janela fixa de 60 s em Redis). Login/registro têm cota própria.
  * Resposta 429 com {@code Retry-After}. Estáticos e health não contam.
+ * O IP do cliente é o endereço da conexão; {@code X-Forwarded-For} só vale quando a conexão vem de um proxy listado em
+ * {@code app.rate-limit.trusted-proxies} — senão qualquer cliente trocaria de IP (e de cota) a cada requisição.
  */
 @Component
 public class RateLimitFilter extends OncePerRequestFilter {
@@ -38,7 +43,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain) throws ServletException, IOException {
-        String ip = clientIp(req);
+        String ip = resolveClientIp(req, trusted());
+        req.setAttribute(CLIENT_IP_ATTR, ip);
         String path = req.getRequestURI();
         RateLimitService.Decision d;
         if (path.startsWith("/v1/auth/login") || path.startsWith("/v1/auth/register") || path.startsWith("/v1/me/step-up")) {
@@ -61,9 +67,30 @@ public class RateLimitFilter extends OncePerRequestFilter {
         chain.doFilter(req, res);
     }
 
+    static final String CLIENT_IP_ATTR = "fas.clientIp";
+
+    private Set<String> trusted() {
+        List<String> list = props.rateLimit().trustedProxies();
+        return list == null ? Set.of() : list.stream().map(String::trim).filter(s -> !s.isEmpty()).collect(Collectors.toUnmodifiableSet());
+    }
+
+    /** IP já resolvido pelo filtro (auditoria de aceite e de consentimento usa o mesmo valor que o rate limit). */
     public static String clientIp(HttpServletRequest req) {
+        Object resolved = req.getAttribute(CLIENT_IP_ATTR);
+        return resolved instanceof String s ? s : req.getRemoteAddr();
+    }
+
+    /** Conexão de proxy confiável: o cliente é o salto mais à direita do {@code X-Forwarded-For} que não é proxy confiável. */
+    static String resolveClientIp(HttpServletRequest req, Set<String> trustedProxies) {
+        String remote = req.getRemoteAddr();
+        if (!trustedProxies.contains(remote)) return remote;
         String xff = req.getHeader("X-Forwarded-For");
-        if (xff != null && !xff.isBlank()) return xff.split(",")[0].trim();
-        return req.getRemoteAddr();
+        if (xff == null || xff.isBlank()) return remote;
+        String[] hops = xff.split(",");
+        for (int i = hops.length - 1; i >= 0; i--) {
+            String hop = hops[i].trim();
+            if (!hop.isEmpty() && !trustedProxies.contains(hop)) return hop;
+        }
+        return remote;
     }
 }

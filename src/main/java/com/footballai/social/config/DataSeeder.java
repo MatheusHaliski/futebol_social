@@ -98,7 +98,7 @@ public class DataSeeder implements CommandLineRunner {
             Athlete at = base(new Athlete(), a.email(), a.user(), a.name(), hash, today.minusYears(a.age()).minusDays(40L * idx), a.state());
             at.setPosition(a.pos()); at.setDominantFoot(a.foot()); at.setHeightCm(a.height()); at.setCurrentClubId(a.club().getId()); at.setCurrentClubName(a.club().getDisplayName());
             at.setContractStatus(a.cs()); at.setCaptain(a.captain()); at.setVisibility(ProfileVisibility.PUBLICO); at.setCategoria(a.age() < 20 ? "SUB20" : "PROFISSIONAL");
-            if (a.age() < 18) at.setGuardianConsentAt(now);
+            if (a.age() < 18) at.setVisibility(ProfileVisibility.CONEXOES);   // menor sem consentimento do responsável: só conexões (ECA Digital)
             at = users.save(at);
             finishUser(at, now, a.medical());
             DigitalTwin twin = new DigitalTwin(at.getId()); twin.transitionTo(TwinStatus.ACTIVE, now); twin = twins.save(twin);
@@ -150,6 +150,9 @@ public class DataSeeder implements CommandLineRunner {
         notifications.save(new Notification(created.get(1).getId(), NotificationType.COMMENT, torcedor.getId(), "POST", null, "@" + torcedor.getUsername() + " comentou no seu card", "\"Que lance! Passe de calcanhar…\" · Hat-trick de passes decisivos na semifinal estadual", t0.minusSeconds(3600 * 20)));
         notifications.save(new Notification(created.get(1).getId(), NotificationType.TIER_CHANGE, null, "TWIN", null, "Seu Gêmeo Digital agora é MYTHIC", "Score_Total 2.480 · semana " + prevWeek, t0.minusSeconds(3600 * 30)));
         notifications.save(new Notification(created.get(0).getId(), NotificationType.LIKE, torcedor.getId(), "POST", null, "@" + torcedor.getUsername() + " curtiu seu card", "Sessão de sprints com 25 km/h sustentados hoje", t0.minusSeconds(3600 * 2)));
+        // boletim do departamento médico fala do goleiro lesionado (que compartilha dados de saúde): a visibilidade segue a regra dele
+        posts.findAllByAuthorId(medico.getId()).stream().filter(x -> x.getContentType() == PostContentType.LESAO_ALERTA)
+                .forEach(x -> { x.setSubjectAthleteId(gk.getId()); posts.save(x); });
         log.info("Seed concluído: {} usuários, {} posts, {} follows, {} comentários", users.count(), posts.count(), follows.count(), comments.count());
     }
 

@@ -15,6 +15,7 @@ imprensa e ligas. Java 17 · Spring Boot 3.3 · MySQL 8 · Redis 7 · Cassandra 
 | [`docs/diagrams/`](docs/diagrams/README.md) | PlantUML por RF (classes, atividades, estados, sequência, componentes) |
 | [`docs/preview/spa/`](docs/preview/spa) | Prints da SPA (desktop e mobile) |
 | [`docs/preview/spa/gallery/`](docs/preview/spa/gallery) | Galeria de aparência (tema claro/escuro, destaques, tons de barras, telas de fundo), estúdio de edição e fotografia |
+| [`docs/preview/spa/sprint0/`](docs/preview/spa/sprint0) | Sprint 0: estados honestos da SPA (sem acesso, não encontrado), Copilot sem consentimento, odds reais do FLAIR, boletim com atleta vinculado, menor com categoria |
 | [`docs/preview/spa/variacoes/`](docs/preview/spa/variacoes) | Variações de material, gradiente, fonte, densidade e contraste; 20 backgrounds de card (escuro, claro, contraste alto); arte × foto medida; foto do perfil |
 | [`docs/estudos/`](docs/estudos/ESTUDO_ABAS_2026-10.md) | Estudo por aba funcional, card design e interação social: defeitos P0/P1, melhorias e roadmap |
 | [`docs/research/`](docs/research) | Pesquisas: tipos de usuário, novas abas, FLAIR, Explorar |
@@ -44,6 +45,8 @@ SPA: <http://localhost:8080/> · health: <http://localhost:8080/actuator/health>
 | `S3_ENDPOINT` / `S3_ACCESS_KEY` / `S3_SECRET_KEY` | MinIO local | mídias (`fas-media`) e exportações LGPD (`fas-lgpd-exports`, 7 d) |
 | `S3_PUBLIC_ENDPOINT` | vazio (= `S3_ENDPOINT`; `http://localhost:9000` no perfil `docker`) | URL do storage que o **navegador** alcança: assina as URLs de fotografia/exportação e entra no CSP (`img-src`/`media-src`) |
 | `APP_JWT_SECRET` | *(dev)* | HS512 — use ≥ 64 bytes em produção |
+| `APP_TRUSTED_PROXIES` | vazio | IPs dos proxies reversos (vírgula). Só deles o `X-Forwarded-For` define o IP do cliente no rate limit; vazio = IP da conexão |
+| `SERVER_FORWARD_HEADERS_STRATEGY` | `none` | `native` só com `server.tomcat.remoteip.internal-proxies` restrito aos seus proxies (`framework` aceitaria `X-Forwarded-*` de qualquer cliente) |
 | `APP_CRYPTO_KEY` | *(dev)* | AES-256-GCM (base64 de 32 bytes) para PII em repouso |
 
 ## Arquitetura do código (`src/main/java/com/footballai/social`)

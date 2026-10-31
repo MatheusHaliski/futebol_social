@@ -37,20 +37,21 @@ public class PerformanceService {
     private final BadgeAwardService badges;
     private final PostRepository posts;
     private final ObjectProvider<TelemetryDataRepository> telemetry;
+    private final AccessPolicy access;
     private final Clock clock;
 
     @org.springframework.beans.factory.annotation.Autowired
     public PerformanceService(TrainingSummaryRepository training, TechnicalEvaluationRepository evaluations, MatchPerformanceRepository matches, InjuryRecordRepository injuries,
                               DigitalTwinRepository twins, UserLgpdPreferencesRepository prefs, UserService users, BadgeAwardService badges, PostRepository posts,
-                              ObjectProvider<TelemetryDataRepository> telemetry) {
-        this(training, evaluations, matches, injuries, twins, prefs, users, badges, posts, telemetry, Clock.systemUTC());
+                              ObjectProvider<TelemetryDataRepository> telemetry, AccessPolicy access) {
+        this(training, evaluations, matches, injuries, twins, prefs, users, badges, posts, telemetry, access, Clock.systemUTC());
     }
 
     PerformanceService(TrainingSummaryRepository training, TechnicalEvaluationRepository evaluations, MatchPerformanceRepository matches, InjuryRecordRepository injuries,
                        DigitalTwinRepository twins, UserLgpdPreferencesRepository prefs, UserService users, BadgeAwardService badges, PostRepository posts,
-                       ObjectProvider<TelemetryDataRepository> telemetry, Clock clock) {
+                       ObjectProvider<TelemetryDataRepository> telemetry, AccessPolicy access, Clock clock) {
         this.training = training; this.evaluations = evaluations; this.matches = matches; this.injuries = injuries; this.twins = twins; this.prefs = prefs;
-        this.users = users; this.badges = badges; this.posts = posts; this.telemetry = telemetry; this.clock = clock;
+        this.users = users; this.badges = badges; this.posts = posts; this.telemetry = telemetry; this.access = access; this.clock = clock;
     }
 
     /* ---------------- telemetria (30 %) ---------------- */
@@ -191,7 +192,7 @@ public class PerformanceService {
             post.setAuthorId(p.userId()); post.setAuthorRole(who.getRole()); post.setContentType(PostContentType.LESAO_ALERTA); post.setWindow(FeedWindow.ALERTA);
             post.setTitle("Atualização médica: afastamento com retorno previsto em " + (r.expectedReturnDate() == null ? "data a definir" : r.expectedReturnDate()));
             post.setSubtitle("Departamento médico confirma diagnóstico e prazo de retorno."); post.setSeverity(AlertSeverity.ALTA); post.setAlertType(AlertType.LESAO);
-            post.setPublishedAt(clock.instant()); post.setStateCode(who.getStateCode());
+            post.setPublishedAt(clock.instant()); post.setStateCode(who.getStateCode()); post.setSubjectAthleteId(athleteId);   // o boletim segue a regra de saúde deste atleta
             posts.save(post);
         }
         return toDto(i);
@@ -216,11 +217,7 @@ public class PerformanceService {
 
     /* ---------------- util ---------------- */
 
-    boolean canSeeMedical(AuthPrincipal viewer, UUID athleteId) {
-        if (viewer.userId().equals(athleteId)) return true;
-        if (viewer.role() == UserRole.STAFF_SAUDE && users.require(viewer.userId()) instanceof HealthStaff hs && hs.canOriginateInjuryRecord()) return true; // só staff de saúde VERIFICADO/HOMOLOGADO (Art. 11, II); cadastro COMUNIDADE não basta
-        return prefs.findById(athleteId).map(UserLgpdPreferences::isShareMedicalData).orElse(false);
-    }
+    boolean canSeeMedical(AuthPrincipal viewer, UUID athleteId) { return access.canSeeMedical(viewer, athleteId); }   // regra única (AccessPolicy)
 
     private void requireAthlete(AuthPrincipal p) { if (p.role() != UserRole.ATLETA) throw ApiException.forbidden("ATHLETE_ONLY", "Só atletas registram telemetria"); }
 

@@ -16,6 +16,27 @@ class FlairServiceTest {
     }
 
     @Test
+    void displayedOddsAreTheRealOnesWhenTiersAreMissingFromThePool() {
+        // pool com COMMON, RARE e EPIC só: LEGENDARY e MYTHIC saem do sorteio e os outros sobem na proporção (55:25:12)
+        var weights = FlairService.effectiveWeights(java.util.EnumSet.of(RarityTier.COMMON, RarityTier.RARE, RarityTier.EPIC));
+        var labels = FlairService.oddsLabels(weights);
+        assertThat(labels).containsEntry("COMMON", "59,8%").containsEntry("RARE", "27,2%").containsEntry("EPIC", "13%")
+                .containsEntry("LEGENDARY", "0%").containsEntry("MYTHIC", "0%");
+        int total = weights.values().stream().mapToInt(Integer::intValue).sum();
+        assertThat(total).isEqualTo(92);
+        var counts = new java.util.EnumMap<RarityTier, Integer>(RarityTier.class);
+        for (int roll = 0; roll < total; roll++) counts.merge(FlairService.drawTier(roll, weights), 1, Integer::sum);
+        assertThat(counts).containsOnlyKeys(RarityTier.COMMON, RarityTier.RARE, RarityTier.EPIC)   // tier ausente nunca sai
+                .containsEntry(RarityTier.COMMON, 55).containsEntry(RarityTier.RARE, 25).containsEntry(RarityTier.EPIC, 12);
+        // pool completo: as odds nominais
+        assertThat(FlairService.oddsLabels(FlairService.effectiveWeights(java.util.EnumSet.allOf(RarityTier.class))))
+                .containsEntry("COMMON", "55%").containsEntry("MYTHIC", "2%");
+        // só LEGENDARY e MYTHIC (o caso do estudo): 75% / 25%, nunca o pool inteiro escondido atrás de 55/25/12/6/2
+        assertThat(FlairService.oddsLabels(FlairService.effectiveWeights(java.util.EnumSet.of(RarityTier.LEGENDARY, RarityTier.MYTHIC))))
+                .containsEntry("LEGENDARY", "75%").containsEntry("MYTHIC", "25%").containsEntry("COMMON", "0%");
+    }
+
+    @Test
     void oddsSumToHundredAndDrawFollowsBands() {
         assertThat(FlairService.ODDS.values().stream().mapToInt(Integer::intValue).sum()).isEqualTo(100);
         assertThat(FlairService.drawTier(0)).isEqualTo(RarityTier.COMMON);
