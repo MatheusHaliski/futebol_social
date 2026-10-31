@@ -109,10 +109,12 @@ public class AccessPolicy {
         Set<UUID> connections = viewer == null ? Set.of() : new HashSet<>(follows.findConnectionIds(viewer.userId()));
         LocalDate adultBorn = LocalDate.now(clock).minusYears(18);
         return (root, cq, cb) -> {
-            if (staff) return cb.conjunction();
             Predicate notInjury = cb.notEqual(root.get("contentType"), PostContentType.LESAO_ALERTA);
             if (viewer == null) return notInjury;
             var subject = root.<UUID>get("subjectAthleteId");
+            Predicate own = cb.or(cb.equal(root.get("authorId"), viewer.userId()), cb.equal(subject, viewer.userId()));
+            // staff de saúde verificado lê boletins com atleta vinculado; sem sujeito, só o autor (igual a canSeePost)
+            if (staff) return cb.or(notInjury, own, cb.isNotNull(subject));
             Subquery<UUID> sharing = cq.subquery(UUID.class);
             var pr = sharing.from(UserLgpdPreferences.class);
             sharing.select(pr.get("userId")).where(cb.isTrue(pr.get("shareMedicalData")));
@@ -128,8 +130,7 @@ public class AccessPolicy {
                         c.get("visibility").in(List.of(ProfileVisibility.PUBLICO, ProfileVisibility.CONEXOES)));
                 profileVisible = cb.or(profileVisible, cb.in(subject).value(conn));
             }
-            return cb.or(notInjury, cb.equal(root.get("authorId"), viewer.userId()), cb.equal(subject, viewer.userId()),
-                    cb.and(cb.in(subject).value(sharing), profileVisible));
+            return cb.or(notInjury, own, cb.and(cb.in(subject).value(sharing), profileVisible));
         };
     }
 }
