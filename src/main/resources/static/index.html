@@ -92,6 +92,7 @@
     <g id="g-momentos"><path d="M20 21 H44 V45 H20 Z M29 28 L38 33 L29 38 Z"/></g>
     <g id="g-flair"><path d="M26 24 H38 V46 H26 Z M22 28 L18 44 L28 47 M42 28 L46 44 L36 47"/></g>
     <g id="g-rankings"><path d="M24 20 H40 V28 C40 34 36 37 32 37 C28 37 24 34 24 28 Z M24 23 H19 C19 29 21 31 24 31 M40 23 H45 C45 29 43 31 40 31 M32 37 V42 M26 46 H38 M28 42 H36 V46"/></g>
+    <g id="g-vitrine"><path d="M18 21 H46 V40 H18 Z M32 25 L34 30 L39 31 L34 33 L32 38 L30 33 L25 31 L30 30 Z M32 40 V46 M24 46 H40"/></g>
     <g id="g-cupons"><path d="M19 26 H45 V32 C42 32 42 36 45 36 V42 H19 V36 C22 36 22 32 19 32 Z M29 27 V30 M29 33 V36 M29 39 V41"/></g>
     <g id="g-pontos"><circle cx="32" cy="33" r="13"/><path d="M26 27 L32 40 L38 27"/></g>
     <g id="g-clube"><path d="M18 30 C18 24 46 24 46 30 V40 C46 46 18 46 18 40 Z M18 30 C18 36 46 36 46 30 M26 33 V43 M32 34 V44 M38 33 V43"/></g>
@@ -136,6 +137,7 @@
   <symbol id="ic-momentos" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-momentos" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-momentos" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
   <symbol id="ic-flair" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-flair" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-flair" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
   <symbol id="ic-rankings" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-rankings" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-rankings" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+  <symbol id="ic-vitrine" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-vitrine" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-vitrine" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
   <symbol id="ic-cupons" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-cupons" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-cupons" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
   <symbol id="ic-pontos" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-pontos" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-pontos" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
   <symbol id="ic-clube" viewBox="0 0 64 64"><use href="#frame"/><g filter="url(#emboss)"><use href="#g-clube" fill="none" stroke="#F5E69C" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/><use href="#g-clube" fill="none" stroke="#15151A" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
@@ -212,6 +214,7 @@
 <nav class="sidebar" id="sidebar" aria-label="Navegação principal">
   <section><h4>Descobrir</h4>
     <a href="#/perfil" data-nav="perfil/feed"><svg class="ic"><use href="#ic-feed"/></svg>Feed</a>
+    <a href="#/vitrine" data-nav="vitrine"><svg class="ic"><use href="#ic-vitrine"/></svg>Vitrine do Jogador</a>
     <a href="#/buscar" data-nav="buscar"><svg class="ic"><use href="#ic-buscar"/></svg>Buscar</a>
     <a href="#/perfil/explorar" data-nav="perfil/explorar"><svg class="ic"><use href="#ic-explorar"/></svg>Explorar (globo)</a>
     <a href="#/perfil/explorar?view=ligas" data-nav="perfil/explorar"><svg class="ic"><use href="#ic-clubes"/></svg>Clubes &amp; Ligas</a>
@@ -543,6 +546,48 @@
         <div class="deck-side"><h4 id="deckOpName">&lt;PREENCHER_OPONENTE&gt;</h4><div class="deck" id="deckOp"></div></div>
       </div>
       <p class="hint legal">Sem dinheiro real · pacotes gratuitos com probabilidades visíveis (ECA Digital art. 20) · cards usam só stats consentidas; status médico nunca aparece (LGPD art. 11) · limite diário de partidas.</p>
+    </div>
+  </section>
+
+  <!-- ========== VITRINE DO JOGADOR · painel dinâmico + Copilot "por que contratar?" ========== -->
+  <section class="window" data-window="vitrine" id="win-vitrine" hidden>
+    <header class="win-head">
+      <h2><span class="secnum">VITRINE</span> Vitrine do Jogador <small>histórico · atributos do momento · por que contratar</small></h2>
+      <label class="vt-pick"><span>Atleta</span><select id="vtAthlete" aria-label="Escolher o atleta da vitrine"></select></label>
+      <span class="live-chip" id="vtLive" role="status" aria-live="polite"><i></i><b>AO VIVO</b><small id="vtUpdated"></small></span>
+    </header>
+    <div class="vitrine" id="vitrineBody">
+      <aside class="vt-side" id="vtCard"></aside>
+      <div class="vt-main">
+        <section class="panel">
+          <div class="panel-head"><h3>Histórico</h3>
+            <div class="seg-mini" id="vtScope" role="group" aria-label="Período do histórico"><button type="button" class="active" data-scope="career">Carreira</button><button type="button" data-scope="season">Temporada</button><button type="button" data-scope="recent">Últimas 5</button></div></div>
+          <div class="vt-kpis" id="vtKpis"></div>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><h3>Atributos no momento</h3><small class="mono" id="vtAttrMeta"></small></div>
+          <ul class="vt-attrs" id="vtAttrs"></ul>
+          <p class="hint">Barra = valor do momento; traço = scouting da semana. O ajuste de forma (±5) compara as últimas 5 partidas com as anteriores, só onde a súmula mede: passe, drible, chute e desarme.</p>
+        </section>
+        <section class="panel vt-form">
+          <div class="panel-head"><h3>Forma recente</h3><span class="vt-trend" id="vtFormLabel"></span></div>
+          <svg id="vtFormChart" viewBox="0 0 320 96" class="chart" role="img" aria-label="Notas das últimas partidas"></svg>
+          <small class="mono" id="vtFormMeta"></small>
+        </section>
+        <section class="panel vt-copilot" id="vtCopilot">
+          <div class="panel-head"><h3><svg class="ic" aria-hidden="true"><use href="#ic-copilot"/></svg>Copilot · Por que contratar este jogador?</h3>
+            <button class="btn primary" id="vtAsk" type="button">Perguntar ao Copilot</button></div>
+          <div id="vtPitch"></div>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><h3>Por temporada</h3></div>
+          <div class="vt-table-wrap"><table class="ranking vt-table" id="vtSeasons"></table></div>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><h3>Últimas partidas</h3><small class="mono">✓ súmula oficial · ✎ autorrelato</small></div>
+          <div class="vt-table-wrap"><table class="ranking vt-table" id="vtMatches"></table></div>
+        </section>
+      </div>
     </div>
   </section>
 

@@ -167,9 +167,23 @@ public class PerformanceService {
         m.setAthleteId(athleteId); m.setMatchDate(r.matchDate()); m.setCompetition(r.competition()); m.setOfficial(official); m.setMinutesPlayed(r.minutesPlayed());
         m.setRating(r.rating()); m.setGoals(r.goals()); m.setAssists(r.assists()); m.setCleanSheet(r.cleanSheet()); m.setTackles(r.tackles());
         m.setYellowCards(r.yellowCards()); m.setRedCards(r.redCards()); m.setMvp(r.mvp()); m.setSeason(IsoWeeks.season(r.matchDate()));
+        int[] passes = completedAttempted(r.passesCompleted(), r.passesAttempted(), "passes");
+        int[] dribbles = completedAttempted(r.dribblesCompleted(), r.dribblesAttempted(), "dribles");
+        m.setPassesCompleted(passes[0]); m.setPassesAttempted(passes[1]); m.setDribblesCompleted(dribbles[0]); m.setDribblesAttempted(dribbles[1]);
         m = matches.save(m);
         badges.onWeeklyScore(athleteId, IsoWeeks.of(r.matchDate()));
         return m;
+    }
+
+    /**
+     * Passes/dribles da súmula: "certos" nunca passam de "tentados". Só "certos" informado conta como tentativa certa
+     * (tentados = certos); nenhum dos dois = 0/0 (sem dado — a Vitrine não calcula aproveitamento).
+     */
+    static int[] completedAttempted(Integer completed, Integer attempted, String what) {
+        int c = completed == null ? 0 : completed, a = attempted == null ? c : attempted;
+        if (c < 0 || a < 0) throw ApiException.badRequest("MATCH_INVALID", "Valores de " + what + " não podem ser negativos");
+        if (c > a) throw ApiException.badRequest("MATCH_INVALID", Character.toUpperCase(what.charAt(0)) + what.substring(1) + " certos (" + c + ") não podem passar dos tentados (" + a + ")");
+        return new int[]{c, a};
     }
 
     /* ---------------- lesões (sensível) ---------------- */

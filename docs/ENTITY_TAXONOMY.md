@@ -177,7 +177,7 @@ Access JWT (HS512) — claims: `sub` (userId), `role`, `sid`, `jti`, `iat`, `exp
 
 ### 3.4 `MatchPerformance` · `match_performances`
 
-`id`, `athleteId`, `matchId`, `matchDate`, `competition`, `official` boolean, `minutesPlayed` 0–120, `rating` Decimal(4,2), `goals`, `assists`, `cleanSheet`, `tackles`, `yellowCards`, `redCards`, `mvp` boolean. LGPD: P.
+`id`, `athleteId`, `matchId`, `matchDate`, `competition`, `official` boolean, `minutesPlayed` 0–120, `rating` Decimal(4,2), `goals`, `assists`, `passesCompleted` ≤ `passesAttempted`, `dribblesCompleted` ≤ `dribblesAttempted` (V7 · Vitrine do Jogador; 0/0 = sem registro), `cleanSheet`, `tackles`, `yellowCards`, `redCards`, `mvp` boolean. LGPD: P.
 
 ---
 

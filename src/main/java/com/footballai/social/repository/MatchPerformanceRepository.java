@@ -11,4 +11,5 @@ public interface MatchPerformanceRepository extends JpaRepository<MatchPerforman
     List<MatchPerformance> findAllByAthleteIdAndMatchDateBetween(UUID athleteId, LocalDate from, LocalDate to);
     List<MatchPerformance> findAllByAthleteIdAndSeasonOrderByMatchDateAsc(UUID athleteId, String season);
     List<MatchPerformance> findAllByAthleteId(UUID athleteId);
+    List<MatchPerformance> findAllByAthleteIdOrderByMatchDateAsc(UUID athleteId);
 }
