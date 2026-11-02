@@ -24,7 +24,9 @@ public final class PerformanceDtos {
 
     public record MatchRequest(UUID athleteId, @NotNull LocalDate matchDate, @Size(max = 80) String competition, boolean official, @Min(0) @Max(120) int minutesPlayed,
                                @DecimalMin("0") @DecimalMax("10") BigDecimal rating, @Min(0) int goals, @Min(0) int assists, boolean cleanSheet, @Min(0) int tackles,
-                               @Min(0) @Max(2) int yellowCards, @Min(0) @Max(1) int redCards, boolean mvp) { }
+                               @Min(0) @Max(2) int yellowCards, @Min(0) @Max(1) int redCards, boolean mvp,
+                               @Min(0) @Max(300) Integer passesCompleted, @Min(0) @Max(300) Integer passesAttempted,
+                               @Min(0) @Max(100) Integer dribblesCompleted, @Min(0) @Max(100) Integer dribblesAttempted) { }
 
     public record InjuryRequest(UUID athleteId, @NotBlank @Size(max = 120) String injuryType, @Size(max = 40) String bodyPart, @NotNull @Pattern(regexp = "LEVE|MODERADA|GRAVE") String severity,
                                 LocalDate startedAt, LocalDate expectedReturnDate, @Size(max = 1000) String notes, boolean publishAlert) { }

@@ -201,8 +201,10 @@ public class DataSeeder implements CommandLineRunner {
             ts.setReadiness(idx == 3 ? 52 : 70 + (w + idx) % 25); training.save(ts);
             ScoutingAttribute sa = new ScoutingAttribute(); sa.setAthleteId(at.getId()); sa.setIsoWeek(IsoWeeks.of(d));
             int b = 50 + target / 60;
-            sa.setVelocidade(BigDecimal.valueOf(Math.min(99, b + 12))); sa.setPasse(BigDecimal.valueOf(Math.min(99, b + 8))); sa.setFinalizacao(BigDecimal.valueOf(Math.min(99, b + (at.getPosition() == Position.ATACANTE ? 15 : 0))));
-            sa.setDrible(BigDecimal.valueOf(Math.min(99, b + 5))); sa.setDesarme(BigDecimal.valueOf(Math.min(99, b + (at.getPosition() == Position.ZAGUEIRO ? 20 : -10)))); sa.setPosicionamento(BigDecimal.valueOf(Math.min(99, b + 3))); sa.setResistencia(BigDecimal.valueOf(Math.min(99, b + 6)));
+            // a semana mais recente (w = 0) mantém os valores-alvo; as anteriores ficam um pouco abaixo (o zagueiro em fadiga perde velocidade): tendência na Vitrine
+            int v = idx == 3 ? -lag(w, 3) : lag(w, 3), up = lag(w, 2), slow = lag(w, 1);
+            sa.setVelocidade(attr(b + 12 - v)); sa.setPasse(attr(b + 8 - up)); sa.setFinalizacao(attr(b + (at.getPosition() == Position.ATACANTE ? 15 : 0) - lag(w, idx % 2 == 0 ? 3 : 1)));
+            sa.setDrible(attr(b + 5 - up)); sa.setDesarme(attr(b + (at.getPosition() == Position.ZAGUEIRO ? 20 : -10) - slow)); sa.setPosicionamento(attr(b + 3 - slow)); sa.setResistencia(attr(b + 6 - slow));
             scouting.save(sa);
         }
         twins.save(twin);
@@ -213,11 +215,21 @@ public class DataSeeder implements CommandLineRunner {
             m.setGoals(at.getPosition() == Position.ATACANTE ? (g % 2) : at.getPosition() == Position.MEIA ? (g % 3 == 0 ? 1 : 0) : 0);
             m.setAssists(at.getPosition() == Position.MEIA || at.getPosition() == Position.LATERAL ? (g % 3 == 1 ? 1 : 0) : 0);
             m.setCleanSheet(at.getPosition() == Position.GOLEIRO && g % 4 == 0); m.setTackles(at.getPosition() == Position.ZAGUEIRO ? 3 : 1);
+            // passes e dribles da súmula (Vitrine): meias passam mais; pontas, atacantes e meias driblam mais; goleiro não dribla
+            boolean creator = at.getPosition() == Position.MEIA, dribbler = creator || at.getPosition() == Position.ATACANTE || at.getPosition() == Position.PONTA;
+            int passes = (at.getPosition() == Position.GOLEIRO ? 22 : creator ? 48 : 32) + (g * 7 + idx * 5) % 18;
+            m.setPassesAttempted(passes); m.setPassesCompleted(passes * (74 + (g * 5 + idx * 3) % 18) / 100);
+            int dribbles = at.getPosition() == Position.GOLEIRO ? 0 : dribbler ? 3 + g % 4 : 1 + g % 2;
+            m.setDribblesAttempted(dribbles); m.setDribblesCompleted(dribbles * (48 + (g * 9 + idx * 7) % 30) / 100);
             m.setYellowCards(g % 7 == 0 ? 1 : 0); m.setMvp(idx == 2 && g % 4 == 0); matches.save(m);
         }
         TechnicalEvaluation e = new TechnicalEvaluation(); e.setAthleteId(at.getId()); e.setEvaluatorId(twin.getId()); e.setEvaluatorRole(UserRole.STAFF);
         e.setRating(new BigDecimal(Math.min(9.5, 5.5 + target / 700.0)).setScale(2, java.math.RoundingMode.HALF_EVEN)); e.setWeight(BigDecimal.ONE); e.setDimension(MetricType.TECNICA); e.setWeekOf(today.minusWeeks(1)); evaluations.save(e);
     }
+
+    /** Atraso do atributo {@code w} semanas atrás: 0 na semana atual, cresce ~{@code step}/4 por semana. */
+    private static int lag(int w, int step) { return (w * step + 3) / 4; }
+    private static BigDecimal attr(int v) { return BigDecimal.valueOf(Math.max(0, Math.min(99, v))); }
 
     private void post(User author, PostContentType type, FeedWindow window, String title, String subtitle, AlertSeverity sev, AlertType at, int likes, int comments, int shares,
                       CardArt art, Instant publishedAt) {

@@ -17,6 +17,7 @@ imprensa e ligas. Java 17 · Spring Boot 3.3 · MySQL 8 · Redis 7 · Cassandra 
 | [`docs/preview/spa/gallery/`](docs/preview/spa/gallery) | Galeria de aparência (tema claro/escuro, destaques, tons de barras, telas de fundo), estúdio de edição e fotografia |
 | [`docs/preview/spa/sprint0/`](docs/preview/spa/sprint0) | Sprint 0: estados honestos da SPA (sem acesso, não encontrado), Copilot sem consentimento, odds reais do FLAIR, boletim com atleta vinculado, menor com categoria |
 | [`docs/preview/spa/variacoes/`](docs/preview/spa/variacoes) | Variações de material, gradiente, fonte, densidade e contraste; 20 backgrounds de card (escuro, claro, contraste alto); arte × foto medida; foto do perfil |
+| [`docs/VITRINE.md`](docs/VITRINE.md) | Aba Vitrine do Jogador: painel dinâmico (histórico, atributos do momento, forma) e Copilot "por que contratar?" · prints em [`docs/preview/spa/vitrine/`](docs/preview/spa/vitrine) |
 | [`docs/estudos/`](docs/estudos/ESTUDO_ABAS_2026-10.md) | Estudo por aba funcional, card design e interação social: defeitos P0/P1, melhorias e roadmap |
 | [`docs/research/`](docs/research) | Pesquisas: tipos de usuário, novas abas, FLAIR, Explorar |
 
@@ -59,8 +60,9 @@ model/       enums com tokens visuais (UserRole.ringColor, PostContentType.borde
              AthleteBadge, InjuryRecord, Post, UserLgpdPreferences, ConsentAuditLog, DataExportRequest…) · Cassandra (FeedEntry, TelemetryData)
 repository/  Spring Data JPA (+ Specification) e Cassandra (repository/cassandra)
 service/     AuthService, JwtTokenService, RedisSessionService, RateLimitService, RarityEngineService (@Scheduled),
-             BadgeAwardService, FeedWindowService (+ FeedQuery), PostService, CardAssembler, LgpdService, StorageService
-controller/  AuthController, UserController, FeedWindowController, PostController, LgpdController, GlobalExceptionHandler, dto/
+             BadgeAwardService, FeedWindowService (+ FeedQuery), PostService, CardAssembler, LgpdService, StorageService,
+             VitrineService (Vitrine do Jogador + Copilot "por que contratar?")
+controller/  AuthController, UserController, VitrineController, FeedWindowController, PostController, LgpdController, GlobalExceptionHandler, dto/
 ```
 
 ### Endpoints principais
@@ -74,6 +76,7 @@ controller/  AuthController, UserController, FeedWindowController, PostControlle
 | `POST` | `/v1/posts` · `/{id}/like` · `/{id}/save` · `/{id}/share` — `GET /v1/posts/{id}` (PostView) | RF3 |
 | `GET` | `/v1/me` · `PATCH /v1/me` · `/v1/athletes/{id}/card` · `/v1/athletes/{id}/badges/{type}/history` | RF4/RF4.1 |
 | `POST` | `/v1/telemetry` · `PUT /v1/telemetry/plan` · `/v1/evaluations` · `/v1/matches/performances` · `/v1/injuries` · `/v1/injuries/{id}/clear` — `GET /v1/twins/{id}/evolution\|dna\|load` · `/v1/twins/compare?ids=` · `/v1/twins/me` | RF4 |
+| `GET`/`POST` | `/v1/athletes/{id}/vitrine` (painel dinâmico: `revision` + `refreshSeconds`) · `POST /v1/athletes/{id}/vitrine/copilot` ("Por que contratar este jogador?") | Vitrine |
 | `GET` | `/v1/rankings/athletes` · `/v1/rankings/clubs` · `/v1/clubs` (globo Explorar) — `POST /v1/admin/rarity/recalculate` (OFICIAL_LIGA) | RF3/RF4 |
 | `POST` | `/v1/copilot/suggest` · `GET /v1/autopilot/drafts` · `GET /v1/cards/art-options` · `GET /v1/posts/mine` · `POST /v1/posts/{id}/publish` · `POST /v1/media` (fotografia do card, multipart) | RF3 |
 | `PATCH` | `/v1/posts/{id}` (estúdio de edição, só o autor) · `GET /v1/ui/appearance-options` · `PATCH /v1/me` com `uiAccent`, `uiSurface`, `wallpaper`, `wallpaperKey`, `uiMaterial`, `uiGradient`, `uiFont`, `uiDensity`, `uiContrast`, `avatarKey` | RF3 |
@@ -117,7 +120,7 @@ A SPA em <http://localhost:8080/> abre o modal de login; sem API alcançável (o
 ## Testes
 
 ```bash
-mvn -q verify     # testes unitários: Rarity Engine, tiers, máquina de estados, badges, regras de post, filtros, JWT, cripto, LGPD, FLAIR, telemetria, Copilot
+mvn -q verify     # testes unitários: Rarity Engine, tiers, máquina de estados, badges, regras de post, filtros, JWT, cripto, LGPD, FLAIR, telemetria, Copilot, Vitrine
 ```
 
 Os testes não exigem banco. Testes de integração com Testcontainers (MySQL/Redis/Cassandra) são o próximo passo.
@@ -136,3 +139,4 @@ python scripts/enrichment_agent.py --in seed.json --out enriched.json # badges, 
 `src/main/resources/static/` — `index.html`, `styles.css`, `app.js`, `icons.svg` (mini-brasões derivados do logo oficial) e `brand/`.
 SPA ligada à API (JWT + refresh automático, fallback demo): 4 janelas com painel de filtros, cards `.pcard`/`.vcard`, criador de cards em
 4 etapas (modo → conteúdo → arte → revisar), Copilot/Autopilot, FLAIR, rankings, globo, evolução/carga/DNA e Central LGPD.
+Aba **Vitrine do Jogador** (`#/vitrine`): histórico, atributos do momento e forma atualizados a cada 30 s, e o Copilot "Por que contratar este jogador?" ([`docs/VITRINE.md`](docs/VITRINE.md)).

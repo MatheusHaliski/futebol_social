@@ -6,7 +6,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
-/** Desempenho em partida (30 % do Rarity) e fonte das estatísticas da temporada do card. */
+/** Desempenho em partida (30 % do Rarity), fonte das estatísticas da temporada do card e do histórico da Vitrine (passes e dribles certos). */
 @Entity
 @Table(name = "match_performances")
 public class MatchPerformance {
@@ -20,6 +20,10 @@ public class MatchPerformance {
     @Column(precision = 4, scale = 2) private BigDecimal rating;
     @Column(nullable = false) private int goals;
     @Column(nullable = false) private int assists;
+    @Column(name = "passes_completed", nullable = false) private int passesCompleted;
+    @Column(name = "passes_attempted", nullable = false) private int passesAttempted;
+    @Column(name = "dribbles_completed", nullable = false) private int dribblesCompleted;
+    @Column(name = "dribbles_attempted", nullable = false) private int dribblesAttempted;
     @Column(name = "clean_sheet", nullable = false) private boolean cleanSheet;
     @Column(nullable = false) private int tackles;
     @Column(name = "yellow_cards", nullable = false) private int yellowCards;
@@ -46,6 +50,14 @@ public class MatchPerformance {
     public void setGoals(int goals) { this.goals = goals; }
     public int getAssists() { return assists; }
     public void setAssists(int assists) { this.assists = assists; }
+    public int getPassesCompleted() { return passesCompleted; }
+    public void setPassesCompleted(int passesCompleted) { this.passesCompleted = passesCompleted; }
+    public int getPassesAttempted() { return passesAttempted; }
+    public void setPassesAttempted(int passesAttempted) { this.passesAttempted = passesAttempted; }
+    public int getDribblesCompleted() { return dribblesCompleted; }
+    public void setDribblesCompleted(int dribblesCompleted) { this.dribblesCompleted = dribblesCompleted; }
+    public int getDribblesAttempted() { return dribblesAttempted; }
+    public void setDribblesAttempted(int dribblesAttempted) { this.dribblesAttempted = dribblesAttempted; }
     public boolean isCleanSheet() { return cleanSheet; }
     public void setCleanSheet(boolean cleanSheet) { this.cleanSheet = cleanSheet; }
     public int getTackles() { return tackles; }

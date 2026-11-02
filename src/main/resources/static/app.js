@@ -246,6 +246,7 @@
         <button class="act" data-act="comment"><span class="i">💬</span>Comentar<b>${fmt(a.comments)}</b></button>
         <button class="act" data-act="share"><span class="i">↗</span>Compartilhar<b>${fmt(a.shares)}</b></button>
         ${API.user && API.user.id !== a.id ? `<button class="act follow${a.following ? ' on' : ''}" data-act="follow" data-user="${esc(a.id)}"><span class="i">${a.following ? '✓' : '＋'}</span>${a.following ? 'Seguindo' : 'Seguir'}</button>` : ''}
+        ${a.role === 'ATLETA' && opts.vitrine !== false ? `<a class="act go" href="#/vitrine?athleteId=${esc(a.id)}">Vitrine →</a>` : ''}
         <a class="act go" href="#/gemeo/evolucao?athleteId=${esc(a.id)}">Gêmeo →</a>
       </div>`;
     const sens = a.phys && a.phys.status === 'INJURED';
@@ -276,6 +277,7 @@
   }
   function route() {
     const { win, sub, params } = parseHash(); state.params = params;
+    if (win !== 'vitrine') stopVitrine();                        // painel dinâmico só consulta a API com a aba aberta
     $$('.window').forEach(w => w.hidden = true); $('#sidebar').classList.remove('open');
     if (WINDOWS.includes(win)) {
       state.win = win; state.sub[win] = sub || DEFAULT_SUB[win];
@@ -285,6 +287,7 @@
       $(`#win-${win} .win-body`).classList.toggle('no-filters', !FILTERED_SUBS.includes(state.sub[win]));
       applyParamsToForm(win, params); updatePreview(win); renderSub(win, state.sub[win]);
     } else if (win === 'flair') { $('#win-flair').hidden = false; renderFlair(params); }
+    else if (win === 'vitrine') { $('#win-vitrine').hidden = false; renderVitrine(params); }
     else if (win === 'novo') { openComposer(params.copilot === '1'); location.hash = '#/perfil'; return; }
     else if (win === 'configuracoes') { $('#win-perfil').hidden = false; openLgpd(); }
     else { $('#win-misc').hidden = false; renderMisc(win, sub, params); }
@@ -436,11 +439,11 @@
   /* ---------- ranking ---------- */
   async function renderRanking(kind) {
     const rows = await tryApi(async () => kind === 'atletas'
-        ? (await API.call('/v1/rankings/athletes?limit=20')).map((r, i) => ({ i, n:r.handle, ini:ini(r.name), r:'atleta', meta:`${r.positionLabel || '—'} · ${r.age ?? '—'} · ${r.club || '—'}`, score:r.scoreTotal, tier:r.tier, d:r.delta }))
+        ? (await API.call('/v1/rankings/athletes?limit=20')).map((r, i) => ({ i, n:r.handle, ini:ini(r.name), r:'atleta', href:'#/vitrine?athleteId=' + encodeURIComponent(r.athleteId), meta:`${r.positionLabel || '—'} · ${r.age ?? '—'} · ${r.club || '—'}`, score:r.scoreTotal, tier:r.tier, d:r.delta }))
         : (await API.call('/v1/rankings/clubs')).map((c, i) => ({ i, n:c.name, ini:'C' + (i + 1), r:'clube', meta:`${c.country} · Divisão ${c.division ?? '—'} · ${c.athletes} atletas`, score:c.avgScore, tier:c.avgTier, d:0 })),
-      () => kind === 'atletas' ? [...athletes].sort((a, b) => b.score - a.score).map((a, i) => ({ i, n:a.handle, ini:a.ini, r:'atleta', meta:`${a.pos} · ${a.age} · ${a.club}`, score:a.score, tier:a.tier, d:[+2,0,-1,+1,0][i] }))
+      () => kind === 'atletas' ? [...athletes].sort((a, b) => b.score - a.score).map((a, i) => ({ i, n:a.handle, ini:a.ini, r:'atleta', href:'#/vitrine?athleteId=' + a.id, meta:`${a.pos} · ${a.age} · ${a.club}`, score:a.score, tier:a.tier, d:[+2,0,-1,+1,0][i] }))
         : clubs.slice(0, 6).map((c, i) => ({ i, n:c.n, ini:'C' + (i + 1), r:'clube', meta:`${c.c} · Divisão ${c.d}`, score:[2310,1980,1650,1210,880,420][i], tier:c.tier, d:[0,+1,-1,+2,0,-2][i] })));
-    $('#rankingTable').innerHTML = `<tr><th>#</th><th>${kind === 'atletas' ? 'Jogador' : 'Clube'}</th><th>Tier</th><th>Score_Total</th><th>Δ</th></tr>` + rows.map(r => `<tr><td class="pos">${r.i + 1}</td><td><div class="who"><span class="avatar" data-initials="${r.ini}"><i class="dot dc-${r.r}"></i></span><div><b>${esc(r.n)}</b><br><small>${esc(r.meta)}</small></div></div></td><td>${chip(r.tier)}</td><td><b class="mono">${fmt(r.score)}</b></td><td class="delta ${r.d > 0 ? 'up' : r.d < 0 ? 'down' : ''}">${r.d > 0 ? '▲' + r.d : r.d < 0 ? '▼' + -r.d : '—'}</td></tr>`).join('');
+    $('#rankingTable').innerHTML = `<tr><th>#</th><th>${kind === 'atletas' ? 'Jogador' : 'Clube'}</th><th>Tier</th><th>Score_Total</th><th>Δ</th></tr>` + rows.map(r => `<tr><td class="pos">${r.i + 1}</td><td><div class="who"><span class="avatar" data-initials="${r.ini}"><i class="dot dc-${r.r}"></i></span><div><b>${r.href ? `<a href="${esc(r.href)}" title="Abrir a Vitrine do Jogador">${esc(r.n)}</a>` : esc(r.n)}</b><br><small>${esc(r.meta)}</small></div></div></td><td>${chip(r.tier)}</td><td><b class="mono">${fmt(r.score)}</b></td><td class="delta ${r.d > 0 ? 'up' : r.d < 0 ? 'down' : ''}">${r.d > 0 ? '▲' + r.d : r.d < 0 ? '▼' + -r.d : '—'}</td></tr>`).join('');
     $$('.seg-mini button[data-rank]').forEach(b => b.classList.toggle('active', b.dataset.rank === kind));
   }
   $$('.seg-mini button[data-rank]').forEach(b => b.addEventListener('click', () => {
@@ -512,6 +515,258 @@
     $('#gaps').innerHTML = ['Ataque', 'Técnica', 'Tática', 'Defesa', 'Criatividade'].map((l, i) => `<li><span>${l}</span><i style="--w:${v[i]}%"></i><span class="mono" style="color:${v[i] >= req[i] ? '#6cffc0' : '#ff5d5d'}">${v[i]}/${req[i]}</span></li>`).join('');
   }
   ['#provPos', '#provForm'].forEach(s => $(s).addEventListener('change', renderProvador));
+
+  /* =====================================================================
+     VITRINE DO JOGADOR — painel dinâmico: GET /v1/athletes/{id}/vitrine a cada refreshSeconds (pausa com a aba do navegador
+     oculta; redesenha só quando a revisão muda) + Copilot "Por que contratar este jogador?" (POST …/vitrine/copilot)
+     ===================================================================== */
+  const VT = { active:false, id:null, data:null, pitch:null, timer:null, scope:'career', busy:false };
+  const pctTxt = v => v == null ? '—' : Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + '%';
+  const dec = (v, d = 2) => v == null ? '—' : Number(v).toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+  const signed = n => n > 0 ? '+' + n : String(n);
+  const hhmmss = d => new Date(d).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const fmtDate = s => { const [y, m, d] = String(s).split('-'); return d ? `${d}/${m}/${y.slice(2)}` : esc(s); };
+  const capWord = s => s ? s.charAt(0) + s.slice(1).toLowerCase() : '—';
+  const spark = (vals, w = 84, h = 24, lo = 0, hi = 100) => {
+    if (!vals || vals.length < 2) return `<svg class="spark" viewBox="0 0 ${w} ${h}" aria-hidden="true"></svg>`;
+    const x = i => 2 + i * (w - 4) / (vals.length - 1), y = v => h - 2 - (Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo || 1) * (h - 4);
+    return `<svg class="spark" viewBox="0 0 ${w} ${h}" aria-hidden="true"><polyline points="${vals.map((v, i) => x(i).toFixed(1) + ',' + y(v).toFixed(1)).join(' ')}"/><circle cx="${x(vals.length - 1).toFixed(1)}" cy="${y(vals[vals.length - 1]).toFixed(1)}" r="2.4"/></svg>`;
+  };
+
+  function stopVitrine() { VT.active = false; clearTimeout(VT.timer); VT.timer = null; }
+  async function renderVitrine(params) {
+    clearTimeout(VT.timer); VT.active = true;
+    const box = $('#vitrineBody'); clearApiState(box);
+    try {
+      const id = await tryApi(() => myAthleteId(params.athleteId), () => athletes.some(a => a.id === params.athleteId) ? params.athleteId : athletes[0].id);
+      if (id !== VT.id) { VT.id = id; VT.data = null; VT.pitch = null; }
+      await loadVitrine();
+      fillVitrinePicker(id);
+    } catch (e) { setLive('error'); showApiState(box, e, () => renderVitrine(params)); }
+  }
+  async function loadVitrine() {
+    const id = VT.id;
+    const d = await tryApi(() => API.call(`/v1/athletes/${id}/vitrine`), () => demoVitrine(id));
+    if (!VT.active || id !== VT.id) return;                      // saiu da aba ou trocou de atleta durante a requisição
+    const prev = VT.data, changed = !prev || prev.revision !== d.revision;
+    VT.data = d;
+    if (changed) drawVitrine(d, prev);
+    setLive(live() ? 'live' : 'demo', d.updatedAt);
+    if (changed && prev && VT.pitch && d.copilot && d.copilot.available) askCopilot(true);   // dados novos: a resposta acompanha
+    scheduleVitrine(d.refreshSeconds);
+  }
+  function scheduleVitrine(sec) { clearTimeout(VT.timer); if (VT.active) VT.timer = setTimeout(pollVitrine, Math.max(10, sec || 30) * 1000); }
+  async function pollVitrine() {
+    if (!VT.active) return;
+    if (document.hidden) { scheduleVitrine(VT.data && VT.data.refreshSeconds); return; }   // aba do navegador oculta: não consulta
+    try { await loadVitrine(); }
+    catch (e) {
+      if (e.status === 401 || e.status === 403 || e.status === 404) { stopVitrine(); showApiState($('#vitrineBody'), e, () => renderVitrine({ athleteId: VT.id })); }
+      else { setLive('error'); scheduleVitrine(60); }             // falha passageira: mantém o painel e tenta de novo
+    }
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && VT.active && VT.data) pollVitrine(); });
+  function setLive(mode, at) {
+    const el = $('#vtLive'); el.dataset.mode = mode;
+    el.querySelector('b').textContent = mode === 'live' ? 'AO VIVO' : mode === 'demo' ? 'DEMO' : 'RECONECTANDO';
+    $('#vtUpdated').textContent = at ? 'atualizado ' + hhmmss(at) : '';
+  }
+  async function fillVitrinePicker(id) {
+    let opts = [];
+    try { opts = live() ? (await API.call('/v1/rankings/athletes?limit=20')).map(r => [r.athleteId, `${r.name} · ${capWord(r.positionLabel)}`]) : athletes.map(a => [a.id, `${a.name} · ${a.pos}`]); } catch { }
+    if (live() && API.user && API.user.role === 'ATLETA' && !opts.some(o => o[0] === API.user.id)) opts.unshift([API.user.id, `Eu · ${API.user.displayName}`]);
+    if (!opts.some(o => o[0] === id)) opts.unshift([id, VT.data && VT.data.card ? VT.data.card.name : 'Atleta selecionado']);
+    $('#vtAthlete').innerHTML = opts.map(([v, l]) => `<option value="${esc(v)}"${v === id ? ' selected' : ''}>${esc(l)}</option>`).join('');
+  }
+  $('#vtAthlete').addEventListener('change', e => { location.hash = '#/vitrine?athleteId=' + encodeURIComponent(e.target.value); });
+  $('#vtScope').addEventListener('click', e => {
+    const b = e.target.closest('button[data-scope]'); if (!b) return;
+    VT.scope = b.dataset.scope; $$('#vtScope button').forEach(x => x.classList.toggle('active', x === b));
+    if (VT.data) drawKpis(VT.data, null);
+  });
+  $('#vtAsk').addEventListener('click', () => askCopilot(false));
+
+  function drawVitrine(d, prev) {
+    const a = d.cardModel || fromAthlete(d.card);
+    $('#vtCard').innerHTML = vcard(a, { vitrine: false });
+    $('#vtScope [data-scope="season"]').textContent = 'Temporada ' + (d.seasonLabel || '');
+    drawKpis(d, prev); drawAttrs(d, prev); drawForm(d.form); drawTables(d); drawCopilotState(d);
+  }
+  const vtTotals = d => VT.scope === 'season' ? d.season : VT.scope === 'recent' ? d.recent : d.career;
+  function drawKpis(d, prev) {
+    const t = vtTotals(d), p = prev ? vtTotals(prev) : null, pos = String((d.cardModel || fromAthlete(d.card)).pos || '').toUpperCase();
+    const per90 = v => v != null ? dec(v) + ' por 90 min' : '';
+    const tiles = [
+      ['games', 'Partidas', fmt(t.games), `${fmt(t.officialGames)} oficiais`],
+      ['goals', 'Gols', fmt(t.goals), per90(t.goalsPer90)],
+      ['assists', 'Assistências', fmt(t.assists), per90(t.assistsPer90)],
+      ['passesCompleted', 'Passes certos', fmt(t.passesCompleted), t.passAccuracy != null ? `${pctTxt(t.passAccuracy)} de ${fmt(t.passesAttempted)}` : 'sem registro na súmula', t.passAccuracy],
+      ['dribblesCompleted', 'Dribles certos', fmt(t.dribblesCompleted), t.dribbleSuccess != null ? `${pctTxt(t.dribbleSuccess)} de ${fmt(t.dribblesAttempted)}` : 'sem registro na súmula', t.dribbleSuccess],
+      ['minutes', 'Minutos', fmt(t.minutes), t.games ? `${fmt(Math.round(t.minutes / t.games))} por jogo` : ''],
+      ['avgRating', 'Nota média', t.avgRating != null ? dec(t.avgRating) : '—', 'partidas com nota'],
+      ['mvps', 'MVP', fmt(t.mvps), 'melhor em campo'],
+    ];
+    if (pos === 'GOLEIRO') tiles.splice(3, 0, ['cleanSheets', 'Sem sofrer gol', fmt(t.cleanSheets), 'jogos']);
+    if (['ZAGUEIRO', 'LATERAL', 'VOLANTE'].includes(pos)) tiles.splice(3, 0, ['tackles', 'Desarmes', fmt(t.tackles), per90(t.tacklesPer90)]);
+    $('#vtKpis').innerHTML = tiles.map(([k, label, val, sub, bar]) => {
+      const diff = p && Number.isInteger(t[k]) && Number.isInteger(p[k]) ? t[k] - p[k] : 0;   // número novo desde a última consulta pisca
+      return `<div class="vt-kpi${diff ? ' bump' : ''}"><small>${label}</small><b>${val}</b>${diff ? `<em class="${diff > 0 ? 'up' : 'down'}">${diff > 0 ? '▲' : '▼'}${fmt(Math.abs(diff))}</em>` : ''}${bar != null ? `<i style="--w:${Math.min(100, +bar)}%"></i>` : ''}<span>${esc(sub)}</span></div>`;
+    }).join('');
+  }
+  function drawAttrs(d, prev) {
+    const list = d.attributes || [];
+    $('#vtAttrMeta').textContent = d.attributesWeek ? `scouting ${d.attributesWeek.replace(/^\d{4}-/, '')} + forma` : '';
+    if (!list.length) { $('#vtAttrs').innerHTML = '<li class="hint">Sem atributos de scouting registrados para este atleta.</li>'; return; }
+    const before = prev ? Object.fromEntries((prev.attributes || []).map(x => [x.key, x.value])) : {};
+    $('#vtAttrs').innerHTML = list.map(x => {
+      const change = x.weeklyDelta + x.formAdjustment, moved = before[x.key] != null && before[x.key] !== x.value;
+      return `<li class="vt-attr${moved ? ' bump' : ''}" data-key="${esc(x.key)}">
+        <span class="lbl">${esc(x.label)}</span><b class="val">${x.value}</b>
+        <span class="bar" style="--w:${x.value}%;--b:${x.base}%" title="barra = valor do momento · traço = scouting da semana (${x.base})"><i></i></span>
+        <span class="chg ${esc(String(x.trend).toLowerCase())}">${change ? (change > 0 ? '▲' : '▼') + Math.abs(change) : '＝'}</span>
+        ${spark(x.history)}
+        <small class="why">${esc(x.reason)}</small></li>`;
+    }).join('');
+  }
+  function drawForm(f) {
+    const lab = $('#vtFormLabel'), trend = String(f.trend || 'FLAT');
+    lab.className = 'vt-trend ' + trend.toLowerCase(); lab.textContent = (trend === 'UP' ? '▲ ' : trend === 'DOWN' ? '▼ ' : '＝ ') + f.label;
+    const r = (f.lastRatings || []).map(Number), W = 320, H = 96, pad = 18;
+    if (!r.length) { $('#vtFormChart').innerHTML = `<text x="${W / 2}" y="${H / 2}" text-anchor="middle" class="lbl">sem partidas com nota</text>`; $('#vtFormMeta').textContent = ''; return; }
+    const x = i => r.length === 1 ? W / 2 : pad + i * (W - 2 * pad) / (r.length - 1), y = v => H - pad - (Math.max(4, Math.min(10, v)) - 4) / 6 * (H - 2 * pad);
+    let s = '';
+    if (f.referenceAvgRating != null) { const yy = y(+f.referenceAvgRating).toFixed(1); s += `<line x1="${pad}" x2="${W - pad}" y1="${yy}" y2="${yy}" class="ref"/><text x="2" y="${H - 3}" class="lbl ref-lbl">- - média antes: ${dec(f.referenceAvgRating)}</text>`; }
+    s += `<polyline points="${r.map((v, i) => x(i).toFixed(1) + ',' + y(v).toFixed(1)).join(' ')}" class="line"/>`
+      + r.map((v, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="3.5" class="pt"><title>nota ${dec(v)}</title></circle><text x="${x(i).toFixed(1)}" y="${(y(v) - 8).toFixed(1)}" text-anchor="middle" class="lbl">${dec(v, 1)}</text>`).join('');
+    $('#vtFormChart').innerHTML = s;
+    $('#vtFormMeta').textContent = `nota média ${dec(f.recentAvgRating)} nas últimas ${f.sample}` + (f.referenceAvgRating != null ? ` · ${dec(f.referenceAvgRating)} antes` : '');
+  }
+  function drawTables(d) {
+    const pc = (c, a) => a ? `${fmt(c)}/${fmt(a)} <small>${pctTxt(Math.round(c * 1000 / a) / 10)}</small>` : '<small>—</small>';
+    $('#vtSeasons').innerHTML = '<tr><th>Temporada</th><th>J</th><th>G</th><th>A</th><th>Passes certos</th><th>Dribles certos</th><th>Min</th><th>Nota</th></tr>'
+      + (d.seasons.length ? d.seasons.map(s => { const t = s.totals; return `<tr><td class="mono">${esc(s.season)}</td><td>${t.games}</td><td>${t.goals}</td><td>${t.assists}</td><td>${pc(t.passesCompleted, t.passesAttempted)}</td><td>${pc(t.dribblesCompleted, t.dribblesAttempted)}</td><td>${fmt(t.minutes)}</td><td>${t.avgRating != null ? dec(t.avgRating) : '—'}</td></tr>`; }).join('')
+        : '<tr><td colspan="8" class="hint">Nenhuma partida registrada.</td></tr>');
+    $('#vtMatches').innerHTML = '<tr><th>Data</th><th>Competição</th><th>Min</th><th>G</th><th>A</th><th>Passes</th><th>Dribles</th><th>Nota</th><th><span class="sr-only">Fonte</span></th></tr>'
+      + (d.recentMatches.length ? d.recentMatches.map(m => `<tr><td class="mono">${fmtDate(m.date)}</td><td>${esc(m.competition || '—')}</td><td>${m.minutes}</td><td>${m.goals}</td><td>${m.assists}</td><td>${pc(m.passesCompleted, m.passesAttempted)}</td><td>${pc(m.dribblesCompleted, m.dribblesAttempted)}</td><td>${m.rating != null ? dec(m.rating) : '—'}${m.mvp ? ' <span title="melhor em campo">🏆</span>' : ''}</td><td class="src" title="${m.official ? 'súmula oficial' : 'autorrelato do atleta'}">${m.official ? '✓' : '✎'}</td></tr>`).join('')
+        : '<tr><td colspan="9" class="hint">Nenhuma partida registrada.</td></tr>');
+  }
+
+  /* ---------- Copilot · "Por que contratar este jogador?" ---------- */
+  const CONF_CLASS = { ALTA: 'ok', MEDIA: 'warn', BAIXA: 'bad' };
+  function drawCopilotState(d) {
+    const st = d.copilot || {}, btn = $('#vtAsk');
+    btn.disabled = !st.available || VT.busy; btn.textContent = VT.pitch ? 'Refazer a pergunta' : 'Perguntar ao Copilot';
+    if (!st.available) {
+      VT.pitch = null;
+      $('#vtPitch').innerHTML = `<div class="api-state s403" role="note"><b>Copilot indisponível para este atleta</b><span>${esc(st.reason || '')}</span>`
+        + `${st.code === 'AI_PROCESSING_OPT_IN' ? '<span class="api-state-actions"><button type="button" class="btn ghost" data-open-privacy>Central de Privacidade</button></span>' : ''}<code>${esc(st.code || '')}</code></div>`;
+      $('#vtPitch [data-open-privacy]')?.addEventListener('click', () => openLgpd('privacidade'));
+    } else if (!VT.pitch) $('#vtPitch').innerHTML = '<p class="hint">Pergunte e o Copilot cruza o histórico, os atributos do momento, a forma e o ranking para explicar, com evidências, por que contratar este jogador. Gerado por IA · sem dados de saúde · a decisão é sua (LGPD Art. 20).</p>';
+  }
+  async function askCopilot(auto) {
+    if (VT.busy || !VT.id) return;
+    VT.busy = true; const id = VT.id, btn = $('#vtAsk'); btn.disabled = true;
+    if (!auto) $('#vtPitch').innerHTML = '<p class="hint" aria-busy="true">Analisando histórico, atributos do momento e forma…</p>';
+    try {
+      const p = await tryApi(() => API.call(`/v1/athletes/${id}/vitrine/copilot`, { method: 'POST' }), () => demoPitch(VT.data));
+      if (id !== VT.id) return;
+      VT.pitch = p; renderPitch(p);
+      if (auto) toast('COPILOT ATUALIZADO COM OS DADOS NOVOS');
+    } catch (e) {
+      if (id !== VT.id) return;
+      VT.pitch = null; $('#vtPitch').innerHTML = apiStateBlock(e);
+      $('#vtPitch [data-retry]').addEventListener('click', () => askCopilot(false));
+      $('#vtPitch [data-open-privacy]')?.addEventListener('click', () => openLgpd('privacidade'));
+    } finally {
+      VT.busy = false; btn.disabled = !(VT.data && VT.data.copilot && VT.data.copilot.available); btn.textContent = VT.pitch ? 'Refazer a pergunta' : 'Perguntar ao Copilot';
+    }
+  }
+  function renderPitch(p) {
+    $('#vtPitch').innerHTML = `<article class="pitch" aria-live="polite">
+      <div class="pitch-q"><span class="mono">PERGUNTA</span>${esc(p.question)}</div>
+      <div class="pitch-head">${chip(p.tier)}<b>${esc(p.headline)}</b></div>
+      <p class="pitch-answer">${esc(p.answer)}</p>
+      ${p.reasons.length ? `<ol class="pitch-reasons">${p.reasons.map(r => `<li><span class="i" aria-hidden="true">${esc(r.icon)}</span><div><b>${esc(r.title)}</b><small>${esc(r.evidence)}</small></div></li>`).join('')}</ol>` : ''}
+      <div class="pitch-cols">
+        <div><h4>Encaixe ideal</h4>${p.bestFit.length ? `<ul class="pitch-fit">${p.bestFit.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : '<p class="hint">Sem dados suficientes.</p>'}</div>
+        <div><h4>Pontos de atenção</h4>${p.attention.length ? `<ul class="pitch-att">${p.attention.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : '<p class="hint">Nenhum ponto de atenção nos dados.</p>'}</div>
+      </div>
+      <footer class="pitch-foot"><span class="conf ${CONF_CLASS[p.confidence] || ''}">${esc(p.confidenceLabel)}</span><small>Fontes: ${esc(p.sources.join(' · '))}</small><small>Respondido às ${hhmmss(p.generatedAt)}</small><small class="mono">GERADO POR IA · ${esc(p.disclaimer)}</small></footer>
+    </article>`;
+  }
+
+  /* ---------- demo (API desligada): dados fictícios derivados dos cards mock ---------- */
+  const DEMO_ATTRS = { 'ath-1':[80,74,86,82,48,79,81], 'ath-2':[92,93,84,90,40,85,86], 'ath-3':[68,52,74,58,88,84,76], 'ath-4':[55,30,70,35,60,82,66], 'ath-5':[74,50,62,60,58,55,70] };
+  const ATTR_LABELS = [['velocidade','Velocidade'],['finalizacao','Chute'],['passe','Passe'],['drible','Drible'],['desarme','Desarme'],['posicionamento','Posicionamento'],['resistencia','Resistência']];
+  const isoWeekOf = d => { const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day); return Math.ceil(((t - Date.UTC(t.getUTCFullYear(), 0, 1)) / 864e5 + 1) / 7); };
+  function demoTotals(ms) {
+    const t = { games: ms.length, officialGames: ms.filter(m => m.official).length, minutes: 0, goals: 0, assists: 0, passesCompleted: 0, passesAttempted: 0, dribblesCompleted: 0, dribblesAttempted: 0, tackles: 0, cleanSheets: 0, mvps: 0, yellow: 0, red: 0 };
+    let sum = 0;
+    ms.forEach(m => { ['minutes', 'goals', 'assists', 'passesCompleted', 'passesAttempted', 'dribblesCompleted', 'dribblesAttempted', 'tackles', 'yellow'].forEach(k => t[k] += m[k] || 0); t.cleanSheets += m.cleanSheet ? 1 : 0; t.mvps += m.mvp ? 1 : 0; sum += m.rating; });
+    const r1 = v => Math.round(v * 10) / 10, r2 = v => Math.round(v * 100) / 100, p90 = n => t.minutes ? r2(n * 90 / t.minutes) : null;
+    return { ...t, passAccuracy: t.passesAttempted ? r1(t.passesCompleted * 100 / t.passesAttempted) : null, dribbleSuccess: t.dribblesAttempted ? r1(t.dribblesCompleted * 100 / t.dribblesAttempted) : null,
+      avgRating: ms.length ? r2(sum / ms.length) : null, goalsPer90: p90(t.goals), assistsPer90: p90(t.assists), tacklesPer90: p90(t.tackles) };
+  }
+  function demoVitrine(id) {
+    const a = athletes.find(x => x.id === id) || athletes[0], i = athletes.indexOf(a), sz = a.season, pos = a.pos.toUpperCase(), now = new Date(), year = now.getFullYear();
+    const ms = [...Array(sz.games)].map((_, g) => {
+      const pa = (pos === 'GOLEIRO' ? 22 : pos === 'MEIA' ? 48 : 32) + (g * 7 + i * 5) % 18, da = pos === 'GOLEIRO' ? 0 : ['MEIA', 'ATACANTE', 'PONTA'].includes(pos) ? 3 + g % 4 : 1 + g % 2;
+      return { date: new Date(now.getTime() - (3 + (sz.games - 1 - g) * 7) * 864e5).toISOString().slice(0, 10), competition: '<PREENCHER_COMPETICAO>', official: g % 6 !== 5,
+        minutes: Math.min(90, Math.round(sz.minutes / sz.games)), goals: 0, assists: 0, passesAttempted: pa, passesCompleted: Math.floor(pa * (74 + (g * 5 + i * 3) % 18) / 100),
+        dribblesAttempted: da, dribblesCompleted: Math.floor(da * (48 + (g * 9 + i * 7) % 30) / 100), tackles: pos === 'ZAGUEIRO' ? 3 : 1, cleanSheet: g < (sz.cleanSheets || 0),
+        mvp: i === 1 && g % 4 === 0, yellow: g < sz.yellow ? 1 : 0, rating: Math.round((6.2 + ((g * 7 + i) % 25) / 10 + (g >= sz.games - 5 && i !== 2 ? 0.4 : 0)) * 100) / 100 };
+    });
+    for (let k = 0; k < sz.goals; k++) ms[(k * 3 + i) % ms.length].goals++;
+    for (let k = 0; k < sz.assists; k++) ms[(k * 5 + 1 + i) % ms.length].assists++;
+    const career = demoTotals(ms), recent = demoTotals(ms.slice(-5)), prior = demoTotals(ms.slice(0, -5));
+    const last = ms.slice(-5).map(m => m.rating), ra = recent.avgRating, rb = prior.games ? prior.avgRating : null, diff = rb == null ? 0 : ra - rb;
+    const trend = rb == null ? 'FLAT' : diff >= 0.3 ? 'UP' : diff <= -0.3 ? 'DOWN' : 'FLAT';
+    const form = { trend, label: trend === 'UP' ? 'Em alta' : trend === 'DOWN' ? 'Em queda' : 'Estável', recentAvgRating: ra, referenceAvgRating: rb, sample: last.length, lastRatings: last };
+    const wk = isoWeekOf(now) - 1, vals = DEMO_ATTRS[a.id] || DEMO_ATTRS['ath-1'];
+    const attributes = ATTR_LABELS.map(([key, label], k) => {
+      const base = vals[k], weekly = a.id === 'ath-3' && key === 'velocidade' ? -3 : (k + i) % 3;
+      const adj = key === 'passe' && recent.passAccuracy > prior.passAccuracy ? Math.min(5, Math.round((recent.passAccuracy - prior.passAccuracy) / 2)) : key === 'finalizacao' && pos === 'ATACANTE' ? 2 : 0;
+      const value = Math.min(100, base + adj), change = weekly + adj;
+      const why = (weekly ? `${signed(weekly)} no scouting (W${wk - 1} → W${wk})` : `estável no scouting (W${wk - 1} → W${wk})`)
+        + (adj ? ` · forma ${signed(adj)}: ` + (key === 'passe' ? `passes certos ${pctTxt(recent.passAccuracy)} nas últimas 5 vs ${pctTxt(prior.passAccuracy)} antes` : 'gols por 90 min em alta nas últimas 5') : '');
+      return { key, label, value, base, previous: base - weekly, weeklyDelta: weekly, formAdjustment: adj, trend: change > 0 ? 'UP' : change < 0 ? 'DOWN' : 'FLAT', reason: why,
+        history: [...Array(12)].map((_, w) => w === 11 ? base : Math.max(0, base - weekly - Math.floor((10 - w) / 3) * Math.sign(weekly || 1))) };
+    });
+    const copilot = a.age < 18 ? { available: false, code: 'COPILOT_MINOR', reason: 'O Copilot de contratação não analisa atletas menores de 18 anos (LGPD Art. 14 · ECA Digital)' } : { available: true };
+    return { athleteId: a.id, cardModel: a, career, season: career, seasonLabel: String(year), recent, seasons: [{ season: String(year), totals: career }], recentMatches: ms.slice(-10).reverse(),
+      form, attributes, attributesWeek: `${year}-W${wk}`, copilot, revision: 'demo-' + a.id, updatedAt: now.toISOString(), refreshSeconds: 30 };
+  }
+  function demoPitch(d) {
+    const a = d.cardModel, c = d.career, f = d.form, rs = [];
+    const add = (icon, title, evidence, hook) => rs.push({ icon, title, evidence, hook });
+    if (a.pos !== 'Goleiro' && c.goals + c.assists >= 3) add('⚽', 'Produção ofensiva', `${c.goals} gols e ${c.assists} assistências em ${c.games} jogos · ${dec((c.goals + c.assists) * 90 / c.minutes)} participações em gol por 90 min`, `${c.goals + c.assists} participações em gol na temporada`);
+    if (a.pos === 'Goleiro' && c.cleanSheets) add('🧱', 'Segurança no gol', `${c.cleanSheets} jogos sem sofrer gol em ${c.games}`, `${c.cleanSheets} jogos sem sofrer gol`);
+    if (c.passAccuracy >= 80) add('🎯', 'Passe confiável', `${pctTxt(c.passAccuracy)} de passes certos (${fmt(c.passesCompleted)} de ${fmt(c.passesAttempted)})`, `${pctTxt(c.passAccuracy)} de passes certos`);
+    if (c.dribbleSuccess >= 55 && c.dribblesAttempted >= 15) add('🌀', 'Drible que desequilibra', `${pctTxt(c.dribbleSuccess)} de dribles certos (${fmt(c.dribblesCompleted)} de ${fmt(c.dribblesAttempted)})`, `${pctTxt(c.dribbleSuccess)} de dribles certos`);
+    const elite = d.attributes.filter(x => x.value >= 75).sort((x, y) => y.value - x.value).slice(0, 3);
+    if (elite.length) add('⚡', 'Atributos de elite no momento', elite.map(x => `${x.label} ${x.value}`).join(' · ') + ' (scouting + forma recente)', `${elite[0].label.toLowerCase()} ${elite[0].value} no momento`);
+    if (f.trend === 'UP') add('🔥', 'Momento em alta', `nota média ${dec(f.recentAvgRating)} nas últimas ${f.sample} partidas vs ${dec(f.referenceAvgRating)} antes`, `nota ${dec(f.recentAvgRating, 1)} nas últimas ${f.sample} partidas`);
+    if (a.status === 'AGENTE_LIVRE') add('🤝', 'Agente livre', 'sem custo de transferência: negociação direta com o atleta', 'custo zero de transferência');
+    const top = rs.slice(0, 6), attention = [];
+    if (f.trend === 'DOWN') attention.push(`Forma em queda: nota ${dec(f.recentAvgRating)} nas últimas ${f.sample} partidas vs ${dec(f.referenceAvgRating)} antes.`);
+    d.attributes.filter(x => x.weeklyDelta + x.formAdjustment <= -3).forEach(x => attention.push(`Queda recente em ${x.label} (${signed(x.weeklyDelta + x.formAdjustment)}).`));
+    const v = k => (d.attributes.find(x => x.key === k) || {}).value || 0, fit = [];
+    if (v('velocidade') >= 80 && ['Ponta', 'Atacante', 'Lateral'].includes(a.pos)) fit.push('Transição rápida e ataque à profundidade');
+    if (v('finalizacao') >= 80) fit.push('Referência de área na finalização');
+    if (v('drible') >= 80) fit.push('Um contra um no último terço');
+    if (v('passe') >= 80) fit.push('Construção e controle da posse');
+    if (v('desarme') >= 75) fit.push('Pressão alta e recuperação de bola');
+    if (v('resistencia') >= 80) fit.push('Modelos de alta intensidade');
+    if (v('posicionamento') >= 80) fit.push('Jogo posicional e coberturas');
+    const hooks = top.map(r => r.hook).slice(0, 3), conf = c.games >= 10 ? 'ALTA' : c.games >= 5 ? 'MEDIA' : 'BAIXA';
+    const lead = top.find(r => r.title !== 'Agente livre');
+    return { question: 'Por que contratar este jogador?', tier: a.tier,
+      headline: `${a.pos} de ${a.age} anos${a.status === 'AGENTE_LIVRE' ? ', agente livre,' : ''} ${lead ? 'com ' + lead.hook : 'ainda construindo o histórico'}`,
+      answer: `Porque ${a.name} reúne ${hooks.length > 1 ? hooks.slice(0, -1).join(', ') + ' e ' + hooks[hooks.length - 1] : hooks[0] || 'poucos dados ainda'}.` + (fit.length ? ` Encaixe ideal: ${fit.slice(0, 3).map(x => x.charAt(0).toLowerCase() + x.slice(1)).join(', ')}.` : '') + (attention.length ? ` Atenção: ${attention[0].charAt(0).toLowerCase() + attention[0].slice(1)}` : ''),
+      reasons: top, attention, bestFit: fit.slice(0, 3), confidence: conf, confidenceLabel: { ALTA: 'Confiança alta', MEDIA: 'Confiança média', BAIXA: 'Confiança baixa' }[conf],
+      sources: [`${c.officialGames} súmulas oficiais`, `${c.games - c.officialGames} partidas autorrelatadas`, `Scouting ${d.attributesWeek.replace(/^\d{4}-/, '')}`], generatedAt: new Date().toISOString(),
+      disclaimer: 'Demonstração com dados fictícios. Não usa dados de saúde (LGPD Art. 11). A decisão de contratar é humana (LGPD Art. 20).' };
+  }
 
   /* =====================================================================
      FLAIR — coleção, pacote diário, escalação e duelo 1×1 (API) · demo (mock)
