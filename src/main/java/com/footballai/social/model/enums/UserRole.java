@@ -10,6 +10,7 @@ public enum UserRole {
     ATLETA("#00d47a", "dc-atleta", "atleta", Kind.HUMAN),
     @JsonAlias("TECNICO_STAFF")
     STAFF("#7fb6ff", "dc-staff", "comissão técnica", Kind.HUMAN),
+    MANAGER("#38bdf8", "dc-manager", "manager", Kind.HUMAN),
     STAFF_SAUDE("#e11d48", "dc-saude", "staff de saúde", Kind.HUMAN),
     CLUBE("#3b82f6", "dc-clube", "clube", Kind.ORGANIZATION),
     SCOUT("#f7c948", "dc-scout", "scout", Kind.HUMAN),
@@ -50,10 +51,10 @@ public enum UserRole {
     /** Tipos de conteúdo que o papel pode publicar (RoleCapability simplificado). */
     public boolean canPublish(PostContentType type, VerificationLevel level) {
         return switch (type) {
-            case TREINO, PARTIDA_MOMENTO -> this == ATLETA || this == STAFF || this == CLUBE;
-            case RELATORIO_TATICO -> this == SCOUT || this == STAFF || this == IMPRENSA || this == AGENTE_IA;
+            case TREINO, PARTIDA_MOMENTO -> this == ATLETA || this == STAFF || this == MANAGER || this == CLUBE;
+            case RELATORIO_TATICO -> this == SCOUT || this == STAFF || this == MANAGER || this == IMPRENSA || this == AGENTE_IA;
             case LIGA -> this == OFICIAL_LIGA || this == CLUBE || this == IMPRENSA;
-            case INSTITUCIONAL -> isOrganization() || this == STAFF || this == AGENTE;
+            case INSTITUCIONAL -> isOrganization() || this == STAFF || this == MANAGER || this == AGENTE;
             case LESAO_ALERTA -> this == ATLETA || (this == STAFF_SAUDE && level != null && level.countsForRarity());
             case ESPECIAL -> this == OFICIAL_LIGA || this == CLUBE || this == AGENTE_IA;
         };

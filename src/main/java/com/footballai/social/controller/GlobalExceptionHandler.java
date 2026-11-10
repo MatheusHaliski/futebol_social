@@ -66,6 +66,12 @@ public class GlobalExceptionHandler {
         return pd;
     }
 
+    @ExceptionHandler(org.springframework.orm.ObjectOptimisticLockingFailureException.class)
+    public ProblemDetail concurrentEdit(Exception e) {
+        ProblemDetail pd=ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,"Este registro mudou. Recarregue antes de salvar novamente.");
+        pd.setProperty("code","CONCURRENT_EDIT");return pd;
+    }
+
     @ExceptionHandler(Exception.class)
     public ProblemDetail generic(Exception e) {
         log.error("Erro não tratado: {}", e.toString());

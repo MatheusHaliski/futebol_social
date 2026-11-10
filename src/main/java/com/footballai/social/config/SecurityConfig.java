@@ -53,7 +53,7 @@ public class SecurityConfig {
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .headers(h -> h.frameOptions(f -> f.deny()).contentSecurityPolicy(c -> c.policyDirectives(contentSecurityPolicy())))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/", "/index.html", "/styles.css", "/app.js", "/icons.svg", "/favicon.png", "/brand/**", "/fonts/**", "/error").permitAll()
+                .requestMatchers("/", "/index.html", "/styles.css", "/app.js", "/club-market.js", "/manager.js", "/icons.svg", "/favicon.png", "/brand/**", "/fonts/**", "/error").permitAll()
                 .requestMatchers(HttpMethod.POST, "/v1/auth/register", "/v1/auth/login", "/v1/auth/refresh").permitAll()
                 .requestMatchers(HttpMethod.GET, "/v1/terms/current", "/v1/ui/navigation", "/v1/ui/tokens", "/v1/ui/appearance-options").permitAll()
                 .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()

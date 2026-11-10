@@ -215,6 +215,11 @@
   <section><h4>Descobrir</h4>
     <a href="#/perfil" data-nav="perfil/feed"><svg class="ic"><use href="#ic-feed"/></svg>Feed</a>
     <a href="#/vitrine" data-nav="vitrine"><svg class="ic"><use href="#ic-vitrine"/></svg>Vitrine do Jogador</a>
+    <a href="#/buscar?entity=CLUBE" data-nav="clubes">Clubes</a>
+    <a href="#/buscar?entity=MANAGER" data-nav="managers">Managers</a>
+    <a href="#/clube" data-nav="clube" data-roles="CLUBE">Meu clube</a>
+    <a href="#/manager" data-nav="manager" data-roles="MANAGER">Meu perfil de Manager</a>
+    <a href="#/mercado" data-nav="mercado" data-roles="ATLETA">Meu perfil esportivo e mercado</a>
     <a href="#/buscar" data-nav="buscar"><svg class="ic"><use href="#ic-buscar"/></svg>Buscar</a>
     <a href="#/perfil/explorar" data-nav="perfil/explorar"><svg class="ic"><use href="#ic-explorar"/></svg>Explorar (globo)</a>
     <a href="#/perfil/explorar?view=ligas" data-nav="perfil/explorar"><svg class="ic"><use href="#ic-clubes"/></svg>Clubes &amp; Ligas</a>
@@ -296,6 +301,7 @@
           </fieldset>
           <fieldset><legend>Papel</legend>
             <label class="chip"><input type="checkbox" name="role" value="ATLETA"> <i class="dot xs dc-atleta"></i>Atleta</label>
+            <label class="chip"><input type="checkbox" name="role" value="MANAGER"> <i class="dot xs dc-manager"></i>Manager</label>
             <label class="chip"><input type="checkbox" name="role" value="CLUBE"> <i class="dot xs dc-clube"></i>Clube</label>
             <label class="chip"><input type="checkbox" name="role" value="SCOUT"> <i class="dot xs dc-scout"></i>Scout</label>
             <label class="chip"><input type="checkbox" name="role" value="MARCA"> <i class="dot xs dc-marca"></i>Marca</label>
@@ -574,6 +580,7 @@
           <svg id="vtFormChart" viewBox="0 0 320 96" class="chart" role="img" aria-label="Notas das últimas partidas"></svg>
           <small class="mono" id="vtFormMeta"></small>
         </section>
+        <section class="panel" id="vtCompatibility"></section>
         <section class="panel vt-copilot" id="vtCopilot">
           <div class="panel-head"><h3><svg class="ic" aria-hidden="true"><use href="#ic-copilot"/></svg>Copilot · Por que contratar este jogador?</h3>
             <button class="btn primary" id="vtAsk" type="button">Perguntar ao Copilot</button></div>
@@ -776,13 +783,20 @@
       <small class="hint">Contas de exemplo (perfil local): <code>atleta1@exemplo.dev</code> · <code>scout@exemplo.dev</code> · <code>clube1@exemplo.dev</code> · senha <code>Senha@Forte123</code></small>
     </form>
     <form id="registerForm" class="auth-form" hidden>
-      <label>Papel <select name="role" id="regRole"><option value="ATLETA">Atleta</option><option value="STAFF">Comissão técnica</option><option value="STAFF_SAUDE">Staff de saúde</option><option value="CLUBE">Clube</option><option value="SCOUT">Scout</option><option value="AGENTE">Agente</option><option value="MARCA">Marca</option><option value="IMPRENSA">Imprensa</option><option value="OFICIAL_LIGA">Oficial de liga</option><option value="TORCEDOR">Torcedor</option></select></label>
+      <label>Papel <select name="role" id="regRole"><option value="ATLETA">Atleta</option><option value="STAFF">Comissão técnica</option><option value="MANAGER">Manager</option><option value="STAFF_SAUDE">Staff de saúde</option><option value="CLUBE">Clube</option><option value="SCOUT">Scout</option><option value="AGENTE">Agente</option><option value="MARCA">Marca</option><option value="IMPRENSA">Imprensa</option><option value="OFICIAL_LIGA">Oficial de liga</option><option value="TORCEDOR">Torcedor</option></select></label>
       <label>Nome de exibição <input type="text" name="displayName" required maxlength="80"></label>
       <label>Username <input type="text" name="username" required pattern="[a-z0-9_.]{3,30}" placeholder="letras minúsculas, números, _ ."></label>
       <label>E-mail <input type="email" name="email" required autocomplete="email"></label>
       <label>Senha (≥ 10) <input type="password" name="password" required minlength="10" autocomplete="new-password"></label>
       <label>Nascimento <input type="date" name="birthDate"><small>≥ 13 anos (Art. 14) · atletas: obrigatório</small></label>
       <div class="inline2" id="regAthlete"><label>Posição <select name="position"><option value="">—</option><option>GOLEIRO</option><option>ZAGUEIRO</option><option>LATERAL</option><option>VOLANTE</option><option>MEIA</option><option>PONTA</option><option>ATACANTE</option></select></label><label>Clube atual <input type="text" name="clubName" placeholder="opcional"></label></div>
+      <div id="regManager" hidden>
+        <label>Função <select name="managerFunction"><option value="HEAD_COACH">Treinador principal</option><option value="SPORTING_DIRECTOR">Gestor esportivo</option><option value="ASSISTANT">Assistente técnico</option></select></label>
+        <label>Nacionalidades declaradas <input name="nationalities" maxlength="120" pattern="[A-Za-z]{2}(,[A-Za-z]{2})*" placeholder="BR,PT"></label>
+        <label>Idiomas <input name="managerLanguages" maxlength="120" pattern="[A-Za-z]{2,3}(,[A-Za-z]{2,3})*" placeholder="PT,EN"></label>
+        <label>Vínculo atual <select name="managerHasClub"><option value="">Não informado</option><option value="false">Manager sem clube</option><option value="true">Possuo vínculo com clube</option></select></label>
+        <small>O vínculo declarado não concede acesso à administração de um clube.</small>
+      </div>
       <label class="chip terms"><input type="checkbox" name="acceptTerms" required> Li e aceito os <a href="#" id="termsLink" target="_blank">Termos de Uso e a Política de Privacidade da Velion</a> <small id="termsVersion"></small></label>
       <button class="btn primary" type="submit">Criar conta</button>
       <small class="hint">Sua conta nasce com visibilidade <b>SOMENTE EU</b> e todos os consentimentos <b>desligados</b>.</small>
@@ -809,6 +823,8 @@
 </div>
 
 <div class="toast" id="toast" hidden></div>
+<script src="club-market.js"></script>
+<script src="manager.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

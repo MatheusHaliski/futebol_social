@@ -146,6 +146,11 @@ public class CardAssembler {
         if (a.getCurrentClubName() != null) out.add(new AttributeChipDTO("⬢", a.getCurrentClubName(), "club"));
         boolean free = a.getContractStatus() == ContractStatus.AGENTE_LIVRE;
         out.add(new AttributeChipDTO("", free ? "Agente livre" : "Contratado", free ? "free" : "signed"));
+        if ("WITHOUT_CLUB".equals(a.getAffiliationStatus())) out.add(new AttributeChipDTO("", "Sem clube", "without-club"));
+        if (a.getTransferSituation() != null) out.add(new AttributeChipDTO("", switch(a.getTransferSituation()) {
+            case TRANSFER_LIST -> "Na lista de transferências"; case NOT_FOR_SALE -> "Não está à venda";
+            case LOAN_LIST -> "Na lista de empréstimos"; case SWAP_LIST -> "Na lista de trocas"; case FREE_AGENT -> "Agente livre";
+        }, "transfer-situation"));
         if (a.getStateCode() != null) out.add(new AttributeChipDTO("", a.getStateCode(), "state"));
         if (a.getDominantFoot() != null) out.add(new AttributeChipDTO("", "Pé " + a.getDominantFoot(), "foot"));
         if (a.getHeightCm() != null) out.add(new AttributeChipDTO("", a.getHeightCm() + " cm", "height"));

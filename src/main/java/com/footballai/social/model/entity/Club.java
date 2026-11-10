@@ -48,4 +48,32 @@ public class Club extends User {
     public void setLat(BigDecimal lat) { this.lat = lat; }
     public BigDecimal getLng() { return lng; }
     public void setLng(BigDecimal lng) { this.lng = lng; }
+
+    @Column(name="short_name", length=40) private String shortName;
+    public String getShortName() { return shortName; }
+    public void setShortName(String value) { shortName = value; }
+    @Column(name="website", length=240) private String website;
+    public String getWebsite() { return website; }
+    public void setWebsite(String value) { website = value; }
+    @Column(name="public_contact", length=160) private String publicContact;
+    public String getPublicContact() { return publicContact; }
+    public void setPublicContact(String value) { publicContact = value; }
+    @Column(name="federation", length=120) private String federation;
+    public String getFederation() { return federation; }
+    public void setFederation(String value) { federation = value; }
+    @Column(name="colors", length=80) private String colors;
+    public String getColors() { return colors; }
+    public void setColors(String value) { colors = value; }
+    @Column(name="ownership_type", length=40) private String ownershipType;
+    public String getOwnershipType() { return ownershipType; }
+    public void setOwnershipType(String value) { ownershipType = value; }
+    @Column(name="president", length=120) private String president;
+    public String getPresident() { return president; }
+    public void setPresident(String value) { president = value; }
+    @Column(name="history", length=2000) private String history;
+    public String getHistory() { return history; }
+    public void setHistory(String value) { history = value; }
+    @Column(name="honours", length=2000) private String honours;
+    public String getHonours() { return honours; }
+    public void setHonours(String value) { honours = value; }
 }

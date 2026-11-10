@@ -47,9 +47,9 @@ public class RankingService {
 
     /** Clube = média de Score_Total dos atletas públicos vinculados (nunca nominal). */
     public List<ClubRow> clubs(String country, Integer division, RarityTier minTier) {
-        Map<UUID, Club> byId = clubs.findAll().stream().collect(Collectors.toMap(Club::getId, c -> c));
+        Map<UUID, Club> byId = clubs.findAll().stream().filter(c -> c.getStatus() == AccountStatus.ACTIVE && c.getVisibility() == ProfileVisibility.PUBLICO).collect(Collectors.toMap(Club::getId, c -> c));
         Map<UUID, List<DigitalTwin>> byClub = new HashMap<>();
-        Map<UUID, Athlete> ath = athletes.findAll().stream().filter(a -> a.getCurrentClubId() != null && a.getVisibility() == ProfileVisibility.PUBLICO && AccessPolicy.openToPublic(a)).collect(Collectors.toMap(Athlete::getId, a -> a));
+        Map<UUID, Athlete> ath = athletes.findAll().stream().filter(a -> a.getCurrentClubId() != null && a.getStatus() == AccountStatus.ACTIVE && a.getVisibility() == ProfileVisibility.PUBLICO && AccessPolicy.openToPublic(a)).collect(Collectors.toMap(Athlete::getId, a -> a));
         for (DigitalTwin t : twins.findAllByUserIdIn(ath.keySet())) if (t.getStatus().countsForRanking()) byClub.computeIfAbsent(ath.get(t.getUserId()).getCurrentClubId(), k -> new ArrayList<>()).add(t);
         List<ClubRow> rows = new ArrayList<>();
         for (Club c : byId.values()) {

@@ -17,7 +17,7 @@
   const ROLES = {
     ATLETA:{ dc:'atleta', label:'atleta' }, CLUBE:{ dc:'clube', label:'clube formador' }, SCOUT:{ dc:'scout', label:'scout verificado' },
     MARCA:{ dc:'marca', label:'patrocinador' }, IMPRENSA:{ dc:'imprensa', label:'imprensa esportiva' }, OFICIAL_LIGA:{ dc:'oficial', label:'conta oficial' },
-    STAFF:{ dc:'staff', label:'staff técnico' }, STAFF_SAUDE:{ dc:'saude', label:'dep. médico' }, AGENTE:{ dc:'agente', label:'agente' },
+    MANAGER:{ dc:'manager', label:'manager' }, STAFF:{ dc:'staff', label:'staff técnico' }, STAFF_SAUDE:{ dc:'saude', label:'dep. médico' }, AGENTE:{ dc:'agente', label:'agente' },
     TORCEDOR:{ dc:'torcedor', label:'torcedor' }, AGENTE_IA:{ dc:'ia', label:'agente IA' }, ARBITRO:{ dc:'arbitro', label:'árbitro' }, TORCIDA_ORGANIZADA:{ dc:'torcida', label:'torcida' },
   };
   /* ---------- camada 2 · conteúdo (7 bordas) ---------- */
@@ -286,7 +286,11 @@
       $$(`#win-${win} .subview`).forEach(v => v.hidden = v.dataset.sub !== state.sub[win]);
       $(`#win-${win} .win-body`).classList.toggle('no-filters', !FILTERED_SUBS.includes(state.sub[win]));
       applyParamsToForm(win, params); updatePreview(win); renderSub(win, state.sub[win]);
-    } else if (win === 'flair') { $('#win-flair').hidden = false; renderFlair(params); }
+    } else if (['buscar','clubes','jogadores'].includes(win)) { $('#win-misc').hidden = false; if (win !== 'buscar') { location.hash = '#/buscar?entity=' + (win === 'clubes' ? 'CLUBE' : 'ATLETA'); return; } ClubUI.search(params, API); }
+    else if (win === 'clube') { $('#win-misc').hidden = false; ClubUI.club(params, API, API.user, d => vcard(fromAthlete(d))); }
+    else if (win === 'manager') { $('#win-misc').hidden = false; ManagerUI.render(params, API, API.user, esc); }
+    else if (win === 'mercado') { $('#win-misc').hidden = false; ClubUI.market(params, API, API.user); }
+    else if (win === 'flair') { $('#win-flair').hidden = false; renderFlair(params); }
     else if (win === 'vitrine') { $('#win-vitrine').hidden = false; renderVitrine(params); }
     else if (win === 'novo') { openComposer(params.copilot === '1'); location.hash = '#/perfil'; return; }
     else if (win === 'configuracoes') { $('#win-perfil').hidden = false; openLgpd(); }
@@ -393,6 +397,8 @@
         const roles = p.role ? p.role.split(',') : null;
         const { athletes: ath, posts: ps } = await tryApi(() => feed('perfil', p), () => ({ athletes: [...filteredAthletes(p), ...orgs.filter(o => (!roles || roles.includes(o.role)) && !p.position && !p.tier)], posts: posts.perfil }));
         $('#feed-perfil').innerHTML = cards(ath, vcard, 'Nenhum perfil com esses filtros.'); $('#feed-perfil-posts').innerHTML = cards(ps);
+        $('#feed-perfil').insertAdjacentHTML('afterbegin', '<p><a href="#/buscar">Buscar perfis com todos os filtros →</a> · <a href="#/buscar?entity=ATLETA&amp;filter=athlete.affiliationStatus:eq:WITHOUT_CLUB">Jogadores sem clube</a> · <a href="#/buscar?entity=MANAGER&amp;filter=manager.hasCurrentClub:eq:false">Managers sem clube</a></p>');
+        if (live()) { const athleteOnly = ['position','ageMin','ageMax','clubId','contractStatus','tier','compare'].some(k => p[k]); const orgTypes = athleteOnly ? [] : roles ? roles.filter(r => ['CLUBE','MANAGER'].includes(r)) : ['CLUBE','MANAGER']; for (const entity of orgTypes) { const q=new URLSearchParams({entity}); if(p.q)q.set('q',p.q); if(p.state)q.append('filter','stateCode:eq:'+p.state); const d=await API.call('/v1/discovery?'+q); $('#feed-perfil').insertAdjacentHTML('beforeend',d.items.map(r=>`<article class="panel cm-result"><small>${esc(entity==='CLUBE'?'Clube':'Manager')}</small><h3><a href="${esc(r.href)}">${esc(r.name)}</a></h3><p>${esc([r.country,r.state,r.city].filter(Boolean).join(' · '))}</p><p>${esc(r.market||'')}</p></article>`).join('')); } }
       }
       if (sub === 'ranking') await renderRanking('atletas');
       if (sub === 'explorar') { await loadClubs(); drawGlobe(+$('#globeRot').value); renderClubs(); }
@@ -453,7 +459,7 @@
 
   /* ---------- Explorar: globo ortográfico em SVG ---------- */
   let clubData = clubs;
-  async function loadClubs() { clubData = await tryApi(async () => (await API.call('/v1/clubs')).filter(c => c.lat != null).map(c => ({ n:c.name, c:c.country, d:c.division || 1, lat:c.lat, lng:c.lng, tier:c.avgTier })), () => clubs); if (!clubData.length) clubData = clubs; }
+  async function loadClubs() { clubData = await tryApi(async () => (await API.call('/v1/clubs')).filter(c => c.lat != null).map(c => ({ id:c.clubId, n:c.name, c:c.country, d:c.division || 1, lat:c.lat, lng:c.lng, tier:c.avgTier })), () => clubs); if (!clubData.length) clubData = clubs; }
   function project(lat, lng, rot, R = 190, cx = 210, cy = 210) {
     const φ = lat * Math.PI / 180, λ = (lng + rot) * Math.PI / 180, φ0 = -15 * Math.PI / 180;
     const cosc = Math.sin(φ0) * Math.sin(φ) + Math.cos(φ0) * Math.cos(φ) * Math.cos(λ); if (cosc < 0) return null;
@@ -469,7 +475,7 @@
   $('#globeRot').addEventListener('input', e => drawGlobe(+e.target.value));
   function renderClubs() {
     const co = $('#exCountry').value, dv = $('#exDiv').value, tm = $('#exTier').value; const order = ['COMMON','RARE','EPIC','LEGENDARY','MYTHIC'];
-    $('#clubList').innerHTML = clubData.filter(c => (!co || c.c === co) && (!dv || String(c.d) === dv) && (!tm || order.indexOf(c.tier) >= order.indexOf(tm.replace('+', '')))).map((c, i) => `<li><span class="avatar" data-initials="C${i + 1}"><i class="dot dc-clube"></i></span><div><b>${esc(c.n)}</b><small class="mono">${esc(c.c)} · DIV ${c.d} · </small>${chip(c.tier)}</div></li>`).join('') || '<li>Nenhum clube.</li>';
+    $('#clubList').innerHTML = clubData.filter(c => (!co || c.c === co) && (!dv || String(c.d) === dv) && (!tm || order.indexOf(c.tier) >= order.indexOf(tm.replace('+', '')))).map((c, i) => `<li><span class="avatar" data-initials="C${i + 1}"><i class="dot dc-clube"></i></span><div><b>${c.id ? `<a href="#/clube?clubId=${esc(c.id)}">${esc(c.n)}</a>` : esc(c.n)}</b><small class="mono">${esc(c.c)} · DIV ${c.d} · </small>${chip(c.tier)}</div></li>`).join('') || '<li>Nenhum clube.</li>';
   }
   ['#exCountry', '#exDiv', '#exTier'].forEach(s => $(s).addEventListener('change', renderClubs));
 
@@ -542,6 +548,7 @@
       if (id !== VT.id) { VT.id = id; VT.data = null; VT.pitch = null; }
       await loadVitrine();
       fillVitrinePicker(id);
+      ClubUI.compatibility(API, id);
     } catch (e) { setLive('error'); showApiState(box, e, () => renderVitrine(params)); }
   }
   async function loadVitrine() {
@@ -559,7 +566,7 @@
   async function pollVitrine() {
     if (!VT.active) return;
     if (document.hidden) { scheduleVitrine(VT.data && VT.data.refreshSeconds); return; }   // aba do navegador oculta: não consulta
-    try { await loadVitrine(); }
+    try { await loadVitrine(); await ClubUI.refreshCompatibility(API, VT.id); }
     catch (e) {
       if (e.status === 401 || e.status === 403 || e.status === 404) { stopVitrine(); showApiState($('#vitrineBody'), e, () => renderVitrine({ athleteId: VT.id })); }
       else { setLive('error'); scheduleVitrine(60); }             // falha passageira: mantém o painel e tenta de novo
@@ -1174,7 +1181,7 @@
   }
   function openAuth() { $('#authModal').hidden = false; $('#authError').hidden = true; if (API.online && !API.terms) API.call('/v1/terms/current', { auth: false }).then(t => { API.terms = t; $('#termsVersion').textContent = `versão ${t.version} · ${t.owner}`; $('#termsLink').href = t.documentUrl || '#'; }).catch(() => {}); }
   $$('.auth-tabs button').forEach(b => b.addEventListener('click', () => { $$('.auth-tabs button').forEach(x => x.classList.toggle('active', x === b)); $('#loginForm').hidden = b.dataset.auth !== 'login'; $('#registerForm').hidden = b.dataset.auth !== 'register'; }));
-  $('#regRole').addEventListener('change', e => $('#regAthlete').hidden = e.target.value !== 'ATLETA');
+  $('#regRole').addEventListener('change', e => { $('#regAthlete').hidden = e.target.value !== 'ATLETA'; $('#regManager').hidden = e.target.value !== 'MANAGER'; });
   const authFail = e => {
     const el = $('#authError'); el.hidden = false;
     if (e.code === 'TERMS_REQUIRED') { $('#loginTermsRow').hidden = false; $('#loginTermsVersion').textContent = API.terms ? `versão ${API.terms.version}` : ''; el.textContent = e.message + ' — marque o aceite e entre de novo.'; return; }
@@ -1189,6 +1196,7 @@
   $('#registerForm').addEventListener('submit', async e => {
     e.preventDefault(); const fd = new FormData(e.target);
     const body = { role: fd.get('role'), email: fd.get('email'), password: fd.get('password'), username: fd.get('username'), displayName: fd.get('displayName'), birthDate: fd.get('birthDate') || null, acceptTerms: !!fd.get('acceptTerms'), termsVersion: API.terms ? API.terms.version : '2026.10', profile: { position: fd.get('position') || null, clubName: fd.get('clubName') || null } };
+    if (body.role === 'MANAGER') { body.profile = { function: fd.get('managerFunction'), nationalities: fd.get('nationalities') || '', languages: fd.get('managerLanguages') || '' }; if (fd.get('managerHasClub') !== '') body.profile.hasCurrentClub = fd.get('managerHasClub'); }
     try { const d = await API.call('/v1/auth/register', { method: 'POST', body, auth: false }); API.setTokens(d.accessToken, d.refreshToken); setUser(d.user); $('#authModal').hidden = true; toast('CONTA CRIADA · VISIBILIDADE SOMENTE EU · CONSENTIMENTOS DESLIGADOS'); route(); } catch (err) { authFail(err); }
   });
   $('#demoBtn').addEventListener('click', () => { sessionStorage.setItem('fas.demo', '1'); $('#authModal').hidden = true; toast('MODO DEMONSTRAÇÃO · DADOS FICTÍCIOS'); });
