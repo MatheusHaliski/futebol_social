@@ -1,0 +1,64 @@
+/* Run after smoke_club_market.py --session-file /tmp/professional-session.json. */
+const {chromium}=require('playwright');
+const fs=require('fs');
+(async()=>{
+ const data=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
+ const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
+ const errors=[],checks=[];
+ const context=await browser.newContext({viewport:{width:1440,height:1000}});
+ await context.addInitScript(({access,refresh})=>{sessionStorage.setItem('fas.access',access);sessionStorage.setItem('fas.refresh',refresh);sessionStorage.removeItem('fas.demo');},{access:data.outsider.accessToken,refresh:data.outsider.refreshToken});
+ const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
+ async function go(hash){await page.goto(data.base+'/'+hash);}
+ async function check(value,label){if(!value)throw Error(label);checks.push(label);}
+ await go('#/perfil/jogadores?q='+data.prefix);
+ const ownCard=page.locator(`[data-profile="${data.athleteId}"]`);await ownCard.waitFor();
+ await check((await ownCard.innerText()).includes('Sem indicadores registrados'),'Card sem partidas não inventa indicadores');
+ await check(!await ownCard.locator('.pro-supplementary').isVisible(),'Modo compacto prioriza o resumo');
+ await page.getByRole('button',{name:'Com detalhes',exact:true}).click();await ownCard.locator('.pro-supplementary').waitFor();
+ await check((await ownCard.locator('.pro-supplementary').innerText()).includes('Curitiba'),'Modo detalhado revela contexto complementar');
+ await page.getByRole('button',{name:'Compactos',exact:true}).click();
+ await ownCard.locator('summary').click();const seasonTab=ownCard.getByRole('tab',{name:'Temporada',exact:true});await seasonTab.waitFor();await seasonTab.focus();await page.keyboard.press('ArrowRight');
+ await check(await ownCard.getByRole('tab',{name:'Partidas',exact:true}).getAttribute('aria-selected')==='true','Ficha expandida possui abas operáveis pelo teclado');
+ await ownCard.getByRole('tab',{name:'Atributos',exact:true}).click();await ownCard.getByRole('heading',{name:'Atributos do momento',exact:true}).waitFor();
+ await check(!await ownCard.getByText('CONDICIONAMENTO',{exact:true}).count(),'Ficha pública não apresenta prontidão ou condição médica');
+ await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:'/tmp/professional-player-expanded.png',fullPage:true});
+ await ownCard.getByRole('button',{name:'Comparar',exact:true}).click();
+ await go('#/perfil/jogadores?q=preencher_atleta_1');
+ const second=page.locator('.pro-card[data-profile-role="ATLETA"]').first();await second.waitFor();await second.getByRole('button',{name:'Comparar',exact:true}).click();
+ await page.getByRole('link',{name:'Abrir comparação',exact:true}).click();await page.locator('#compareScout .pro-card').nth(1).waitFor();
+ await check(await page.locator('#compareScout .pro-card').count()===2,'Seleção de dois jogadores abre a comparação existente');
+ await page.getByRole('button',{name:'Limpar seleção',exact:true}).click();
+ await go('#/perfil/mercado?q='+data.prefix);
+ await page.locator('.pro-quick-segments').waitFor();await page.getByRole('link',{name:'Agentes livres',exact:true}).click();await page.locator('#pro-feed-mercado .pro-active-filters').waitFor();
+ await check(locationCheck(await page.url(),'athlete.transferSituation'),'Segmento de mercado preserva o filtro na URL');
+ await go('#/perfil/clubes?q='+data.prefix);
+ const clubCard=page.locator(`[data-profile="${data.clubId}"]`);await clubCard.waitFor();
+ await check((await clubCard.innerText()).includes('Jogadores visíveis')&&(await clubCard.innerText()).includes('Liga teste'),'Card de clube mostra elenco visível e competição com referência');
+ await clubCard.locator('summary').click();await clubCard.getByRole('tab',{name:'Competições',exact:true}).waitFor();await clubCard.getByRole('tab',{name:'Competições',exact:true}).click();
+ await check(await clubCard.getByRole('heading',{name:'Competições e referências',exact:true}).isVisible(),'Expansão do clube apresenta histórico por equipe e temporada');
+ await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:'/tmp/professional-club-expanded.png',fullPage:true});
+ await go('#/clube?clubId='+data.clubId);
+ const clubTabs=page.locator('#miscPanel > .pro-profile-tabs');await clubTabs.getByRole('tab',{name:'Elenco e equipes',exact:true}).click();
+ await page.keyboard.press('ArrowRight');await check(await clubTabs.getByRole('tab',{name:'Competições',exact:true}).getAttribute('aria-selected')==='true','Perfil de clube mantém foco e seleção acessíveis entre abas');
+ await go('#/manager?managerId='+data.managerId);
+ await page.getByRole('tab',{name:'Perfil técnico e edição',exact:true}).click();
+ await check((await page.locator('[data-sports-panel="profile"]').innerText()).includes('Nacionalidades declaradas'),'Perfil técnico de Manager é útil também para visitantes');
+ await page.getByRole('tab',{name:'Carreira',exact:true}).click();
+ await check(await page.getByRole('heading',{name:'Histórico de clubes',exact:true}).isVisible(),'Histórico de Manager fica em aba própria');
+ await go('#/vitrine?athleteId='+data.athleteId);
+ const main=page.locator('#vitrineBody .vt-main');await main.getByRole('tab',{name:'Visão geral',exact:true}).waitFor();await page.locator('#vtCard .pro-card').waitFor();
+ await check(!await page.locator('#vtCompatibility').isVisible(),'Resumo do jogador separa avaliação de contratação dos indicadores');
+ await main.getByRole('tab',{name:'Desempenho',exact:true}).click();await page.locator('#vtMatches').waitFor();
+ await check((await page.url()).includes('tab=performance'),'Aba da Vitrine pode ser compartilhada pela URL');
+ await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:'/tmp/professional-vitrine-tabs.png',fullPage:true});
+ await page.locator('#searchInput').fill(data.prefix);await page.locator('#searchInput').press('Enter');await page.locator('#globalResults .pro-card').first().waitFor();
+ await check((await page.url()).includes('#/buscar?q='),'Busca do cabeçalho abre a descoberta global');
+ await page.setViewportSize({width:390,height:844});
+ await go('#/perfil/jogadores?q='+data.prefix);await page.locator('.pro-card').first().waitFor();
+ await check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),'Feed profissional cabe em viewport móvel sem rolagem horizontal');
+ await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:'/tmp/professional-feed-mobile.png',fullPage:true});
+ await context.close();await browser.close();
+ if(errors.length)throw Error('Erros JavaScript: '+errors.join('; '));
+ console.log(JSON.stringify({passed:checks.length,checks},null,2));
+ function locationCheck(url,field){return decodeURIComponent(url).includes(field);}
+})().catch(e=>{console.error(e.message);process.exit(1);});

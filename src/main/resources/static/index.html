@@ -10,6 +10,7 @@
 <link rel="preload" href="fonts/space-grotesk-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="fonts/fonts.css">
 <link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="professional-layout.css">
 </head>
 <body data-role="ATLETA" data-tier="LEGENDARY">
 <!-- sprite de ícones derivado do logo (fonte: icons.svg) -->
@@ -225,7 +226,7 @@
     <a href="#/perfil/explorar?view=ligas" data-nav="perfil/explorar"><svg class="ic"><use href="#ic-clubes"/></svg>Clubes &amp; Ligas</a>
     <a href="#/scouting/lens" data-nav="scouting/lens" data-roles="ATLETA,STAFF,SCOUT,CLUBE"><svg class="ic"><use href="#ic-lens"/></svg>Lens</a>
   </section>
-  <section><h4>Meu Gêmeo</h4>
+  <section data-roles="ATLETA"><h4>Meu Gêmeo</h4>
     <a href="#/gemeo" data-nav="gemeo/telemetria"><svg class="ic"><use href="#ic-telemetria"/></svg>Telemetria</a>
     <a href="#/gemeo/evolucao" data-nav="gemeo/evolucao"><svg class="ic"><use href="#ic-evolucao"/></svg>Evolução</a>
     <a href="#/gemeo/carga" data-nav="gemeo/carga"><svg class="ic"><use href="#ic-carga"/></svg>Carga &amp; Recuperação</a>
@@ -265,7 +266,7 @@
     <span><i class="dot xs dc-scout"></i>Scout</span><span><i class="dot xs dc-marca"></i>Marca</span>
     <span><i class="dot xs dc-imprensa"></i>Imprensa</span><span><i class="dot xs dc-oficial"></i>Conta oficial</span>
     <h4>Extensões</h4>
-    <span><i class="dot xs dc-staff"></i>Staff</span><span><i class="dot xs dc-saude"></i>Saúde</span>
+    <span><i class="dot xs dc-manager"></i>Manager</span><span><i class="dot xs dc-staff"></i>Staff</span><span><i class="dot xs dc-saude"></i>Saúde</span>
     <span><i class="dot xs dc-agente"></i>Agente</span><span><i class="dot xs dc-torcedor"></i>Torcedor</span><span><i class="dot xs dc-ia"></i>IA</span>
     <h4>Bordas · VSL</h4>
     <span>◇ identidade</span><span>⬢ comunidade</span><span>▭ instituição</span><span>✦ especial</span>
@@ -278,9 +279,14 @@
   <!-- ========== 01 · PERFIL (Descoberta) ========== -->
   <section class="window" data-window="perfil" id="win-perfil">
     <header class="win-head">
-      <h2><span class="secnum">01</span> Perfil <small>atletas · clubes · scouts · marcas</small></h2>
+      <h2><span class="secnum">01</span> Descoberta <small>perfis profissionais · mercado · contexto esportivo</small></h2>
       <nav class="segments" data-for="perfil">
-        <a href="#/perfil" data-sub="feed" class="active">Feed</a>
+        <a href="#/perfil" data-sub="feed" class="active">Panorama</a>
+        <a href="#/perfil/jogadores" data-sub="jogadores">Jogadores</a>
+        <a href="#/perfil/mercado" data-sub="mercado">Mercado</a>
+        <a href="#/perfil/clubes" data-sub="clubes">Clubes</a>
+        <a href="#/perfil/managers" data-sub="managers">Managers</a>
+        <a href="#/perfil/publicacoes" data-sub="publicacoes">Publicações</a>
         <a href="#/perfil/ranking" data-sub="ranking">Ranking</a>
         <a href="#/perfil/explorar" data-sub="explorar">Explorar</a>
         <a href="#/perfil/momentos" data-sub="momentos">Momentos</a>
@@ -328,13 +334,18 @@
       <div class="content">
         <div class="subview" data-sub="feed">
           <div class="feed-panel">
-            <p class="fp-desc">Descubra <b>atletas, clubes, scouts e marcas</b> por posição, categoria, estado e clube — o bloco de descoberta da rede.</p>
+            <p class="fp-desc">Avalie <b>posição, disponibilidade e evidências esportivas</b>. Abra a ficha para conferir período, histórico e origem dos números.</p>
             <div class="sorttabs" data-sort="perfil"><button class="on">Para você</button><button>Trending</button><button>Recentes</button><button>Seguindo</button></div>
             <div class="filterbar" data-bar="perfil"></div>
             <div class="cards-grid" id="feed-perfil"></div>
-            <div class="samples" id="feed-perfil-posts" style="margin-top:14px"></div>
+            <h3 class="pro-posts-label">Publicações da rede</h3><div class="samples" id="feed-perfil-posts" style="margin-top:14px"></div>
           </div>
         </div>
+        <div class="subview pro-feed-host" data-sub="jogadores" hidden><div class="panel" id="pro-feed-jogadores"></div></div>
+        <div class="subview pro-feed-host" data-sub="mercado" hidden><div class="panel" id="pro-feed-mercado"></div></div>
+        <div class="subview pro-feed-host" data-sub="clubes" hidden><div class="panel" id="pro-feed-clubes"></div></div>
+        <div class="subview pro-feed-host" data-sub="managers" hidden><div class="panel" id="pro-feed-managers"></div></div>
+        <div class="subview" data-sub="publicacoes" hidden><div class="panel"><h3>Publicações da rede</h3><p class="hint">Treinos, partidas, relatórios e atualizações. Os indicadores esportivos ficam nos perfis e nas vitrines.</p><div class="samples" id="pro-feed-publicacoes"></div></div></div>
         <div class="subview" data-sub="ranking" hidden>
           <div class="panel"><div class="panel-head"><h3>Ranking semanal · Score_Total</h3><div class="seg-mini"><button class="active" data-rank="atletas">Jogadores</button><button data-rank="clubes">Clubes</button></div></div><table class="ranking" id="rankingTable"></table></div>
         </div>
@@ -823,6 +834,7 @@
 </div>
 
 <div class="toast" id="toast" hidden></div>
+<script src="professional-cards.js"></script>
 <script src="club-market.js"></script>
 <script src="manager.js"></script>
 <script src="app.js"></script>

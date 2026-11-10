@@ -42,6 +42,8 @@
           <button class="btn primary" type="submit">Salvar perfil</button></form></details>
           <details><summary>Adicionar título declarado</summary><form id="managerTitle" class="manager-grid">${input('clubName','Clube',null,'text','required maxlength="120"')}${input('competition','Competição',null,'text','required maxlength="120"')}${input('season','Temporada',null,'text','required maxlength="30"')}${input('category','Categoria da equipe',null,'text','maxlength="40"')}${input('awardedOn','Data do título',null,'date','required')}${input('source','Fonte',null,'text','required maxlength="240"')}<button class="btn primary" type="submit">Registrar título</button></form></details>`:''}
         <p role="status" id="managerStatus"></p>`;
+      organizeManagerTabs(panel);
+      const summary=document.createElement('div');summary.className='pro-profile-summary';panel.querySelector('[data-sports-panel="overview"]').prepend(summary);ProfessionalCards.load(summary,[id],API,{toolbar:false});
       const statusEl = panel.querySelector('#managerStatus');
       const edit = panel.querySelector('#managerEdit');
       if (edit) edit.addEventListener('submit',async e=>{
@@ -59,6 +61,24 @@
         try{await API.call('/v1/managers/'+encodeURIComponent(id)+'/titles/'+encodeURIComponent(b.dataset.removeTitle),{method:'DELETE'});await render(params,API,user,esc);}catch(err){statusEl.textContent=err.message;}
       }));
     } catch(err) { if(run===revision) panel.innerHTML='<h2>Manager</h2><p role="alert">'+esc(err.message)+'</p>'; }
+  }
+  function organizeManagerTabs(panel){
+    const root=document.createElement('div');root.dataset.sportsTabsRoot='';root.className='pro-profile-tabs';
+    const panes={};for(const key of ['overview','career','titles','profile']){const section=document.createElement('section');section.dataset.sportsPanel=key;panes[key]=section;root.append(section);}
+    let started=false,target=panes.overview;
+    for(const node of [...panel.children]){
+      if(node.tagName==='DL')started=true;
+      if(!started||node.id==='managerStatus')continue;
+      if(node.tagName==='H3'){
+        const title=node.textContent;
+        target=title.includes('Histórico')||title.includes('passagens')||title.includes('tempo de atuação')?panes.career:title.includes('Títulos')?panes.titles:panes.overview;
+      }
+      if(node.tagName==='DL'){panes.profile.append(node);continue;}
+      if(node.tagName==='DETAILS'){node.querySelector('#managerEdit')?panes.profile.append(node):panes.titles.append(node);}else target.append(node);
+    }
+    const status=panel.querySelector('#managerStatus');panel.insertBefore(root,status);
+    const current=new URLSearchParams(location.hash.split('?')[1]||'').get('tab')||'overview';
+    SportsLayout.tabs(root,{groups:[['overview','Visão geral'],['career','Carreira'],['titles','Títulos'],['profile','Perfil técnico e edição']],initial:current,urlKey:'tab'});
   }
   window.ManagerUI={render};
 })();

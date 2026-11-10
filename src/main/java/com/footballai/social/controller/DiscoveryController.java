@@ -10,8 +10,8 @@ public class DiscoveryController {
  @GetMapping("/fields") public List<DiscoveryService.Field> fields(){return service.fields();}
  @GetMapping public DiscoveryService.Results search(@AuthenticationPrincipal AuthPrincipal p,
    @RequestParam(defaultValue="ALL") String entity,@RequestParam(required=false) String q,
-   @RequestParam(name="filter",required=false) List<String> filters,@RequestParam(defaultValue="0") int page,
+   @RequestParam org.springframework.util.MultiValueMap<String,String> params,@RequestParam(defaultValue="0") int page,
    @RequestParam(defaultValue="20") int size,@RequestParam(defaultValue="name") String order){
-  return service.search(p,entity,q,filters==null?List.of():filters,page,size,order);
+  return service.search(p,entity,q,params.getOrDefault("filter",List.of()),page,size,order);
  }
 }

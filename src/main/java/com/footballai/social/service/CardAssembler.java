@@ -131,7 +131,7 @@ public class CardAssembler {
         List<BadgeDTO> top = BadgeAwardService.top3(badges.findAllByAthleteIdAndActiveTrue(a.getId()), canSeeMedical).stream().map(BadgeAwardService::toDto).toList();
         AuthorDTO author = AuthorDTO.of(a, false);
         MediaDTO hero = a.getAvatarKey() == null ? null : new MediaDTO(a.getAvatarKey(), storage.mediaUrl(a.getAvatarKey()), "image");
-        int likes = (int) Math.min(Integer.MAX_VALUE, score / 2L); // placeholder determinístico até existir grafo social
+        int likes = 0; // Profile likes are not backed by a persisted reaction graph. Never derive popularity from sporting score.
         return new AthleteCardDTO(a.getId(), "@" + a.getUsername(), a.getDisplayName(), author, "GÊMEO DIGITAL", VslGlyph.IDENTIDADE.glyph(),
                 RarityDTO.of(tier, score, pp, rp, mp), attributes(a, twin), seasonDto, physical, top,
                 new ClassificationDTO(AgeRatingDTO.of(sensitive ? AgeRating.SENSITIVE : AgeRating.SAFE), sensitive),

@@ -161,7 +161,7 @@
       status:attrs.some(a => a.kind === 'free') ? 'AGENTE_LIVRE' : 'CONTRATADO', tier:r.tier || 'COMMON', score:r.score || 0, pp:r.pp || 0, rp:r.rp || 0, s:[Math.round((r.pp || 0) / 15), Math.round((r.rp || 0) / 10), r.mp || 0],
       attrs:attrs.map(a => [a.icon, a.label, a.kind]), badges:(d.topBadges || []).map(b => [b.label, b.type === 'PRONTO_PRA_JOGO' ? 'green' : b.type === 'DEPARTAMENTO_MEDICO' ? 'red' : b.type === 'RISCO_FADIGA' ? 'yellow' : '']),
       season:d.season, avgRating:d.season && d.season.avgRating, phys: ph ? { readiness:ph.readiness, acwr:ph.acwr, status:PHYS_MAP[ph.status] || 'READY', injury: ph.injury ? { type:ph.injury.type, ret: ph.injury.expectedReturn || '—' } : null } : null,
-      physPrivate: !ph, photo: d.heroImage && d.heroImage.url, verified:d.author && d.author.verified, likes:d.social.likes, comments:d.social.comments, shares:d.social.shares, sub:'' };
+      physPrivate: !ph, professional:d, photo: d.heroImage && d.heroImage.url, verified:d.author && d.author.verified, likes:d.social.likes, comments:d.social.comments, shares:d.social.shares, sub:'' };
   };
   const fromFlairCard = c => ({ id:c.id, name:c.name, pos:c.position ? c.position[0] + c.position.slice(1).toLowerCase() : '—', ini:ini(c.name), tier:c.tier, score:c.scoreTotal, s:[c.pp, c.rp, c.mp], power:c.power, captain:c.captain });
 
@@ -208,6 +208,7 @@
     const r = roleOf(a.role), t = (a.tier || 'COMMON').toLowerCase();
     const cc = a.tier === 'COMMON' || !a.tier ? '#5c6b62' : TIER_COLOR[a.tier];
     const bdg = a.badges && a.badges.length ? `<div class="bdgrow"><small>BADGES</small>${a.badges.slice(0, 3).map(b => `<b class="${b[1]}" data-badge="${esc(b[0])}">${esc(b[0])}</b>`).join('')}</div>` : '';
+    if(a.professional)return ProfessionalCards.card(ProfessionalCards.fromAthleteDto(a.professional),{expand:false});
     const title = esc(a.name);
     const refs = String(a.sub || '').split(' · ').map(x => x.trim()).filter(Boolean);
     const attrItems = a.attrs ? a.attrs : a.pos ? [
@@ -221,8 +222,8 @@
     if (a.season) {
       const sz = a.season, ph = a.phys || {}, st = PHYS[ph.status] || PHYS.READY;
       const gk = sz.cleanSheets !== undefined && sz.cleanSheets !== null, df = sz.tackles !== undefined && sz.tackles !== null;
-      const nota = a.avgRating != null ? Number(a.avgRating).toFixed(1) : a.s ? (6.2 + (a.s[1] / 40)).toFixed(1) : '—';
-      const physBlock = a.physPrivate ? `<div class="phys priv"><div class="pl"><small>CONDICIONAMENTO</small><span>🔒 privado por padrão · visível só com <b>shareMedicalData</b> (Art. 11)</span></div></div>`
+      const nota = a.avgRating != null ? Number(a.avgRating).toFixed(1) : '—';
+      const physBlock = a.physPrivate ? `<div class="phys priv"><div class="pl"><small>CONDICIONAMENTO</small><span>Informação de saúde não compartilhada</span></div></div>`
         : `<div class="phys ${st[2]}">
         <div class="pl"><small>CONDICIONAMENTO</small><div class="rd"><i style="--w:${ph.readiness || 0}%"></i></div><span>prontidão <b>${ph.readiness ?? '—'}%</b> · ACWR <b>${Number(ph.acwr ?? 0).toLocaleString('pt-BR')}</b></span></div>
         <div class="pst"><span class="i">${st[0]}</span><b>${st[1]}</b>${ph.injury ? `<small>${esc(ph.injury.type)} · retorno ${esc(ph.injury.ret)}</small>` : ''}</div>
@@ -285,6 +286,7 @@
       $$(`.segments[data-for="${win}"] a`).forEach(a => a.classList.toggle('active', a.dataset.sub === state.sub[win]));
       $$(`#win-${win} .subview`).forEach(v => v.hidden = v.dataset.sub !== state.sub[win]);
       $(`#win-${win} .win-body`).classList.toggle('no-filters', !FILTERED_SUBS.includes(state.sub[win]));
+      $(`#win-${win} .filters-toggle`).hidden=!FILTERED_SUBS.includes(state.sub[win]);
       applyParamsToForm(win, params); updatePreview(win); renderSub(win, state.sub[win]);
     } else if (['buscar','clubes','jogadores'].includes(win)) { $('#win-misc').hidden = false; if (win !== 'buscar') { location.hash = '#/buscar?entity=' + (win === 'clubes' ? 'CLUBE' : 'ATLETA'); return; } ClubUI.search(params, API); }
     else if (win === 'clube') { $('#win-misc').hidden = false; ClubUI.club(params, API, API.user, d => vcard(fromAthlete(d))); }
@@ -393,12 +395,22 @@
   async function renderSubView(win, sub) {
     const p = state.params;
     if (win === 'perfil') {
-      if (sub === 'feed') {
+      if (['jogadores','mercado','clubes','managers'].includes(sub)) {
+        const config={jogadores:['ATLETA','Jogadores','Compare posição, minutos e produção na temporada antes de aprofundar a avaliação.'],mercado:['ATLETA','Mercado de jogadores','Disponibilidade declarada para transferências, empréstimos, trocas e contratação como agente livre.'],clubes:['CLUBE','Clubes e oportunidades','Confira equipes, necessidades do elenco e contexto competitivo.'],managers:['MANAGER','Managers','Explore função, trajetória, modelo de jogo e disponibilidade.']}[sub];
+        await ClubUI.search(p,API,{container:$('#pro-feed-'+sub),scope:sub,route:'#/perfil/'+sub,entity:config[0],title:config[1],description:config[2],market:sub==='mercado'});
+      }
+      if (sub === 'feed' || sub === 'publicacoes') {
         const roles = p.role ? p.role.split(',') : null;
         const { athletes: ath, posts: ps } = await tryApi(() => feed('perfil', p), () => ({ athletes: [...filteredAthletes(p), ...orgs.filter(o => (!roles || roles.includes(o.role)) && !p.position && !p.tier)], posts: posts.perfil }));
-        $('#feed-perfil').innerHTML = cards(ath, vcard, 'Nenhum perfil com esses filtros.'); $('#feed-perfil-posts').innerHTML = cards(ps);
-        $('#feed-perfil').insertAdjacentHTML('afterbegin', '<p><a href="#/buscar">Buscar perfis com todos os filtros →</a> · <a href="#/buscar?entity=ATLETA&amp;filter=athlete.affiliationStatus:eq:WITHOUT_CLUB">Jogadores sem clube</a> · <a href="#/buscar?entity=MANAGER&amp;filter=manager.hasCurrentClub:eq:false">Managers sem clube</a></p>');
-        if (live()) { const athleteOnly = ['position','ageMin','ageMax','clubId','contractStatus','tier','compare'].some(k => p[k]); const orgTypes = athleteOnly ? [] : roles ? roles.filter(r => ['CLUBE','MANAGER'].includes(r)) : ['CLUBE','MANAGER']; for (const entity of orgTypes) { const q=new URLSearchParams({entity}); if(p.q)q.set('q',p.q); if(p.state)q.append('filter','stateCode:eq:'+p.state); const d=await API.call('/v1/discovery?'+q); $('#feed-perfil').insertAdjacentHTML('beforeend',d.items.map(r=>`<article class="panel cm-result"><small>${esc(entity==='CLUBE'?'Clube':'Manager')}</small><h3><a href="${esc(r.href)}">${esc(r.name)}</a></h3><p>${esc([r.country,r.state,r.city].filter(Boolean).join(' · '))}</p><p>${esc(r.market||'')}</p></article>`).join('')); } }
+        if(sub==='publicacoes'){ $('#pro-feed-publicacoes').innerHTML=cards(ps); return; }
+        $('#feed-perfil-posts').innerHTML = cards(ps);
+        if(live()) {
+          const ids=ath.map(a=>a.id);
+          const athleteOnly=['position','ageMin','ageMax','clubId','contractStatus','tier','compare'].some(k=>p[k]);
+          const orgTypes=athleteOnly||p.sort==='FOLLOWING'?[]:roles?roles.filter(r=>['CLUBE','MANAGER'].includes(r)):['CLUBE','MANAGER'];
+          for(const entity of orgTypes){const q=new URLSearchParams({entity});if(p.q)q.set('q',p.q);if(p.state)q.append('filter','stateCode:eq:'+p.state);const d=await API.call('/v1/discovery?'+q);ids.push(...d.items.map(r=>r.id));}
+          if(state.win==='perfil'&&state.sub.perfil==='feed')await ProfessionalCards.load($('#feed-perfil'),ids,API);
+        }else $('#feed-perfil').innerHTML=cards(ath,vcard,'Nenhum perfil com esses filtros.');
       }
       if (sub === 'ranking') await renderRanking('atletas');
       if (sub === 'explorar') { await loadClubs(); drawGlobe(+$('#globeRot').value); renderClubs(); }
@@ -540,9 +552,17 @@
   };
 
   function stopVitrine() { VT.active = false; clearTimeout(VT.timer); VT.timer = null; }
+  const vitrineMain=$('#vitrineBody .vt-main');
+  const vitrineBlocks=[...vitrineMain.children];
+  vitrineMain.dataset.sportsTabsRoot='';
+  const vitrinePanels={};
+  for(const key of ['overview','performance','recruitment']){const pane=document.createElement('div');pane.dataset.sportsPanel=key;pane.className='pro-view-pane';vitrinePanels[key]=pane;vitrineMain.append(pane);}
+  vitrineBlocks.forEach((section,index)=>vitrinePanels[index===0||index===2?'overview':index===3||index===4?'recruitment':'performance'].append(section));
+
   async function renderVitrine(params) {
     clearTimeout(VT.timer); VT.active = true;
     const box = $('#vitrineBody'); clearApiState(box);
+    SportsLayout.tabs($('#vitrineBody .vt-main'),{groups:[['overview','Visão geral'],['performance','Desempenho'],['recruitment','Contratação']],initial:params.tab||'overview',urlKey:'tab'});
     try {
       const id = await tryApi(() => myAthleteId(params.athleteId), () => athletes.some(a => a.id === params.athleteId) ? params.athleteId : athletes[0].id);
       if (id !== VT.id) { VT.id = id; VT.data = null; VT.pitch = null; }
@@ -595,7 +615,7 @@
 
   function drawVitrine(d, prev) {
     const a = d.cardModel || fromAthlete(d.card);
-    $('#vtCard').innerHTML = vcard(a, { vitrine: false });
+    $('#vtCard').innerHTML = d.card ? ProfessionalCards.card(ProfessionalCards.fromAthleteDto(d.card),{expand:false}) : vcard(a,{vitrine:false});
     $('#vtScope [data-scope="season"]').textContent = 'Temporada ' + (d.seasonLabel || '');
     drawKpis(d, prev); drawAttrs(d, prev); drawForm(d.form); drawTables(d); drawCopilotState(d);
   }
@@ -1176,7 +1196,7 @@
     $('#meName').textContent = u.displayName; $('#meHandle').textContent = '@' + u.username; $('#meRole').textContent = roleOf(u.role).label;
     $('#meTier').innerHTML = u.tier ? chip(u.tier) : ''; const av = $('#meBtn .avatar'); av.dataset.initials = ini(u.displayName); av.innerHTML = `<i class="dot dc-${roleOf(u.role).dc}"></i>`; renderAvatar(u);
     $('#srcBadge').textContent = 'API'; $('#srcBadge').classList.add('api');
-    $$('.sidebar a[data-roles]').forEach(a => a.hidden = !a.dataset.roles.split(',').includes(ROLE));
+    $$('.sidebar [data-roles]').forEach(a => a.hidden = !a.dataset.roles.split(',').includes(ROLE));
     if (typeof startNotifPolling === 'function') setTimeout(startNotifPolling, 0);
   }
   function openAuth() { $('#authModal').hidden = false; $('#authError').hidden = true; if (API.online && !API.terms) API.call('/v1/terms/current', { auth: false }).then(t => { API.terms = t; $('#termsVersion').textContent = `versão ${t.version} · ${t.owner}`; $('#termsLink').href = t.documentUrl || '#'; }).catch(() => {}); }
@@ -1291,9 +1311,9 @@
   function startNotifPolling() { refreshNotifCount(); clearInterval(NT.timer); NT.timer = setInterval(refreshNotifCount, 60000); }
 
   /* ---------- sidebar por papel, menu, hide-on-scroll, swipe, ações sociais ---------- */
-  $$('.sidebar a[data-roles]').forEach(a => a.hidden = !a.dataset.roles.split(',').includes(ROLE) && ROLE !== 'ADMIN');
+  $$('.sidebar [data-roles]').forEach(a => a.hidden = !a.dataset.roles.split(',').includes(ROLE) && ROLE !== 'ADMIN');
   $('#btnMore').addEventListener('click', () => $('#sidebar').classList.toggle('open'));
-  $('#searchForm').addEventListener('submit', e => { e.preventDefault(); location.hash = '#/perfil?q=' + encodeURIComponent($('#searchInput').value); });
+  $('#searchForm').addEventListener('submit', e => { e.preventDefault(); location.hash = '#/buscar?q=' + encodeURIComponent($('#searchInput').value); });
   let lastY = 0; window.addEventListener('scroll', () => { const y = window.scrollY; $('#bottomNav').classList.toggle('hidden', y > lastY + 24 && y > 80); if (y < lastY - 4 || y < 40) $('#bottomNav').classList.remove('hidden'); lastY = y; }, { passive: true });
   let x0 = null; document.addEventListener('touchstart', e => x0 = e.touches[0].clientX, { passive: true });
   document.addEventListener('touchend', e => { if (x0 === null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null; if (Math.abs(dx) < 70 || !WINDOWS.includes(state.win)) return; const i = WINDOWS.indexOf(state.win) + (dx < 0 ? 1 : -1); if (WINDOWS[i]) location.hash = '#/' + WINDOWS[i]; });

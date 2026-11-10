@@ -23,6 +23,8 @@ imprensa e ligas. Java 17 · Spring Boot 3.3 · MySQL 8 · Redis 7 · Cassandra 
 
 Documentação de perfis de clubes, Managers, mercado e busca global: [`docs/CLUBES_MERCADO_MANAGERS.md`](docs/CLUBES_MERCADO_MANAGERS.md).
 
+Apresentação profissional dos cards, feed segmentado e abas: [`docs/CARDS_PROFISSIONAIS.md`](docs/CARDS_PROFISSIONAIS.md).
+
 ## Subindo o ambiente
 
 ```bash
