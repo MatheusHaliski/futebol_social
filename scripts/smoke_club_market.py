@@ -96,6 +96,13 @@ def run(base, session_file=None):
     check(call('/v1/me/market',player)['transferSituation']=='FREE_AGENT','Ending a player contract updates market status')
     call('/v1/auth/register',body=dict(role='ATLETA',email=prefix+'_fake@exemplo.dev',username=prefix+'_fake',displayName='Fake vínculo',password=password,birthDate='1990-01-01',acceptTerms=True,termsVersion=terms,profile={'clubId':club_id}),method='POST',status=400)
     check(True,'Registration cannot forge a confirmed club relationship')
+    professional=call('/v1/discovery/cards?'+urllib.parse.urlencode({'ids':','.join([athlete_id,club_id,manager_id,private['user']['id']])}),outsider)
+    check({c['id'] for c in professional}=={athlete_id,club_id,manager_id},'Professional card batch excludes private profiles')
+    check(all('transferFee' not in str(c) and 'payroll' not in str(c) and 'physical' not in c for c in professional),'Professional summaries do not expose private finances or medical indicators')
+    check(next(c for c in professional if c['id']==athlete_id)['metrics']==[],'No-match profile does not manufacture sporting indicators')
+    call('/v1/discovery/cards?'+urllib.parse.urlencode({'ids':','.join([athlete_id]*61)}),outsider,status=400)
+    check(True,'Professional card batch is bounded')
+    check(search('ATLETA',['athlete.transferSituation:eq:FREE_AGENT,SWAP_LIST,LOAN_LIST'])['total']==1,'Multiple transfer situations survive query parameter binding')
     if session_file:
         fd=os.open(session_file,os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600)
         with os.fdopen(fd,'w') as f:json.dump(dict(base=base,prefix=prefix,club=club,player=player,manager=manager,outsider=outsider,clubId=club_id,athleteId=athlete_id,managerId=manager_id,teamId=team['id']),f)
