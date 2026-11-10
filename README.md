@@ -21,6 +21,8 @@ imprensa e ligas. Java 17 · Spring Boot 3.3 · MySQL 8 · Redis 7 · Cassandra 
 | [`docs/estudos/`](docs/estudos/ESTUDO_ABAS_2026-10.md) | Estudo por aba funcional, card design e interação social: defeitos P0/P1, melhorias e roadmap |
 | [`docs/research/`](docs/research) | Pesquisas: tipos de usuário, novas abas, FLAIR, Explorar |
 
+Documentação de perfis de clubes, Managers, mercado e busca global: [`docs/CLUBES_MERCADO_MANAGERS.md`](docs/CLUBES_MERCADO_MANAGERS.md).
+
 ## Subindo o ambiente
 
 ```bash

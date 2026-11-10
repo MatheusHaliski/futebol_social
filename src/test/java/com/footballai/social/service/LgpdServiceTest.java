@@ -93,7 +93,7 @@ class LgpdServiceTest {
         assertThat(dto.scheduledPurgeAt()).isEqualTo(now.plus(30, ChronoUnit.DAYS));
         assertThat(twin.getStatus()).isEqualTo(TwinStatus.PENDING_DELETE);
         verify(sessions).revokeAllSessions(userId);
-        verify(users, never()).delete(any());
+        verify(users, never()).delete(any(com.footballai.social.model.entity.User.class));
 
         var restored = svc.cancelDeletion(principal);
         assertThat(restored.status()).isEqualTo("ACTIVE");

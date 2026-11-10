@@ -103,11 +103,42 @@ public class AuthService {
                 a.setDominantFoot(p.get("dominantFoot"));
                 if (p.get("heightCm") != null) a.setHeightCm(Integer.parseInt(p.get("heightCm")));
                 if (p.get("weightKg") != null) a.setWeightKg(new BigDecimal(p.get("weightKg")));
-                a.setCurrentClubName(p.get("clubName"));
-                if (p.get("clubId") != null) a.setCurrentClubId(UUID.fromString(p.get("clubId")));
-                if (p.get("contractStatus") != null) a.setContractStatus(ContractStatus.valueOf(p.get("contractStatus").toUpperCase()));
+                if (p.get("clubId") != null) throw ApiException.badRequest("CLUB_CONFIRMATION_REQUIRED", "Use um convite confirmado do clube para vincular seu perfil");
+                String clubName=p.get("clubName");
+                a.setCurrentClubName(clubName==null||clubName.isBlank()?null:clubName.trim());
+                try {
+                    if (p.get("contractStatus") != null) a.setContractStatus(ContractStatus.valueOf(p.get("contractStatus").toUpperCase()));
+                    else if(a.getCurrentClubName()!=null) a.setContractStatus(ContractStatus.CONTRATADO);
+                    if(a.getCurrentClubName()!=null) {
+                        if(a.getContractStatus()==ContractStatus.AGENTE_LIVRE)throw ApiException.badRequest("MARKET_CONFLICT", "Agente livre não pode declarar clube atual");
+                        a.setAffiliationStatus("ATTACHED");
+                    } else if(p.containsKey("contractStatus")&&a.getContractStatus()==ContractStatus.AGENTE_LIVRE) a.setAffiliationStatus("WITHOUT_CLUB");
+                    if(p.get("transferSituation")!=null)a.setTransferSituation(TransferSituation.valueOf(p.get("transferSituation")));
+                    if(a.getTransferSituation()==TransferSituation.FREE_AGENT&&!"WITHOUT_CLUB".equals(a.getAffiliationStatus()))throw ApiException.badRequest("FREE_AGENT_CONFLICT", "Agente livre exige declaração explícita de sem clube");
+                } catch(IllegalArgumentException e) {throw ApiException.badRequest("MARKET_VALUE_INVALID", "Situação contratual ou de transferência inválida");}
                 a.setCategoria(p.get("categoria"));
                 return a;
+            }
+            case MANAGER -> {
+                Manager m = new Manager();
+                String function = p.getOrDefault("function", "HEAD_COACH");
+                if (!java.util.Set.of("HEAD_COACH", "SPORTING_DIRECTOR", "ASSISTANT").contains(function))
+                    throw ApiException.badRequest("MANAGER_FUNCTION_INVALID", "Função de manager inválida");
+                m.setFunction(function);
+                m.setNationalities(managerCodes(p.get("nationalities"), 2));
+                m.setLanguages(managerCodes(p.get("languages"), 3));
+                if (p.containsKey("hasCurrentClub")) {
+                    String value = p.get("hasCurrentClub");
+                    if (!"true".equals(value) && !"false".equals(value)) throw ApiException.badRequest("MANAGER_CLUB_STATUS_INVALID", "Informe true, false ou omita o vínculo");
+                    m.setHasCurrentClub(Boolean.valueOf(value)); m.setClubStatusSource("DECLARED_AT_REGISTRATION"); m.setClubStatusAsOf(LocalDate.now(clock));
+                }
+                if (p.get("transferSituation") != null) {
+                    try { m.setTransferSituation(TransferSituation.valueOf(p.get("transferSituation"))); }
+                    catch (IllegalArgumentException e) { throw ApiException.badRequest("TRANSFER_SITUATION_INVALID", "Situação de transferência inválida"); }
+                    if (m.getTransferSituation() == TransferSituation.FREE_AGENT && !Boolean.FALSE.equals(m.getHasCurrentClub()))
+                        throw ApiException.badRequest("MANAGER_FREE_AGENT_INVALID", "Agente livre exige manager sem clube");
+                }
+                return m;
             }
             case STAFF -> {
                 Staff s = new Staff();
@@ -159,6 +190,13 @@ public class AuthService {
             }
             default -> throw ApiException.badRequest("ROLE_UNSUPPORTED", "Papel não suportado: " + role);
         }
+    }
+
+    private static String managerCodes(String value, int maxCodeLength) {
+        if (value == null || value.isBlank()) return null;
+        if (value.length() > 120 || !value.matches(maxCodeLength == 2 ? "[A-Za-z]{2}(,[A-Za-z]{2})*" : "[A-Za-z]{2,3}(,[A-Za-z]{2,3})*"))
+            throw ApiException.badRequest("MANAGER_CODES_INVALID", "Use códigos separados por vírgula");
+        return value.toUpperCase(java.util.Locale.ROOT);
     }
 
     /* ---------------- login / refresh / logout ---------------- */
