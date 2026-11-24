@@ -51,6 +51,7 @@ public class LgpdService {
     private final PostRepository posts;
     private final PostReactionRepository reactions;
     private final TechnicalEvaluationRepository evaluations;
+    private final MatchPerformanceRepository matches;
     private final TrainingSummaryRepository training;
     private final DataExportRequestRepository exports;
     private final RedisSessionService sessions;
@@ -68,18 +69,18 @@ public class LgpdService {
     @org.springframework.beans.factory.annotation.Autowired
     public LgpdService(UserRepository users, UserLgpdPreferencesRepository prefs, ConsentAuditLogRepository consents, TermsAcceptanceRepository terms,
                        DigitalTwinRepository twins, WeeklyScoreSnapshotRepository snapshots, AthleteBadgeRepository badges, InjuryRecordRepository injuries,
-                       PostRepository posts, PostReactionRepository reactions, TechnicalEvaluationRepository evaluations, TrainingSummaryRepository training,
+                       PostRepository posts, PostReactionRepository reactions, TechnicalEvaluationRepository evaluations, MatchPerformanceRepository matches, TrainingSummaryRepository training,
                        DataExportRequestRepository exports, RedisSessionService sessions, StorageService storage, FlairCardRepository flairCards, FlairMatchRepository flairMatches, TransactionTemplate tx, FollowService followService, CommentService commentService, NotificationService notificationService, ObjectMapper mapper, AppProperties props) {
-        this(users, prefs, consents, terms, twins, snapshots, badges, injuries, posts, reactions, evaluations, training, exports, sessions, storage, flairCards, flairMatches, tx, followService, commentService, notificationService, mapper, props, Clock.systemUTC());
+        this(users, prefs, consents, terms, twins, snapshots, badges, injuries, posts, reactions, evaluations, matches, training, exports, sessions, storage, flairCards, flairMatches, tx, followService, commentService, notificationService, mapper, props, Clock.systemUTC());
     }
 
     LgpdService(UserRepository users, UserLgpdPreferencesRepository prefs, ConsentAuditLogRepository consents, TermsAcceptanceRepository terms,
                 DigitalTwinRepository twins, WeeklyScoreSnapshotRepository snapshots, AthleteBadgeRepository badges, InjuryRecordRepository injuries,
-                PostRepository posts, PostReactionRepository reactions, TechnicalEvaluationRepository evaluations, TrainingSummaryRepository training,
+                PostRepository posts, PostReactionRepository reactions, TechnicalEvaluationRepository evaluations, MatchPerformanceRepository matches, TrainingSummaryRepository training,
                 DataExportRequestRepository exports, RedisSessionService sessions, StorageService storage, FlairCardRepository flairCards, FlairMatchRepository flairMatches, TransactionTemplate tx,
                 FollowService followService, CommentService commentService, NotificationService notificationService, ObjectMapper mapper, AppProperties props, Clock clock) {
         this.users = users; this.prefs = prefs; this.consents = consents; this.terms = terms; this.twins = twins; this.snapshots = snapshots; this.badges = badges;
-        this.injuries = injuries; this.posts = posts; this.reactions = reactions; this.evaluations = evaluations; this.training = training; this.exports = exports;
+        this.injuries = injuries; this.posts = posts; this.reactions = reactions; this.evaluations = evaluations; this.matches = matches; this.training = training; this.exports = exports;
         this.sessions = sessions; this.storage = storage; this.flairCards = flairCards; this.flairMatches = flairMatches; this.tx = tx; this.followService = followService; this.commentService = commentService; this.notificationService = notificationService; this.mapper = mapper; this.props = props; this.clock = clock;
     }
 
@@ -146,6 +147,18 @@ public class LgpdService {
     }
 
     /** Payload completo e legível por máquina — chaves de topo conforme docs/ENTITY_TAXONOMY.md §7.4. */
+    /** Partida do atleta na exportação (Art. 18, V): súmula completa, inclusive passes e dribles; campos vazios saem como null. */
+    static Map<String, Object> matchExport(com.footballai.social.model.entity.MatchPerformance m) {
+        Map<String, Object> x = new LinkedHashMap<>();
+        x.put("id", m.getId()); x.put("matchId", m.getMatchId()); x.put("matchDate", m.getMatchDate()); x.put("season", m.getSeason());
+        x.put("competition", m.getCompetition()); x.put("official", m.isOfficial()); x.put("minutesPlayed", m.getMinutesPlayed()); x.put("rating", m.getRating());
+        x.put("goals", m.getGoals()); x.put("assists", m.getAssists());
+        x.put("passesCompleted", m.getPassesCompleted()); x.put("passesAttempted", m.getPassesAttempted());
+        x.put("dribblesCompleted", m.getDribblesCompleted()); x.put("dribblesAttempted", m.getDribblesAttempted());
+        x.put("tackles", m.getTackles()); x.put("cleanSheet", m.isCleanSheet()); x.put("yellowCards", m.getYellowCards()); x.put("redCards", m.getRedCards()); x.put("mvp", m.isMvp());
+        return x;
+    }
+
     Map<String, Object> exportPayload(User u) {
         Map<String, Object> out = new LinkedHashMap<>();
         Map<String, Object> profile = new LinkedHashMap<>();
@@ -165,6 +178,7 @@ public class LgpdService {
         out.put("injuries", injuries.findAllByAthleteId(u.getId()).stream().map(i -> Map.of("type", i.getInjuryType(), "bodyPart", String.valueOf(i.getBodyPart()), "severity", i.getSeverity(), "startedAt", i.getStartedAt(), "expectedReturn", String.valueOf(i.getExpectedReturnDate()), "clearedAt", String.valueOf(i.getClearedAt()))).toList());
         out.put("telemetry", training.findAllByAthleteIdOrderByIsoWeekDesc(u.getId()).stream().map(t -> Map.of("isoWeek", t.getIsoWeek(), "sessionsPlanned", t.getSessionsPlanned(), "sessionsDone", t.getSessionsDone(), "loadAu", t.getLoadAu(), "acwr", t.acwr(), "readiness", t.getReadiness())).toList());
         out.put("posts", posts.findAllByAuthorId(u.getId()).stream().map(p -> Map.of("id", p.getId(), "contentType", p.getContentType(), "window", p.getWindow(), "title", p.getTitle(), "subtitle", String.valueOf(p.getSubtitle()), "content", String.valueOf(p.getContent()), "publishedAt", p.getPublishedAt(), "likes", p.getLikeCount())).toList());
+        out.put("matches", matches.findAllByAthleteIdOrderByMatchDateAsc(u.getId()).stream().map(LgpdService::matchExport).toList());
         out.put("evaluationsReceived", evaluations.findAllByAthleteId(u.getId()).stream().map(e -> Map.of("dimension", e.getDimension(), "rating", e.getRating(), "weight", e.getWeight(), "weekOf", e.getWeekOf(), "evaluatorRole", e.getEvaluatorRole())).toList());
         out.put("follows", followService.export(u.getId()));
         out.put("comments", commentService.export(u.getId()));

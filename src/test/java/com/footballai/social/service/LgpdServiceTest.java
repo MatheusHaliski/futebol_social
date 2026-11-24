@@ -35,6 +35,7 @@ class LgpdServiceTest {
     private PostRepository posts; private InjuryRecordRepository injuries; private TrainingSummaryRepository training; private DataExportRequestRepository exports;
     private PostReactionRepository reactions; private RedisSessionService sessions; private StorageService storage;
     private LgpdService svc;
+    private final MatchPerformanceRepository matches = mock(MatchPerformanceRepository.class);
     private final UUID userId = UUID.randomUUID();
     private final AuthPrincipal principal = new AuthPrincipal(userId, UserRole.ATLETA, "sid", "jti", Instant.MAX);
 
@@ -45,7 +46,7 @@ class LgpdServiceTest {
         training = mock(TrainingSummaryRepository.class); exports = mock(DataExportRequestRepository.class); reactions = mock(PostReactionRepository.class);
         sessions = mock(RedisSessionService.class); storage = mock(StorageService.class);
         svc = new LgpdService(users, prefs, consents, mock(TermsAcceptanceRepository.class), twins, mock(WeeklyScoreSnapshotRepository.class), mock(AthleteBadgeRepository.class),
-                injuries, posts, reactions, mock(TechnicalEvaluationRepository.class), training, exports, sessions, storage,
+                injuries, posts, reactions, mock(TechnicalEvaluationRepository.class), matches, training, exports, sessions, storage,
                 mock(com.footballai.social.repository.FlairCardRepository.class), mock(com.footballai.social.repository.FlairMatchRepository.class),
                 new org.springframework.transaction.support.TransactionTemplate(mock(org.springframework.transaction.PlatformTransactionManager.class)),
                 mock(FollowService.class), mock(CommentService.class), mock(NotificationService.class), new ObjectMapper(), TestProps.props(),
@@ -122,5 +123,23 @@ class LgpdServiceTest {
         UUID other = UUID.randomUUID();
         when(users.findById(other)).thenReturn(Optional.of(fresh));
         assertThatThrownBy(() -> svc.anonymize(other)).isInstanceOf(ApiException.class).hasMessageContaining("30 dias");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void exportIncludesMatchSheetsWithPassesAndDribbles() {
+        com.footballai.social.model.entity.Athlete a = new com.footballai.social.model.entity.Athlete();
+        org.springframework.test.util.ReflectionTestUtils.setField(a, "id", userId);
+        com.footballai.social.model.entity.MatchPerformance m = new com.footballai.social.model.entity.MatchPerformance();
+        m.setAthleteId(userId); m.setMatchDate(java.time.LocalDate.of(2026, 10, 18)); m.setSeason("2026"); m.setOfficial(false); m.setMinutesPlayed(90);
+        m.setGoals(1); m.setAssists(2); m.setPassesCompleted(41); m.setPassesAttempted(50); m.setDribblesCompleted(3); m.setDribblesAttempted(5);
+        when(matches.findAllByAthleteIdOrderByMatchDateAsc(userId)).thenReturn(java.util.List.of(m));
+
+        var payload = svc.exportPayload(a);
+        var exported = (java.util.List<java.util.Map<String, Object>>) payload.get("matches");
+        assertThat(exported).hasSize(1);
+        assertThat(exported.get(0)).containsEntry("passesCompleted", 41).containsEntry("passesAttempted", 50)
+                .containsEntry("dribblesCompleted", 3).containsEntry("dribblesAttempted", 5).containsEntry("goals", 1).containsEntry("assists", 2)
+                .containsEntry("official", false).containsEntry("competition", null);   // campo vazio exportado como null, sem quebrar a exportação
     }
 }

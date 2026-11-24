@@ -316,7 +316,7 @@ Métricas derivadas (não persistidas): `acuteLoad7d`, `chronicLoad28d`, `acwr =
 
 ### 7.4 Payload de exportação (Art. 18, V) — chaves de topo
 
-`profile`, `lgpdPreferences`, `consentHistory`, `termsAcceptances`, `sessions` (dispositivos), `digitalTwin`, `weeklyScores`, `badges`, `injuries`, `telemetry`, `posts`, `evaluationsReceived`, `generatedAt`, `format: application/json`.
+`profile`, `lgpdPreferences`, `consentHistory`, `termsAcceptances`, `sessions` (dispositivos), `digitalTwin`, `weeklyScores`, `badges`, `injuries`, `telemetry`, `matches` (súmulas com passes e dribles), `posts`, `evaluationsReceived`, `generatedAt`, `format: application/json`.
 
 ---
 
