@@ -17,6 +17,7 @@ imprensa e ligas. Java 17 · Spring Boot 3.3 · MySQL 8 · Redis 7 · Cassandra 
 | [`docs/preview/spa/gallery/`](docs/preview/spa/gallery) | Galeria de aparência (tema claro/escuro, destaques, tons de barras, telas de fundo), estúdio de edição e fotografia |
 | [`docs/preview/spa/sprint0/`](docs/preview/spa/sprint0) | Sprint 0: estados honestos da SPA (sem acesso, não encontrado), Copilot sem consentimento, odds reais do FLAIR, boletim com atleta vinculado, menor com categoria |
 | [`docs/preview/spa/variacoes/`](docs/preview/spa/variacoes) | Variações de material, gradiente, fonte, densidade e contraste; 20 backgrounds de card (escuro, claro, contraste alto); arte × foto medida; foto do perfil |
+| [`docs/CLUB_STRENGTH.md`](docs/CLUB_STRENGTH.md) | Força do clube por setor e "Simular contratação" na Vitrine |
 | [`docs/VITRINE.md`](docs/VITRINE.md) | Aba Vitrine do Jogador: painel dinâmico (histórico, atributos do momento, forma) e Copilot "por que contratar?" · prints em [`docs/preview/spa/vitrine/`](docs/preview/spa/vitrine) |
 | [`docs/estudos/`](docs/estudos/ESTUDO_ABAS_2026-10.md) | Estudo por aba funcional, card design e interação social: defeitos P0/P1, melhorias e roadmap |
 | [`docs/research/`](docs/research) | Pesquisas: tipos de usuário, novas abas, FLAIR, Explorar |
@@ -80,6 +81,7 @@ controller/  AuthController, UserController, VitrineController, FeedWindowContro
 | `POST` | `/v1/posts` · `/{id}/like` · `/{id}/save` · `/{id}/share` — `GET /v1/posts/{id}` (PostView) | RF3 |
 | `GET` | `/v1/me` · `PATCH /v1/me` · `/v1/athletes/{id}/card` · `/v1/athletes/{id}/badges/{type}/history` | RF4/RF4.1 |
 | `POST` | `/v1/telemetry` · `PUT /v1/telemetry/plan` · `/v1/evaluations` · `/v1/matches/performances` · `/v1/injuries` · `/v1/injuries/{id}/clear` — `GET /v1/twins/{id}/evolution\|dna\|load` · `/v1/twins/compare?ids=` · `/v1/twins/me` | RF4 |
+| `GET` | `/v1/clubs/{id}/strength` (score global + goleiro, defesa, meio-campo, ataque) · `/v1/athletes/{id}/vitrine/simulate?clubId=` ("Simular contratação": o que aumenta e o que diminui) | Clubes |
 | `GET`/`POST` | `/v1/athletes/{id}/vitrine` (painel dinâmico: `revision` + `refreshSeconds`) · `POST /v1/athletes/{id}/vitrine/copilot` ("Por que contratar este jogador?") | Vitrine |
 | `GET` | `/v1/rankings/athletes` · `/v1/rankings/clubs` · `/v1/clubs` (globo Explorar) — `POST /v1/admin/rarity/recalculate` (OFICIAL_LIGA) | RF3/RF4 |
 | `POST` | `/v1/copilot/suggest` · `GET /v1/autopilot/drafts` · `GET /v1/cards/art-options` · `GET /v1/posts/mine` · `POST /v1/posts/{id}/publish` · `POST /v1/media` (fotografia do card, multipart) | RF3 |

@@ -557,7 +557,7 @@
   vitrineMain.dataset.sportsTabsRoot='';
   const vitrinePanels={};
   for(const key of ['overview','performance','recruitment']){const pane=document.createElement('div');pane.dataset.sportsPanel=key;pane.className='pro-view-pane';vitrinePanels[key]=pane;vitrineMain.append(pane);}
-  vitrineBlocks.forEach((section,index)=>vitrinePanels[index===0||index===2?'overview':index===3||index===4?'recruitment':'performance'].append(section));
+  vitrineBlocks.forEach((section,index)=>vitrinePanels[section.dataset.tab||(index===0||index===2?'overview':index===3||index===4?'recruitment':'performance')].append(section));
 
   async function renderVitrine(params) {
     clearTimeout(VT.timer); VT.active = true;
@@ -565,9 +565,10 @@
     SportsLayout.tabs($('#vitrineBody .vt-main'),{groups:[['overview','Visão geral'],['performance','Desempenho'],['recruitment','Contratação']],initial:params.tab||'overview',urlKey:'tab'});
     try {
       const id = await tryApi(() => myAthleteId(params.athleteId), () => athletes.some(a => a.id === params.athleteId) ? params.athleteId : athletes[0].id);
-      if (id !== VT.id) { VT.id = id; VT.data = null; VT.pitch = null; }
+      if (id !== VT.id) { VT.id = id; VT.data = null; VT.pitch = null; resetSimulation(); }
       await loadVitrine();
       fillVitrinePicker(id);
+      fillSimClubs();
       ClubUI.compatibility(API, id);
     } catch (e) { setLive('error'); showApiState(box, e, () => renderVitrine(params)); }
   }
@@ -580,6 +581,7 @@
     if (changed) drawVitrine(d, prev);
     setLive(live() ? 'live' : 'demo', d.updatedAt);
     if (changed && prev && VT.pitch && d.copilot && d.copilot.available) askCopilot(true);   // dados novos: a resposta acompanha
+    if (changed && prev && SIM.last && SIM.last.athleteId === id) runSimulation(true);           // e a simulação também
     scheduleVitrine(d.refreshSeconds);
   }
   function scheduleVitrine(sec) { clearTimeout(VT.timer); if (VT.active) VT.timer = setTimeout(pollVitrine, Math.max(10, sec || 30) * 1000); }
@@ -720,6 +722,111 @@
       </div>
       <footer class="pitch-foot"><span class="conf ${CONF_CLASS[p.confidence] || ''}">${esc(p.confidenceLabel)}</span><small>Fontes: ${esc(p.sources.join(' · '))}</small><small>Respondido às ${hhmmss(p.generatedAt)}</small><small class="mono">GERADO POR IA · ${esc(p.disclaimer)}</small></footer>
     </article>`;
+  }
+
+  /* ---------- força do clube (score global + setores) e "Simular contratação" — GET /v1/clubs/{id}/strength · GET …/vitrine/simulate ---------- */
+  const SECTORS = [['GOLEIRO', 'Goleiro', 1, 10], ['DEFESA', 'Defesa', 4, 30], ['MEIO_CAMPO', 'Meio-campo', 3, 30], ['ATAQUE', 'Ataque', 3, 30]];
+  const deltaTxt = n => n > 0 ? '▲' + n : n < 0 ? '▼' + -n : '＝';
+  const strengthBlock = d => `<div class="cs-head"><div class="cs-global"><small>Score global</small><b>${d.globalScore}</b><span>melhor onze ${esc(d.formation)}</span></div>
+    <ul class="cs-sectors">${d.sectors.map(s => `<li><span class="lbl">${esc(s.label)}</span><span class="bar" style="--w:${s.score}%"><i></i></span><b>${s.score}</b><small>${s.starters}/${s.reference} titulares · ${s.depth} no setor</small></li>`).join('')}</ul></div>
+    ${d.notes && d.notes.length ? `<ul class="cs-notes">${d.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}`;
+  /* usado também pela página do clube (club-market.js) */
+  window.renderClubStrength = async (el, clubId) => {
+    if (!el) return;
+    el.innerHTML = '<h3>Força do clube</h3><p class="hint">Calculando…</p>';
+    try { const d = await API.call(`/v1/clubs/${encodeURIComponent(clubId)}/strength`); el.innerHTML = '<h3>Força do clube</h3>' + strengthBlock(d) + '<p class="hint">Notas por setor a partir do scouting mais recente do elenco público; o melhor onze é escolhido entre 4-3-3, 4-4-2, 4-2-3-1, 3-5-2, 3-4-3, 5-3-2 e 5-4-1.</p>'; }
+    catch (e) { el.innerHTML = `<h3>Força do clube</h3><p class="hint">${esc(e.message)}</p>`; }
+  };
+
+  const SIM = { last: null, busy: false };
+  async function fillSimClubs() {
+    const sel = $('#vtSimClub'), keep = sel.value;
+    let opts = [];
+    try { opts = live() ? (await API.call('/v1/rankings/clubs')).map(c => [c.clubId, c.name]) : clubs.slice(0, 3).map((c, i) => ['demo-club-' + i, c.n]); } catch { }
+    const mine = API.user && API.user.role === 'CLUBE' ? API.user.id : null;
+    sel.innerHTML = '<option value="">Escolha um clube…</option>' + opts.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('');
+    sel.value = opts.some(o => o[0] === keep) ? keep : mine && opts.some(o => o[0] === mine) ? mine : '';
+  }
+  function resetSimulation() { SIM.last = null; $('#vtSimBody').innerHTML = '<p class="hint">Escolha um clube para ver qual setor dele aumenta e qual diminui se este jogador for contratado.</p>'; }
+  async function runSimulation(auto) {
+    const clubId = $('#vtSimClub').value;
+    if (!clubId) { if (!auto) toast('ESCOLHA UM CLUBE PARA SIMULAR'); return; }
+    if (SIM.busy || !VT.id) return;
+    SIM.busy = true; const athleteId = VT.id;
+    if (!auto) $('#vtSimBody').innerHTML = '<p class="hint" aria-busy="true">Simulando o melhor onze com e sem o jogador…</p>';
+    try {
+      const s = await tryApi(() => API.call(`/v1/athletes/${athleteId}/vitrine/simulate?clubId=${encodeURIComponent(clubId)}`), () => demoSimulate(VT.data, clubId));
+      if (athleteId !== VT.id) return;
+      SIM.last = { athleteId, clubId }; renderSimulation(s);
+      if (auto) toast('SIMULAÇÃO ATUALIZADA COM OS DADOS NOVOS');
+    } catch (e) {
+      if (athleteId !== VT.id) return;
+      SIM.last = null; $('#vtSimBody').innerHTML = apiStateBlock(e);
+      $('#vtSimBody [data-retry]').addEventListener('click', () => runSimulation(false));
+      $('#vtSimBody [data-open-privacy]')?.addEventListener('click', () => openLgpd('privacidade'));
+    } finally { SIM.busy = false; }
+  }
+  $('#vtSimRun').addEventListener('click', () => runSimulation(false));
+  $('#vtSimClub').addEventListener('change', () => { if ($('#vtSimClub').value) runSimulation(false); else resetSimulation(); });
+  function renderSimulation(s) {
+    if (s.status !== 'SIMULATED') { $('#vtSimBody').innerHTML = `<div class="api-state s404" role="note"><b>Não dá para simular</b><span>${esc(s.role)}</span><small>${esc(s.summary)}</small></div>`; return; }
+    const row = x => `<li class="sim-row ${esc(x.trend.toLowerCase())}"><span class="lbl">${esc(x.label)}</span>
+      <span class="bar2" style="--a:${x.before}%;--b:${x.after}%" title="antes ${x.before} · depois ${x.after}"><i class="before"></i><i class="after"></i></span>
+      <span class="nums">${x.before} → <b>${x.after}</b></span><em>${deltaTxt(x.delta)}</em><small>${esc(x.reason)}</small></li>`;
+    const list = (xs, empty) => xs.length ? `<ul>${xs.map(x => `<li><b>${esc(x.label)}</b> ${x.before} → ${x.after} <em>${deltaTxt(x.delta)}</em></li>`).join('')}</ul>` : `<p class="hint">${empty}</p>`;
+    const g = s.globalDelta;
+    $('#vtSimBody').innerHTML = `<article class="sim" aria-live="polite">
+      <div class="sim-top"><div class="sim-global"><small>Score global · ${esc(s.clubName)}</small><b>${s.before.globalScore} → ${s.after.globalScore}</b><em class="${g > 0 ? 'up' : g < 0 ? 'down' : ''}">${deltaTxt(g)}</em></div>
+        <div class="sim-meta"><span>Formação <b>${esc(s.before.formation)}</b>${s.after.formation !== s.before.formation ? ` → <b>${esc(s.after.formation)}</b>` : ''}</span><span>Nota no setor <b>${s.athleteRating}</b></span></div></div>
+      <p class="sim-role">${esc(s.role)}</p>
+      <ul class="sim-rows">${s.sectors.map(row).join('')}</ul>
+      <div class="sim-cols"><div class="up"><h4>Aumenta</h4>${list(s.increases, 'Nenhum setor aumenta.')}</div><div class="down"><h4>Diminui</h4>${list(s.decreases, 'Nenhum setor diminui.')}</div></div>
+      <p class="sim-summary">${esc(s.summary)}</p>
+      <details class="sim-club"><summary>Força atual do clube</summary>${strengthBlock(s.before)}</details>
+      <small class="mono sim-foot">${esc(s.disclaimer)}</small></article>`;
+  }
+
+  /* demo: mesmo modelo do servidor (club-strength-v1) com elencos fictícios */
+  const FORMS = [['4-3-3', 4, 3, 3], ['4-4-2', 4, 4, 2], ['4-2-3-1', 4, 5, 1], ['3-5-2', 3, 5, 2], ['3-4-3', 3, 4, 3], ['5-3-2', 5, 3, 2], ['5-4-1', 5, 4, 1]];
+  const POS_SECTOR = { GOLEIRO: 'GOLEIRO', ZAGUEIRO: 'DEFESA', LATERAL: 'DEFESA', VOLANTE: 'MEIO_CAMPO', MEIA: 'MEIO_CAMPO', PONTA: 'ATAQUE', ATACANTE: 'ATAQUE' };
+  const sectorRating = (sec, v) => Math.round(({ GOLEIRO: .5 * v.posicionamento + .2 * v.passe + .15 * v.velocidade + .15 * v.resistencia,
+    DEFESA: .4 * v.desarme + .3 * v.posicionamento + .15 * v.velocidade + .15 * v.passe,
+    MEIO_CAMPO: .35 * v.passe + .2 * v.drible + .2 * v.posicionamento + .15 * v.resistencia + .1 * v.desarme,
+    ATAQUE: .4 * v.finalizacao + .25 * v.drible + .25 * v.velocidade + .1 * v.passe })[sec]);
+  function bestXI(players) {
+    const by = Object.fromEntries(SECTORS.map(([k]) => [k, players.filter(p => p.sector === k).sort((a, b) => b.rating - a.rating)]));
+    let best = null;
+    for (const [name, d, m, a] of FORMS) {
+      const slots = { GOLEIRO: 1, DEFESA: d, MEIO_CAMPO: m, ATAQUE: a }, scores = {}, starters = {}; let g = 0;
+      for (const [k, , ref, w] of SECTORS) { starters[k] = by[k].slice(0, slots[k]); scores[k] = Math.min(100, Math.round(starters[k].reduce((s, p) => s + p.rating, 0) / ref)); g += scores[k] * w / 100; }
+      if (!best || g > best.exact + 1e-9) best = { formation: name, slots, scores, starters, depth: Object.fromEntries(SECTORS.map(([k]) => [k, by[k].length])), exact: g, global: Math.round(g) };
+    }
+    return best;
+  }
+  const strengthOf = (l, name, n) => ({ clubName: name, globalScore: l.global, formation: l.formation, squadSize: n,
+    sectors: SECTORS.map(([k, label, ref]) => ({ key: k, label, score: l.scores[k], starters: l.starters[k].length, reference: ref, depth: l.depth[k] })), notes: ['Demonstração com elenco fictício.'] });
+  function demoSimulate(d, clubId) {
+    const ci = +String(clubId).split('-').pop() || 0, name = (clubs[ci] || clubs[0]).n;
+    const squad = ['GOLEIRO', 'ZAGUEIRO', 'ZAGUEIRO', 'LATERAL', 'LATERAL', 'VOLANTE', 'MEIA', 'MEIA', 'MEIA', 'ATACANTE', 'PONTA']
+      .map((pos, i) => ({ id: 'd' + ci + i, handle: `@<preencher_elenco_${ci + 1}_${i + 1}>`, sector: POS_SECTOR[pos], rating: (ci === 2 ? 52 : 60) + (i * 7 + ci * 5) % 14 }));
+    const a = d.cardModel, sector = POS_SECTOR[String(a.pos).toUpperCase()], v = Object.fromEntries(d.attributes.map(x => [x.key, x.value]));
+    const signing = { id: a.id, handle: a.handle, sector, rating: sectorRating(sector, v) };
+    const before = bestXI(squad), after = bestXI([...squad, signing]);
+    const starter = after.starters[sector].some(p => p.id === signing.id), afterIds = new Set(Object.values(after.starters).flat().map(p => p.id));
+    const displaced = before.starters[sector].filter(p => !afterIds.has(p.id)).sort((x, y) => x.rating - y.rating)[0];
+    const sectors = SECTORS.map(([k, label]) => {
+      const b = before.scores[k], af = after.scores[k], why = [];
+      if (k === sector && starter) why.push(displaced ? `o atleta (${signing.rating}) entra no lugar de ${displaced.handle} (${displaced.rating})` : `o atleta (${signing.rating}) ganha uma vaga de titular`);
+      if (after.slots[k] !== before.slots[k]) why.push(`formação ${before.formation} → ${after.formation}: ${after.slots[k] > before.slots[k] ? 'ganha' : 'perde'} ${Math.abs(after.slots[k] - before.slots[k])} titular`);
+      return { key: k, label, before: b, after: af, delta: af - b, trend: af > b ? 'UP' : af < b ? 'DOWN' : 'FLAT', reason: why.join(' · ') || 'sem mudança' };
+    });
+    const up = sectors.filter(x => x.delta > 0).sort((x, y) => y.delta - x.delta), down = sectors.filter(x => x.delta < 0).sort((x, y) => x.delta - y.delta);
+    const label = SECTORS.find(s => s[0] === sector)[1].toLowerCase();
+    return { status: 'SIMULATED', clubName: name, athleteRating: signing.rating, globalDelta: after.global - before.global, sectors, increases: up, decreases: down,
+      role: !starter ? `Entra como reserva em ${label}: os titulares do setor têm nota maior.` : displaced ? `Titular em ${label} no lugar de ${displaced.handle} (${displaced.rating} → ${signing.rating}).` : `Titular em ${label}.`,
+      before: strengthOf(before, name, squad.length), after: strengthOf(after, name, squad.length + 1),
+      summary: `O score global vai de ${before.global} para ${after.global}.` + (up.length ? ` Aumenta: ${up.map(x => x.label + ' +' + x.delta).join(', ')}.` : '') + (down.length ? ` Diminui: ${down.map(x => x.label + ' ' + x.delta).join(', ')}.` : '') + (!up.length && !down.length ? ' Nenhum setor muda.' : ''),
+      disclaimer: 'Demonstração com elenco fictício. A decisão de contratar é humana (LGPD Art. 20).' };
   }
 
   /* ---------- demo (API desligada): dados fictícios derivados dos cards mock ---------- */

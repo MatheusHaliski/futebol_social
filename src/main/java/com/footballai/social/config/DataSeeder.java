@@ -105,6 +105,9 @@ public class DataSeeder implements CommandLineRunner {
             seedHistory(at, twin, a.targetScore(), idx, today, season);
             created.add(at);
         }
+        // elenco de apoio dos clubes (força do clube e "Simular contratação" na Vitrine): adultos públicos com uma semana de scouting
+        List<Club> seedClubs = List.of(c1, c2, c3);
+        for (int ci = 0; ci < seedClubs.size(); ci++) seedSquad(seedClubs.get(ci), ci, hash, now, today);
         // lesão do goleiro (dado sensível, visível porque shareMedicalData = true no seed)
         Athlete gk = created.get(3);
         InjuryRecord inj = new InjuryRecord(); inj.setAthleteId(gk.getId()); inj.setInjuryType("Lesão grau 2 · coxa"); inj.setBodyPart("coxa"); inj.setSeverity("MODERADA");
@@ -164,6 +167,30 @@ public class DataSeeder implements CommandLineRunner {
         PostComment c = comments.save(new PostComment(post.getId(), author.getId(), parent == null ? null : parent.getId(), body, at));
         post.comment(1); posts.save(post);
         return c;
+    }
+
+    /**
+     * 10 jogadores por clube (goleiro, 2 zagueiros, 2 laterais, volante, 2 meias, ponta, atacante) com scouting da última semana,
+     * sem Gêmeo nem partidas: entram só na força do clube. O nível varia por clube (Série A mais forte que Série B).
+     */
+    private void seedSquad(Club club, int ci, String hash, Instant now, LocalDate today) {
+        Position[] pos = { Position.GOLEIRO, Position.ZAGUEIRO, Position.ZAGUEIRO, Position.LATERAL, Position.LATERAL, Position.VOLANTE, Position.MEIA, Position.MEIA, Position.PONTA, Position.ATACANTE };
+        for (int i = 0; i < pos.length; i++) {
+            String tag = "c" + (ci + 1) + "_" + String.format("%02d", i + 1);
+            Athlete at = base(new Athlete(), "elenco_" + tag + "@exemplo.dev", "preencher_elenco_" + tag, "<PREENCHER_ELENCO_" + tag.toUpperCase() + ">", hash,
+                    today.minusYears(20L + (i * 3 + ci) % 12).minusDays(17L * i), club.getStateCode());
+            at.setPosition(pos[i]); at.setCurrentClubId(club.getId()); at.setCurrentClubName(club.getDisplayName()); at.setContractStatus(ContractStatus.CONTRATADO);
+            at.setVisibility(ProfileVisibility.PUBLICO); at.setCategoria("PROFISSIONAL"); at.setDominantFoot(i % 3 == 0 ? "E" : "D");
+            at = users.save(at);
+            finishUser(at, now, false);
+            int b = (ci == 2 ? 52 : 60) + (i * 7 + ci * 5) % 14;   // nível base 52–73
+            boolean gk = pos[i] == Position.GOLEIRO, def = pos[i] == Position.ZAGUEIRO || pos[i] == Position.LATERAL, mid = pos[i] == Position.VOLANTE || pos[i] == Position.MEIA;
+            ScoutingAttribute sa = new ScoutingAttribute(); sa.setAthleteId(at.getId()); sa.setIsoWeek(IsoWeeks.of(today.minusWeeks(1)));
+            sa.setVelocidade(attr(b + (def || mid ? 2 : gk ? -8 : 10))); sa.setPasse(attr(b + (mid ? 10 : 0))); sa.setFinalizacao(attr(b + (def || gk ? -22 : mid ? 0 : 12)));
+            sa.setDrible(attr(b + (mid ? 5 : def || gk ? -12 : 8))); sa.setDesarme(attr(b + (def ? 14 : mid ? 4 : -20))); sa.setPosicionamento(attr(b + (gk ? 12 : def ? 8 : 2)));
+            sa.setResistencia(attr(b + 4));
+            scouting.save(sa);
+        }
     }
 
     private <T extends User> T base(T u, String email, String username, String name, String hash, LocalDate birth, String state) {

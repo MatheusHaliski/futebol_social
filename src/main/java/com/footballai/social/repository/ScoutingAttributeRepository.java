@@ -11,4 +11,6 @@ public interface ScoutingAttributeRepository extends JpaRepository<ScoutingAttri
     Optional<ScoutingAttribute> findFirstByAthleteIdOrderByIsoWeekDesc(UUID athleteId);
     /** Últimas 12 semanas (mais recente primeiro): tendência dos atributos na Vitrine. */
     List<ScoutingAttribute> findTop12ByAthleteIdOrderByIsoWeekDesc(UUID athleteId);
+    /** Semanas de vários atletas (a força do clube usa a mais recente de cada um). */
+    List<ScoutingAttribute> findAllByAthleteIdIn(java.util.Collection<UUID> athleteIds);
 }

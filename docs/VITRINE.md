@@ -16,6 +16,7 @@ Entradas: menu lateral **Descobrir → Vitrine do Jogador**, ação **Vitrine �
 | Forma recente | Notas das últimas 5 partidas contra a média das anteriores: **Em alta** (≥ +0,30), **Estável** ou **Em queda** (≤ −0,30) | `match_performances` |
 | Por temporada · Últimas partidas | Tabelas com passes e dribles certos/tentados, nota, MVP e a origem (✓ súmula oficial · ✎ autorrelato) | `match_performances` |
 | Copilot | Resposta a **"Por que contratar este jogador?"** | regras abaixo |
+| Simular contratação | Qual setor do clube escolhido aumenta e qual diminui com o jogador ([`CLUB_STRENGTH.md`](CLUB_STRENGTH.md)) | força do clube |
 
 ### Dinâmico
 

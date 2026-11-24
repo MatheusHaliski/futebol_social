@@ -877,3 +877,52 @@ html[data-contrast=ALTO] .pcard,html[data-contrast=ALTO] .panel,html[data-contra
 
 /* Club, market and global discovery */
 .cm-form,.cm-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:1rem;margin:1rem 0}.cm-form label{display:flex;flex-direction:column;gap:.4rem}.cm-form label.check{flex-direction:row;align-items:center}.cm-form input,.cm-form select,.cm-form textarea,.cm-filter input,.cm-filter select{width:100%;min-width:0;padding:.6rem;border:1px solid var(--border,#52645b);border-radius:.45rem;color:inherit;background:var(--bg,#101a16)}.cm-form textarea{min-height:6rem}.cm-filter-list{grid-column:1/-1;display:grid;gap:1rem}.cm-filter{display:grid;grid-template-columns:2fr 1fr 2fr auto;gap:.6rem;align-items:end}.cm-filter label{display:grid;gap:.4rem}.cm-links{display:flex;flex-wrap:wrap;gap:1rem;margin:1rem 0}.cm-results,.cm-records{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr));gap:1rem}.cm-result{padding:1rem}.cm-grid dt{font-size:.8rem;opacity:.7}.cm-grid dd{margin:.3rem 0;overflow-wrap:anywhere}.cm-section{margin-top:2rem}.cm-section .panel{padding:1rem}.cm-pre{white-space:pre-wrap}.cm-score{font-size:2rem;font-weight:700}.dc-manager{--dc:#38bdf8;color:#38bdf8}details>summary{cursor:pointer;padding:.7rem 0}#vtCompatibility{margin:1rem 0;padding:1rem}.cm-form button{align-self:end}@media(max-width:650px){.cm-filter{grid-template-columns:1fr}.cm-form{grid-template-columns:1fr}}
+
+/* ==================== força do clube + simular contratação ==================== */
+.cs-head{display:grid;grid-template-columns:150px minmax(0,1fr);gap:14px;align-items:center}
+.cs-global,.sim-global{background:var(--ink-2);border:1px solid var(--line-soft);border-radius:var(--radius-sm);padding:12px}
+.cs-global small,.sim-global small{display:block;font-family:var(--font-mono);font-size:.54rem;letter-spacing:.14em;text-transform:uppercase}
+.cs-global b{display:block;font-family:var(--font-display);font-size:2.2rem;line-height:1.1;color:var(--text)}
+.cs-global span{font-size:.72rem;color:var(--text-3)}
+.cs-sectors,.cs-notes,.sim-rows,.sim-cols ul{list-style:none;margin:0;padding:0}
+.cs-sectors{display:grid;gap:7px}
+.cs-sectors li{display:grid;grid-template-columns:96px minmax(60px,1fr) 34px;grid-template-areas:"lbl bar val" "sub sub sub";column-gap:10px;align-items:center}
+.cs-sectors .lbl{grid-area:lbl;font-weight:600;color:var(--text)} .cs-sectors b{grid-area:val;text-align:right;font-family:var(--font-display);color:var(--text)}
+.cs-sectors small{grid-area:sub;font-size:.68rem;color:var(--text-3)}
+.cs-sectors .bar{grid-area:bar;height:7px;border-radius:4px;background:var(--line);position:relative;overflow:hidden}
+.cs-sectors .bar i{position:absolute;inset:0;width:var(--w);background:var(--green);border-radius:4px}
+.cs-notes{margin-top:10px;display:grid;gap:3px} .cs-notes li{font-size:.72rem;color:var(--text-3)}
+.cs-panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin:14px 0}
+.vt-sim-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.vt-sim-controls .vt-pick{margin-left:0}
+.sim{display:grid;gap:12px}
+.sim-top{display:flex;gap:12px;align-items:stretch;flex-wrap:wrap}
+.sim-global{position:relative;min-width:200px}
+.sim-global b{display:block;font-family:var(--font-display);font-size:1.6rem;color:var(--text)}
+.sim-global em{position:absolute;top:10px;right:12px;font-style:normal;font-family:var(--font-mono);font-weight:700;font-size:.8rem;color:var(--text-3)}
+.sim-global em.up,.sim-row.up em,.sim-cols .up em{color:var(--green-hi)} .sim-global em.down,.sim-row.down em,.sim-cols .down em{color:var(--danger-ink)}
+.sim-meta{display:flex;flex-direction:column;justify-content:center;gap:4px;font-size:.8rem;color:var(--text-2)}
+.sim-meta b{color:var(--text)}
+.sim-role{margin:0;color:var(--text)}
+.sim-rows{display:grid;gap:6px}
+.sim-row{display:grid;grid-template-columns:96px minmax(60px,1fr) 78px 40px;grid-template-areas:"lbl bar nums chg" "why why why why";column-gap:10px;row-gap:2px;align-items:center;padding:8px 10px;border-radius:10px;background:var(--ink-2);border-left:3px solid var(--line)}
+.sim-row.up{border-left-color:var(--green)} .sim-row.down{border-left-color:var(--c-red)}
+.sim-row .lbl{grid-area:lbl;font-weight:600;color:var(--text)}
+.sim-row .bar2{grid-area:bar;position:relative;height:10px;border-radius:5px;background:var(--line);overflow:hidden}
+.sim-row .bar2 i{position:absolute;left:0;border-radius:5px}
+.sim-row .bar2 .before{top:0;height:4px;width:var(--a);background:var(--text-3)}
+.sim-row .bar2 .after{bottom:0;height:5px;width:var(--b);background:var(--green)}
+.sim-row.down .bar2 .after{background:var(--c-red)}
+.sim-row .nums{grid-area:nums;font-family:var(--font-mono);font-size:.74rem;text-align:right;color:var(--text-2)} .sim-row .nums b{color:var(--text)}
+.sim-row em{grid-area:chg;font-style:normal;font-family:var(--font-mono);font-weight:700;font-size:.72rem;text-align:right;color:var(--text-3)}
+.sim-row small{grid-area:why;font-size:.7rem;color:var(--text-3)}
+.sim-cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.sim-cols h4{margin:0 0 6px;font-family:var(--font-mono);font-size:.58rem;letter-spacing:.16em;text-transform:uppercase;color:var(--text-3)}
+.sim-cols li{border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:.8rem;color:var(--text);margin-bottom:5px}
+.sim-cols .up li{border-left:3px solid var(--green)} .sim-cols .down li{border-left:3px solid var(--c-red)}
+.sim-cols em{font-style:normal;font-family:var(--font-mono);font-weight:700;margin-left:4px}
+.sim-summary{margin:0;color:var(--text-2)}
+.sim-club summary{cursor:pointer;font-size:.8rem;color:var(--text-2)} .sim-club[open] summary{margin-bottom:10px}
+.sim-foot{font-size:.6rem;line-height:1.5;color:var(--text-3)}
+@media (max-width:560px){.cs-head{grid-template-columns:1fr}.sim-cols{grid-template-columns:1fr}.sim-row{grid-template-columns:86px minmax(40px,1fr) 70px 34px}}
+.sim-global small{padding-right:44px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
